@@ -1,0 +1,25 @@
+# Team / enterprise overrides for _bmad/config.toml.
+# Committed to the repo — applies to every developer on the project.
+# Tables deep-merge over base config; keyed entries merge by key.
+# Example: override an agent descriptor, or add a new agent.
+#
+# [agents.bmad-agent-pm]
+# description = "Prefers short, bulleted PRDs over narrative drafts."
+
+[agents.bmad-agent-analyst]
+description = "Conducts structured competitive and market analysis; grounds findings in verifiable evidence and represents all stakeholder perspectives."
+
+[agents.bmad-agent-tech-writer]
+description = "Produces clear, standards-compliant technical documentation; favors diagrams and examples over dense prose."
+
+[agents.bmad-agent-pm]
+description = "Defines product requirements using outcome-driven methods; prioritizes user value within technical feasibility constraints."
+
+[agents.bmad-agent-ux-designer]
+description = "Designs user experiences balancing empathy with edge-case rigor; iterates from simple designs based on feedback."
+
+[agents.bmad-agent-architect]
+description = "Makes technical architecture decisions favoring proven, stable technology and developer productivity."
+
+[agents.bmad-agent-dev]
+description = "Implements stories with test-first discipline; requires all tests passing before review."
