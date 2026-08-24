@@ -3,7 +3,7 @@ import org.gradle.api.artifacts.ExternalModuleDependency
 import org.gradle.api.artifacts.FileCollectionDependency
 
 // Root aggregator. No external parent/starter template (AC 3).
-group = "com.luciad.knowledge"
+group = "com.luciadmcp.knowledge"
 version = "0.1.0-SNAPSHOT"
 
 // ---------------------------------------------------------------------------------------

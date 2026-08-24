@@ -29,7 +29,7 @@ so that later epics implement real logic against stable ports instead of inventi
   - [x] Create one Gradle subproject per package: `domain`, `config`, `ingest.javadoc`, `ingest.examples`, `ingest.guides`, `ingest.trainings`, `catalog.sqlite`, `search.lucene`, `embeddings.onnx`, `retrieval`, `mcp`, `cli`. Use project paths matching the module names (e.g. `:ingest-javadoc`, `:catalog-sqlite`).
   - [x] Each module's `build.gradle.kts` declares only its inward dependencies (`api(project(":..."))`) per the AD-1 dependency graph (see Dev Notes "Dependency edges" table). `domain` declares NO project dependencies.
 - [x] **Task 2: Create the Java package tree** (AC: 1)
-  - [x] Under each module create `src/main/java/com/luciad/knowledge/<module-path>/` matching the Structural Seed source tree (e.g. `ingest/javadoc/`, `catalog/sqlite/`, `search/lucene/`, `embeddings/onnx/`).
+  - [x] Under each module create `src/main/java/com/luciadmcp/knowledge/<module-path>/` matching the Structural Seed source tree (e.g. `ingest/javadoc/`, `catalog/sqlite/`, `search/lucene/`, `embeddings/onnx/`).
   - [x] Add `src/main/resources/application.yaml` (empty/placeholder, sole runtime config per AD-16) in the module that owns it (`config` or `cli` — see Dev Notes).
 - [x] **Task 3: Define domain records as immutable Java `record` types** (AC: 2)
   - [x] In `domain`, create records: `ApiElement`, `MethodElement`, `Example`, `Workflow`, `Guide`, `Training`, `RelationshipEdge`, `Citation`, `IndexManifest`. Minimal fields only — enough to compile and express identity; full schemas are deferred approval gates (do NOT invent DDL/JSON schema).
@@ -72,7 +72,7 @@ app/                              # Gradle build root (all paths below are relat
   scripts/                        # release-engineering — do NOT create here
   agent/SKILL.md                  # Epic 7 — do NOT create here
   tools/evaluation/               # offline Python eval — do NOT create here
-  src/main/java/com/luciad/knowledge/
+  src/main/java/com/luciadmcp/knowledge/
     cli/                          # ingest | serve | validate entrypoints
     config/                       # application.yaml binding
     domain/                       # records, canonical symbol, relationship enum, interfaces, manifest
@@ -90,7 +90,7 @@ app/                              # Gradle build root (all paths below are relat
   models/                         # (Epic 4+) — do NOT create here
   indexes/                        # (Epic 6) — do NOT create here
 ```
-**Note on layout:** the Spine shows a single `src/main/java/...` tree, but AC 1 and AD-1 require **twelve Gradle subprojects** with enforceable dependency edges — a single flat source tree cannot enforce inward-only dependencies. Resolve this by making each package above its own Gradle subproject (module dir contains its own `build.gradle.kts` + `src/main/java/com/luciad/knowledge/<pkg>/`). Root `com.luciad.knowledge`; one package per module. [Source: ARCHITECTURE-SPINE.md#Consistency-Conventions]
+**Note on layout:** the Spine shows a single `src/main/java/...` tree, but AC 1 and AD-1 require **twelve Gradle subprojects** with enforceable dependency edges — a single flat source tree cannot enforce inward-only dependencies. Resolve this by making each package above its own Gradle subproject (module dir contains its own `build.gradle.kts` + `src/main/java/com/luciadmcp/knowledge/<pkg>/`). Root `com.luciadmcp.knowledge`; one package per module. [Source: ARCHITECTURE-SPINE.md#Consistency-Conventions]
 
 ### Dependency edges (AD-1 — dependencies point inward to `domain`)
 [Source: ARCHITECTURE-SPINE.md#System-Structure (module→package mermaid) and #AD-1]
@@ -182,7 +182,7 @@ claude-4-8-opus (Claude Code)
 ### Completion Notes List
 
 - **All 6 tasks complete; AC 1–4 satisfied.** 12 Gradle subprojects build clean; dependency direction is enforced (not merely documented) via a custom `checkDependencyDirection` verification task (wired into `check`) that inspects each module's declared project + external dependencies against an inward-only allow-list and a banned-engine-group map (covering `domain`, `retrieval`, and `mcp`). Proven to fail on a forbidden edge and pass on the clean tree.
-- **Module layout:** each Structural-Seed package is promoted to its own Gradle subproject (flat dirs named by project path, e.g. `ingest-javadoc`, `catalog-sqlite`); Java packages still match the Spine tree (`com.luciad.knowledge.ingest.javadoc`, etc.). This is the deliberate, documented variance from the Spine's single-`src` diagram required to *enforce* AD-1.
+- **Module layout:** each Structural-Seed package is promoted to its own Gradle subproject (flat dirs named by project path, e.g. `ingest-javadoc`, `catalog-sqlite`); Java packages still match the Spine tree (`com.luciadmcp.knowledge.ingest.javadoc`, etc.). This is the deliberate, documented variance from the Spine's single-`src` diagram required to *enforce* AD-1.
 - **Records:** all 9 are immutable `record` types with an `sdkVersion` field (AD-12). `ApiElement`/`MethodElement` carry `canonicalSymbol` (AD-3). `Citation.canonicalSymbol` is `Optional<String>` (AD-15 amended — symbol-less records stay servable). The four taggable types (`Example`, `Workflow`, `Guide`, `Training`) carry a `techniqueTags` placeholder list (AD-29), defensively copied via `List.copyOf`; tag *vocabulary* left as a deferred gate. Relationship enum has exactly the 15 `UPPER_SNAKE_CASE` values.
 - **Ports:** `CatalogStore`/`LexicalIndex`/`VectorIndex` are boundary-only (no methods — schema/config are deferred gates). `Embedder` carries the one AD-21 signature `float[] embed(String text, Role role)` with nested `Role{QUERY,PASSAGE}`.
 - **No deferred gates invented:** no SQLite DDL, no Lucene field set, no canonical-symbol/relationship wire grammar, no MCP JSON schemas, no embedding model/dimension. Stack versions are recorded in `gradle/libs.versions.toml` only — no engine library is a real dependency of any module yet.
@@ -218,14 +218,14 @@ claude-4-8-opus (Claude Code)
 - `mcp/build.gradle.kts` (no ingest.*/engine edges)
 - `cli/build.gradle.kts`
 
-**Domain sources (`domain/src/main/java/com/luciad/knowledge/domain/`)**
+**Domain sources (`domain/src/main/java/com/luciadmcp/knowledge/domain/`)**
 - `RelationshipType.java` (15-value enum)
 - `ApiElement.java`, `MethodElement.java`, `Example.java`, `Workflow.java`, `Guide.java`, `Training.java`, `RelationshipEdge.java`, `Citation.java`, `IndexManifest.java`
 - `CatalogStore.java`, `LexicalIndex.java`, `VectorIndex.java`, `Embedder.java` (+ nested `Role`)
 - `package-info.java`
 
 **Package tree + config (one `package-info.java` per module; application.yaml in config)**
-- `config/src/main/java/com/luciad/knowledge/config/package-info.java`
+- `config/src/main/java/com/luciadmcp/knowledge/config/package-info.java`
 - `config/src/main/resources/application.yaml`
 - `catalog-sqlite/.../catalog/sqlite/package-info.java`
 - `search-lucene/.../search/lucene/package-info.java`
@@ -246,6 +246,7 @@ claude-4-8-opus (Claude Code)
 | 2026-08-24 | Build tool converted Maven → **Gradle** (Kotlin DSL, wrapper pinned to 8.10). POMs/`mvnw`/`.mvn` removed; added `settings.gradle.kts`, root + per-module `build.gradle.kts`, `gradle/libs.versions.toml`, `gradle.properties`, wrapper. AD-1 enforcement re-implemented as the `checkDependencyDirection` task. `gradlew check` green; forbidden-edge negative test fails as expected. Story + ARCHITECTURE-SPINE Stack/Structural-Seed updated to name Gradle. Domain sources unchanged (build-agnostic). |
 | 2026-08-24 | Senior Developer Review (AI) — adversarial 3-reviewer pass. Outcome: **Approve with follow-ups**. 3 AD-1 enforcement gaps fixed in-review in root `build.gradle.kts` (retrieval engine-ban, test/annotation-proc config coverage, fail-closed `when(dep)` + `FileCollectionDependency` guard); `gradlew check` re-run green. 1 open decision (JDK ≥21 vs ==21, blocked on B5) + 4 low deferrals recorded as Review Follow-ups. |
 | 2026-08-24 | Gradle build moved one layer deeper into `app/` (via `git mv`, history preserved) so BMAD/planning artifacts own the repo root — IntelliJ-style project/modules layout. No build-script changes needed (`include(...)` uses default dir mapping); `.gitignore` wrapper negation de-anchored to `**/gradle/wrapper/gradle-wrapper.jar`. `cd app && gradlew check` green. Structural-Seed + this File List re-rooted to `app/`. |
+| 2026-08-24 | Java package root renamed `com.luciad.knowledge.*` → **`com.luciadmcp.knowledge.*`** (owner constraint: no `luciad` package segment). 12 source dirs moved via `git mv` (`com/luciad` → `com/luciadmcp`), all package declarations rewritten, Gradle `group` updated to match. `gradlew clean check` green. Docs (Structural Seed, target tree, File List, module→package map) re-tokenized. Gradle project name (`luciad-knowledge-mcp`), module dir names, and doc/dir filenames are unaffected — they are not Java packages. |
 
 ## Senior Developer Review (AI)
 

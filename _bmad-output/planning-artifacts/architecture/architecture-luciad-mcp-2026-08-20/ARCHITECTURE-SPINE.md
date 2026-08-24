@@ -24,7 +24,7 @@ companions:
 
 `packaging` is a build-time/deployment concern (container image, baseline posture — AD-27), not a Java package; it wraps the built `cli` artifact and has no compile-time dependency edge into the module graph below.
 
-Module → package map (root `com.luciad.knowledge`):
+Module → package map (root `com.luciadmcp.knowledge`):
 
 ```mermaid
 graph TD
@@ -240,7 +240,7 @@ graph TD
 
 | Concern | Convention |
 | --- | --- |
-| Module / package naming | Root `com.luciad.knowledge`; one package per module (`domain`, `config`, `ingest.javadoc`, `ingest.examples`, `ingest.guides`, `ingest.trainings`, `catalog.sqlite`, `search.lucene`, `embeddings.onnx`, `retrieval`, `mcp`, `cli`). Interfaces live in `domain`; their implementations live in each engine module. `ingest.trainings` alone is packaged/shipped separately (AD-28). |
+| Module / package naming | Root `com.luciadmcp.knowledge`; one package per module (`domain`, `config`, `ingest.javadoc`, `ingest.examples`, `ingest.guides`, `ingest.trainings`, `catalog.sqlite`, `search.lucene`, `embeddings.onnx`, `retrieval`, `mcp`, `cli`). Interfaces live in `domain`; their implementations live in each engine module. `ingest.trainings` alone is packaged/shipped separately (AD-28). |
 | Record & entity naming | Domain records are immutable Java `record` types (`ApiElement`, `MethodElement`, `Example`, `Workflow`, `Guide`, `Training`, `RelationshipEdge`, `Citation`, `IndexManifest`). |
 | Relationship types | Fixed enum, `UPPER_SNAKE_CASE`, exactly the 15 brief §6 values; no ad-hoc additions without an AD amendment. |
 | IDs | Deterministic: record/edge IDs are stable hashes over canonical identity fields (reproducibility, NFR-13); `buildId` is a content hash of the build inputs; never random, never wall-clock-derived. |
@@ -282,7 +282,7 @@ app/                              # Gradle build root — rootProject.name = luc
   scripts/                        # build-bundle.sh, ingest.sh, start.sh, smoke-test.sh (release-engineering, not runtime)
   agent/SKILL.md                  # agent-usage guidance shipped alongside the appliance (FR-30/31 support)
   tools/evaluation/                # offline model prep/eval (Python) — never in the production path, per brief §4
-  src/main/java/com/luciad/knowledge/
+  src/main/java/com/luciadmcp/knowledge/
     cli/                          # ingest | serve | validate entrypoints
     config/                       # application.yaml binding
     domain/                       # records, canonical symbol, relationship enum, interfaces, manifest
