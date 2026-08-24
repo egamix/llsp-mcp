@@ -272,7 +272,8 @@ graph TD
 ### Source tree (brief §4)
 
 ```text
-luciad-knowledge-mcp/
+<repo root>/                      # planning + BMAD artifacts (_bmad/, _bmad-output/, docs/) live here, beside app/
+app/                              # Gradle build root — rootProject.name = luciad-knowledge-mcp (all paths below are relative to app/)
   settings.gradle.kts             # Gradle multi-project aggregator (includes all modules)
   build.gradle.kts                # root build: shared Java 21 config + AD-1 checkDependencyDirection task
   gradle/libs.versions.toml       # version catalog (dependency pins)

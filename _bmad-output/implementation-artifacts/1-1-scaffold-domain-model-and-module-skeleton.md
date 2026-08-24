@@ -63,7 +63,8 @@ This is a **skeleton-only** story. Produce a compiling module tree, domain recor
 ### Target source tree (authoritative — from Architecture Spine "Structural Seed")
 [Source: architecture/architecture-luciad-mcp-2026-08-20/ARCHITECTURE-SPINE.md#Structural-Seed]
 ```text
-luciad-knowledge-mcp/
+<repo root>/                      # planning + BMAD artifacts (_bmad/, _bmad-output/, docs/) live here, beside app/
+app/                              # Gradle build root (all paths below are relative to app/)
   settings.gradle.kts             # Gradle multi-project aggregator (includes all modules)
   build.gradle.kts                # root build: shared Java 21 config + AD-1 checkDependencyDirection
   gradle/libs.versions.toml       # version catalog (Stack pins)
@@ -194,6 +195,8 @@ claude-4-8-opus (Claude Code)
 
 ### File List
 
+*All paths below are relative to `app/` — the Gradle build root at the repo root (moved under `app/` on 2026-08-24; BMAD/planning artifacts sit beside it at the repo root).*
+
 **Build / wrapper**
 - `settings.gradle.kts` (root aggregator; `rootProject.name` + `include(...)` of all 12 modules)
 - `build.gradle.kts` (root: shared `java-library` + Java 21 config + inward-only allow-list, banned-engine-group map, and the `checkDependencyDirection` task wired into `check`)
@@ -242,6 +245,7 @@ claude-4-8-opus (Claude Code)
 | 2026-08-24 | Story 1.1 implemented: 12-module skeleton, 9 domain records + 15-value relationship enum, 4 engine ports (Embedder+Role), enforced AD-1 dependency direction. Full clean build green; dependency-direction check negative-tested. Status → review. |
 | 2026-08-24 | Build tool converted Maven → **Gradle** (Kotlin DSL, wrapper pinned to 8.10). POMs/`mvnw`/`.mvn` removed; added `settings.gradle.kts`, root + per-module `build.gradle.kts`, `gradle/libs.versions.toml`, `gradle.properties`, wrapper. AD-1 enforcement re-implemented as the `checkDependencyDirection` task. `gradlew check` green; forbidden-edge negative test fails as expected. Story + ARCHITECTURE-SPINE Stack/Structural-Seed updated to name Gradle. Domain sources unchanged (build-agnostic). |
 | 2026-08-24 | Senior Developer Review (AI) — adversarial 3-reviewer pass. Outcome: **Approve with follow-ups**. 3 AD-1 enforcement gaps fixed in-review in root `build.gradle.kts` (retrieval engine-ban, test/annotation-proc config coverage, fail-closed `when(dep)` + `FileCollectionDependency` guard); `gradlew check` re-run green. 1 open decision (JDK ≥21 vs ==21, blocked on B5) + 4 low deferrals recorded as Review Follow-ups. |
+| 2026-08-24 | Gradle build moved one layer deeper into `app/` (via `git mv`, history preserved) so BMAD/planning artifacts own the repo root — IntelliJ-style project/modules layout. No build-script changes needed (`include(...)` uses default dir mapping); `.gitignore` wrapper negation de-anchored to `**/gradle/wrapper/gradle-wrapper.jar`. `cd app && gradlew check` green. Structural-Seed + this File List re-rooted to `app/`. |
 
 ## Senior Developer Review (AI)
 
