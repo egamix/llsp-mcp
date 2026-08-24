@@ -63,6 +63,12 @@ subprojects {
         options.encoding = "UTF-8"
     }
 
+    // JUnit 5 is the project test runner (introduced in Story 1.2). Wired for every module so
+    // any subproject can add tests; modules opt in by declaring the testImplementation deps.
+    tasks.withType<Test>().configureEach {
+        useJUnitPlatform()
+    }
+
     // AD-1 enforcement: fail the build on any forbidden module dependency edge.
     val checkDependencyDirection = tasks.register("checkDependencyDirection") {
         group = "verification"

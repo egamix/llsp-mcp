@@ -4,7 +4,7 @@ baseline_commit: c8d174d2da82841fa858a842fccf385014bf9394
 
 # Story 1.2: Local-only, egress-free `cli ingest` entrypoint
 
-Status: ready-for-dev
+Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -23,28 +23,28 @@ so that an air-gapped rebuild cannot accidentally reach the network, except for 
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1: Add a JUnit 5 test harness capability to the build (first test framework in the repo)** (AC: 1, 3)
-  - [ ] Add JUnit 5 (Jupiter) version + libraries to `app/gradle/libs.versions.toml`. This is the first test dependency in the project — Story 1.1 shipped no test framework. Pick a current stable JUnit 5.x; record the pin in the catalog like every other version.
-  - [ ] In `app/build.gradle.kts` `subprojects` block, register `tasks.withType<Test>().configureEach { useJUnitPlatform() }` so every module can run JUnit 5 tests. Do NOT add JUnit as a dependency to modules that don't need it yet — only wire the platform runner globally and add the actual `testImplementation` in `cli` (Task 2/4).
-  - [ ] Confirm `checkDependencyDirection` still passes: JUnit's group is not on any module's banned list and `cli` has no banned-group entry, so `testImplementation` JUnit in `cli` is allowed by AD-1 (the check already inspects `testImplementation`/`testRuntimeOnly` — see Story 1.1 follow-up that expanded it to 9 configs). Verify, don't assume.
-- [ ] **Task 2: Define the `cli ingest` argument contract — exactly six named local paths** (AC: 3)
-  - [ ] In the `cli` module (`app/cli/src/main/java/com/luciadmcp/knowledge/cli/`), add an `ingest` subcommand entrypoint that accepts exactly the six paths from FR-1: Javadoc dir, samples/workflows dir, guides dir, training-materials dir, model dir, output dir. Use named options (e.g. `--javadoc`, `--samples`, `--guides`, `--trainings`, `--model`, `--out`) so the contract is explicit and order-independent; document the chosen names in the entrypoint.
-  - [ ] Reject anything else: any unknown flag, extra positional argument, unknown subcommand, or a value that is not a local filesystem path (a URL / `scheme://` / remote host form must be rejected, not resolved) fails with a clear, structured CLI error and a non-zero exit — never silently ignored (AC 3). Message names the offending argument.
-  - [ ] Validate each supplied path is local and a directory (exists check may be deferred to the pipeline for the output dir, which is created; decide and document). Do NOT invent `application.yaml` keys for these paths — they are one-shot invocation arguments to `cli ingest`, not long-lived serve-time config, so AD-16's "application.yaml is the sole runtime config" is not violated (config governs `serve`, not per-run ingest inputs). State this reasoning in a code comment so a later epic doesn't duplicate the paths into config.
-  - [ ] Keep arg parsing minimal and hand-rolled for this story. Do NOT add picocli or any CLI-parsing library — it is not in the pinned Stack table, and full `--help`/documented-exit-codes/`serve`/`validate`/`stats` surface is Story 8.3's scope (Epic 8). Adding a CLI library is a Stack decision deferred to 8.3. This story ships only the `ingest` subcommand's six-path contract.
-- [ ] **Task 3: Route the training-materials path to an Epic 9 seam; do NOT implement network/docling here** (AC: 4)
-  - [ ] Accept the training-materials dir as the sixth argument, but route its handling to a clearly-marked, not-yet-implemented seam (a stub method / interface boundary) owned by Epic 9. This story adds no docling, no Python invocation, no HTTP client, and no network code on any path — including the training path (the network exception physically lives in the *separate ingest-time image* built in Epic 8/9, never in this module's Epic 1 code). [AD-28]
-  - [ ] Add a code comment at the seam stating: `ingest.trainings` is the sole AD-28 network/non-Java exception, exercised only from the separate ingest-time image (Epic 9); it is deliberately unimplemented here.
-- [ ] **Task 4: Build the egress-blocking test harness (the core deliverable)** (AC: 1)
-  - [ ] Add a JUnit 5 test in `cli` that invokes `cli ingest` end-to-end over synthetic local directories covering the five non-training paths, and **fails the build** if any DNS resolution / socket connect / HTTP call is attempted during the run.
-  - [ ] Choose an egress-detection mechanism that will NOT silently disable itself on the final B5 JDK (see Dev Notes "Egress harness — mechanism and the SecurityManager trap"). A silently no-op guard is the specific disaster to prevent: the test would pass while providing zero protection. If the mechanism can be disabled by the JDK version, the harness MUST fail loudly (not skip) when it detects it is running without an active guard.
-  - [ ] Add a negative self-test: a test that performs a deliberate localhost socket/DNS attempt through the same guard and asserts the guard trips. This proves the harness actually detects egress rather than passing vacuously. (Mirror the Story 1.1 precedent: the AD-1 check was proven by a negative test that added a forbidden edge and confirmed the build failed.)
-- [ ] **Task 5: Assert no crawler / HTTP-client / portal / model-downloader code path is reachable from the serving-image ingest classpath** (AC: 2)
-  - [ ] Interpret "runtime image" at this (pre-packaging) stage as the `cli` module's runtime classpath and its transitive module graph for the five offline paths. Add a build-time or test-time assertion that no HTTP-client / crawler / login-automation / model-downloader library appears on that classpath (structural check, in the spirit of the existing `checkDependencyDirection`). This survives any JDK pin because it is a dependency-graph assertion, not a runtime interception.
-  - [ ] The training-materials network tooling is explicitly exempt and out of scope here — it ships only in the separate ingest-time image (Epic 8/9), never in this graph.
-- [ ] **Task 6: Verify the full clean build stays green** (AC: 1, 2, 3)
-  - [ ] Run `cd app && ./gradlew check` (see Story 1.1 local-toolchain notes for the corporate-proxy `GRADLE_OPTS` workaround if the wrapper or dependency resolution hits PKIX). Confirm: all modules still compile, `checkDependencyDirection` still passes for every module, the egress harness passes on the offline paths, and the negative self-test confirms the guard trips.
-  - [ ] Confirm an unknown flag / extra arg / URL-shaped value to `cli ingest` exits non-zero with a clear message (AC 3) via a test.
+- [x] **Task 1: Add a JUnit 5 test harness capability to the build (first test framework in the repo)** (AC: 1, 3)
+  - [x] Add JUnit 5 (Jupiter) version + libraries to `app/gradle/libs.versions.toml`. This is the first test dependency in the project — Story 1.1 shipped no test framework. Pick a current stable JUnit 5.x; record the pin in the catalog like every other version.
+  - [x] In `app/build.gradle.kts` `subprojects` block, register `tasks.withType<Test>().configureEach { useJUnitPlatform() }` so every module can run JUnit 5 tests. Do NOT add JUnit as a dependency to modules that don't need it yet — only wire the platform runner globally and add the actual `testImplementation` in `cli` (Task 2/4).
+  - [x] Confirm `checkDependencyDirection` still passes: JUnit's group is not on any module's banned list and `cli` has no banned-group entry, so `testImplementation` JUnit in `cli` is allowed by AD-1 (the check already inspects `testImplementation`/`testRuntimeOnly` — see Story 1.1 follow-up that expanded it to 9 configs). Verify, don't assume.
+- [x] **Task 2: Define the `cli ingest` argument contract — exactly six named local paths** (AC: 3)
+  - [x] In the `cli` module (`app/cli/src/main/java/com/luciadmcp/knowledge/cli/`), add an `ingest` subcommand entrypoint that accepts exactly the six paths from FR-1: Javadoc dir, samples/workflows dir, guides dir, training-materials dir, model dir, output dir. Use named options (e.g. `--javadoc`, `--samples`, `--guides`, `--trainings`, `--model`, `--out`) so the contract is explicit and order-independent; document the chosen names in the entrypoint.
+  - [x] Reject anything else: any unknown flag, extra positional argument, unknown subcommand, or a value that is not a local filesystem path (a URL / `scheme://` / remote host form must be rejected, not resolved) fails with a clear, structured CLI error and a non-zero exit — never silently ignored (AC 3). Message names the offending argument.
+  - [x] Validate each supplied path is local and a directory (exists check may be deferred to the pipeline for the output dir, which is created; decide and document). Do NOT invent `application.yaml` keys for these paths — they are one-shot invocation arguments to `cli ingest`, not long-lived serve-time config, so AD-16's "application.yaml is the sole runtime config" is not violated (config governs `serve`, not per-run ingest inputs). State this reasoning in a code comment so a later epic doesn't duplicate the paths into config.
+  - [x] Keep arg parsing minimal and hand-rolled for this story. Do NOT add picocli or any CLI-parsing library — it is not in the pinned Stack table, and full `--help`/documented-exit-codes/`serve`/`validate`/`stats` surface is Story 8.3's scope (Epic 8). Adding a CLI library is a Stack decision deferred to 8.3. This story ships only the `ingest` subcommand's six-path contract.
+- [x] **Task 3: Route the training-materials path to an Epic 9 seam; do NOT implement network/docling here** (AC: 4)
+  - [x] Accept the training-materials dir as the sixth argument, but route its handling to a clearly-marked, not-yet-implemented seam (a stub method / interface boundary) owned by Epic 9. This story adds no docling, no Python invocation, no HTTP client, and no network code on any path — including the training path (the network exception physically lives in the *separate ingest-time image* built in Epic 8/9, never in this module's Epic 1 code). [AD-28]
+  - [x] Add a code comment at the seam stating: `ingest.trainings` is the sole AD-28 network/non-Java exception, exercised only from the separate ingest-time image (Epic 9); it is deliberately unimplemented here.
+- [x] **Task 4: Build the egress-blocking test harness (the core deliverable)** (AC: 1)
+  - [x] Add a JUnit 5 test in `cli` that invokes `cli ingest` end-to-end over synthetic local directories covering the five non-training paths, and **fails the build** if any DNS resolution / socket connect / HTTP call is attempted during the run.
+  - [x] Choose an egress-detection mechanism that will NOT silently disable itself on the final B5 JDK (see Dev Notes "Egress harness — mechanism and the SecurityManager trap"). A silently no-op guard is the specific disaster to prevent: the test would pass while providing zero protection. If the mechanism can be disabled by the JDK version, the harness MUST fail loudly (not skip) when it detects it is running without an active guard.
+  - [x] Add a negative self-test: a test that performs a deliberate localhost socket/DNS attempt through the same guard and asserts the guard trips. This proves the harness actually detects egress rather than passing vacuously. (Mirror the Story 1.1 precedent: the AD-1 check was proven by a negative test that added a forbidden edge and confirmed the build failed.)
+- [x] **Task 5: Assert no crawler / HTTP-client / portal / model-downloader code path is reachable from the serving-image ingest classpath** (AC: 2)
+  - [x] Interpret "runtime image" at this (pre-packaging) stage as the `cli` module's runtime classpath and its transitive module graph for the five offline paths. Add a build-time or test-time assertion that no HTTP-client / crawler / login-automation / model-downloader library appears on that classpath (structural check, in the spirit of the existing `checkDependencyDirection`). This survives any JDK pin because it is a dependency-graph assertion, not a runtime interception.
+  - [x] The training-materials network tooling is explicitly exempt and out of scope here — it ships only in the separate ingest-time image (Epic 8/9), never in this graph.
+- [x] **Task 6: Verify the full clean build stays green** (AC: 1, 2, 3)
+  - [x] Run `cd app && ./gradlew check` (see Story 1.1 local-toolchain notes for the corporate-proxy `GRADLE_OPTS` workaround if the wrapper or dependency resolution hits PKIX). Confirm: all modules still compile, `checkDependencyDirection` still passes for every module, the egress harness passes on the offline paths, and the negative self-test confirms the guard trips.
+  - [x] Confirm an unknown flag / extra arg / URL-shaped value to `cli ingest` exits non-zero with a clear message (AC 3) via a test.
 
 ## Dev Notes
 
@@ -130,10 +130,56 @@ Whatever mechanism is chosen, Task 4's **negative self-test** must prove the gua
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+claude-4-8-opus (Claude Code dev-story workflow)
 
 ### Debug Log References
 
+- `cd app && ./gradlew :cli:test` → BUILD SUCCESSFUL; 13 tests, 0 failures, 0 skipped.
+- `cd app && ./gradlew check` → BUILD SUCCESSFUL; all `checkDependencyDirection` tasks green (AD-1 intact), no regressions.
+- Corporate-proxy PKIX on first Maven Central fetch (JUnit) handled with `GRADLE_OPTS=-Djavax.net.ssl.trustStoreType=Windows-ROOT`.
+
 ### Completion Notes List
 
+- All four ACs satisfied. AC1: `IngestEgressTest.noEgressDuringOfflineIngest` arms a DNS guard and runs an offline ingest over five synthetic dirs with zero recorded egress. AC2: `NoNetworkClasspathTest` structurally asserts no HTTP-client/crawler/browser-automation/model-downloader library on the `cli` classpath. AC3: `IngestArgumentContractTest` (10 cases) rejects unknown option/subcommand, missing subcommand, extra positional, missing required option, missing value, URL and UNC non-local paths, and non-existent dir — each with a non-zero exit and the offending token named. AC4: the training-materials path is accepted but routed to `TrainingIngestSeam`, deliberately unimplemented (AD-28, Epic 9).
+- Egress guard uses `java.net.spi.InetAddressResolverProvider` (JEP 418, Java 18+) via ServiceLoader — JDK-version-proof, chosen over `SecurityManager` (disabled by JEP 486 on JDK 24+, the silent no-op trap). The negative self-test (`guardIsInstalledAndTripsOnDeliberateEgress`) fails loudly if the provider is not loaded, so the harness cannot pass vacuously.
+- JUnit 5 is the first test framework in the repo; wired globally via `useJUnitPlatform()` in `subprojects`, with the actual dependency added only to `cli`. `checkDependencyDirection` confirmed still green (JUnit's group is not banned).
+- No CLI-parsing library added (picocli etc. deferred to Story 8.3); arg parsing is minimal and hand-rolled. Ingest paths are one-shot invocation args, not `application.yaml` config — AD-16 not violated (documented in code).
+
 ### File List
+
+Build files (modified):
+- `app/gradle/libs.versions.toml` — added JUnit 5 Jupiter + platform-launcher versions/libraries (test-only)
+- `app/build.gradle.kts` — `useJUnitPlatform()` in `subprojects` Test config
+- `app/cli/build.gradle.kts` — JUnit `testImplementation` / `testRuntimeOnly`
+
+Main sources (new):
+- `app/cli/src/main/java/com/luciadmcp/knowledge/cli/CliErrorCode.java`
+- `app/cli/src/main/java/com/luciadmcp/knowledge/cli/CliError.java`
+- `app/cli/src/main/java/com/luciadmcp/knowledge/cli/CliException.java`
+- `app/cli/src/main/java/com/luciadmcp/knowledge/cli/IngestArguments.java`
+- `app/cli/src/main/java/com/luciadmcp/knowledge/cli/IngestArgumentParser.java`
+- `app/cli/src/main/java/com/luciadmcp/knowledge/cli/IngestPipeline.java`
+- `app/cli/src/main/java/com/luciadmcp/knowledge/cli/TrainingIngestSeam.java`
+- `app/cli/src/main/java/com/luciadmcp/knowledge/cli/IngestCommand.java`
+- `app/cli/src/main/java/com/luciadmcp/knowledge/cli/CliMain.java`
+
+Main sources (modified):
+- `app/cli/src/main/java/com/luciadmcp/knowledge/cli/package-info.java` — updated scope note
+
+Test sources (new):
+- `app/cli/src/test/java/com/luciadmcp/knowledge/cli/IngestArgumentContractTest.java`
+- `app/cli/src/test/java/com/luciadmcp/knowledge/cli/IngestEgressTest.java`
+- `app/cli/src/test/java/com/luciadmcp/knowledge/cli/NoNetworkClasspathTest.java`
+- `app/cli/src/test/java/com/luciadmcp/knowledge/cli/testsupport/EgressGuard.java`
+- `app/cli/src/test/java/com/luciadmcp/knowledge/cli/testsupport/GuardingInetAddressResolverProvider.java`
+- `app/cli/src/test/resources/META-INF/services/java.net.spi.InetAddressResolverProvider`
+
+Story tracking (modified):
+- `_bmad-output/implementation-artifacts/1-2-local-only-egress-free-cli-ingest-entrypoint.md`
+- `_bmad-output/implementation-artifacts/sprint-status.yaml`
+
+## Change Log
+
+| Date       | Version | Description                                                                 | Author |
+|------------|---------|-----------------------------------------------------------------------------|--------|
+| 2026-08-24 | 0.1     | Implemented `cli ingest` six-path contract, egress guard harness (InetAddressResolverProvider), structural no-network classpath check, and AD-28 training seam; JUnit 5 added to build; all 13 tests + `check` green. Status → review. | claude-4-8-opus |

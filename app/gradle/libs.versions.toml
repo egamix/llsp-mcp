@@ -9,6 +9,10 @@ onnxruntime = "1.29.0"
 sqliteJdbc = "3.53.2.1"
 jsoup = "1.23.1"
 javaparser = "3.28.2"
+# Test-only. First test framework in the repo (Story 1.2). Not part of any runtime/serving
+# classpath — JUnit is a testImplementation/testRuntimeOnly dependency only.
+junitJupiter = "5.11.4"
+junitPlatform = "1.11.4"
 
 [libraries]
 lucene-core = { module = "org.apache.lucene:lucene-core", version.ref = "lucene" }
@@ -19,3 +23,5 @@ onnxruntime = { module = "com.microsoft.onnxruntime:onnxruntime", version.ref = 
 sqlite-jdbc = { module = "org.xerial:sqlite-jdbc", version.ref = "sqliteJdbc" }
 jsoup = { module = "org.jsoup:jsoup", version.ref = "jsoup" }
 javaparser-core = { module = "com.github.javaparser:javaparser-core", version.ref = "javaparser" }
+junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junitJupiter" }
+junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher", version.ref = "junitPlatform" }

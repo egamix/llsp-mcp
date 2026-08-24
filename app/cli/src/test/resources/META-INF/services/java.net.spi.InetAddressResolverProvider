@@ -1,0 +1,3 @@
+# Test-only egress guard (Story 1.2). Registers the DNS-layer InetAddressResolverProvider so any
+# hostname resolution in the test JVM is intercepted by EgressGuard. Not on any runtime classpath.
+com.luciadmcp.knowledge.cli.testsupport.GuardingInetAddressResolverProvider
