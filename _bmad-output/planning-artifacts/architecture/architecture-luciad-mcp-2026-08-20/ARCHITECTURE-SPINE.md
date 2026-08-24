@@ -256,7 +256,7 @@ graph TD
 | Name | Version |
 | --- | --- |
 | Java (JDK) | 21 (LTS) — pin `[NEEDS APPROVAL]` per blocker B5 (21 vs org LTS; note Java 25 became the newest LTS 2025-09, so B5 is 21 vs 25-vs-org-standard) |
-| Build | Maven (multi-module `pom.xml`) |
+| Build | Gradle (multi-project, Kotlin DSL — `settings.gradle.kts` + per-module `build.gradle.kts`; wrapper pinned to Gradle 8.10) |
 | Apache Lucene | 10.5.1 (brief said 10.4.0 — bind latest patch) |
 | MCP Java SDK | 2.0.1 |
 | ONNX Runtime (Java) | 1.29.0 |
@@ -273,7 +273,10 @@ graph TD
 
 ```text
 luciad-knowledge-mcp/
-  pom.xml                         # Maven multi-module aggregator
+  settings.gradle.kts             # Gradle multi-project aggregator (includes all modules)
+  build.gradle.kts                # root build: shared Java 21 config + AD-1 checkDependencyDirection task
+  gradle/libs.versions.toml       # version catalog (dependency pins)
+  gradlew, gradlew.bat, gradle/   # Gradle wrapper (pinned to 8.10)
   compose.yaml, Dockerfile        # packaging: image build + container baseline (non-root, read-only FS, cap-drop) — AD-27
   scripts/                        # build-bundle.sh, ingest.sh, start.sh, smoke-test.sh (release-engineering, not runtime)
   agent/SKILL.md                  # agent-usage guidance shipped alongside the appliance (FR-30/31 support)

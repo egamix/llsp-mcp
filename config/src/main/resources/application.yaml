@@ -1,0 +1,5 @@
+# application.yaml — sole runtime configuration source (AD-16).
+#
+# Placeholder for the module skeleton (Story 1.1). Concrete keys (ingest sources, index
+# paths, active-build pointer, embedding model, MCP transport binding) are introduced by
+# later epics as their features land. Do NOT invent schema here.

@@ -1,0 +1,21 @@
+# Stack version pins (ARCHITECTURE-SPINE.md#Stack). Declared here as the single source of
+# version truth (the Gradle equivalent of Maven <dependencyManagement>). NO module applies
+# these yet — this skeleton story fixes module boundaries only; engine/parser libraries are
+# wired in later epics.
+[versions]
+lucene = "10.5.1"
+mcpSdk = "2.0.1"
+onnxruntime = "1.29.0"
+sqliteJdbc = "3.53.2.1"
+jsoup = "1.23.1"
+javaparser = "3.28.2"
+
+[libraries]
+lucene-core = { module = "org.apache.lucene:lucene-core", version.ref = "lucene" }
+lucene-analysis-common = { module = "org.apache.lucene:lucene-analysis-common", version.ref = "lucene" }
+lucene-queryparser = { module = "org.apache.lucene:lucene-queryparser", version.ref = "lucene" }
+mcp-sdk = { module = "io.modelcontextprotocol.sdk:mcp", version.ref = "mcpSdk" }
+onnxruntime = { module = "com.microsoft.onnxruntime:onnxruntime", version.ref = "onnxruntime" }
+sqlite-jdbc = { module = "org.xerial:sqlite-jdbc", version.ref = "sqliteJdbc" }
+jsoup = { module = "org.jsoup:jsoup", version.ref = "jsoup" }
+javaparser-core = { module = "com.github.javaparser:javaparser-core", version.ref = "javaparser" }

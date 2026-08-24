@@ -130,13 +130,13 @@ NFR-1..9 are **unfalsifiable until B1** (reference hardware + representative cor
 - AD-27: Container hardening (non-root, read-only root FS, cap-drop, `no-new-privileges`, read-only proprietary mounts) is a fixed build/packaging invariant, not per-deployment discretion.
 
 **Stack pins (from Architecture Spine "Stack" table):**
-- Java 21 LTS (pin pending blocker B5), Maven multi-module `pom.xml`, Apache Lucene 10.5.1, MCP Java SDK 2.0.1, ONNX Runtime (Java) 1.29.0, SQLite JDBC (Xerial) 3.53.2.1, JSoup 1.23.1, JavaParser 3.28.2.
+- Java 21 LTS (pin pending blocker B5), Gradle multi-project (Kotlin DSL — `settings.gradle.kts` + per-module `build.gradle.kts`; wrapper pinned to 8.10), Apache Lucene 10.5.1, MCP Java SDK 2.0.1, ONNX Runtime (Java) 1.29.0, SQLite JDBC (Xerial) 3.53.2.1, JSoup 1.23.1, JavaParser 3.28.2.
 - Embedding model candidate: BAAI/bge-small-en-v1.5 (384-dim) — subject to the model-selection gate; not locked.
 - Python permitted only for offline model prep/eval tooling under `tools/evaluation/`, never a runtime dependency.
 - docling (training-deck ingestion, `ingest.trainings` only) — network-enabled, AD-28 exception, ships only in the separate ingest-time image; version pin `[NEEDS APPROVAL]`, distinct from and never mixed with the offline-eval-only Python tooling above. *(Added 2026-08-21, Sprint Change Proposal.)*
 
 **Module/source-tree seed (informs Epic 1 scaffolding — no external starter template used):**
-- Maven multi-module aggregator; root package `com.luciad.knowledge` with modules `domain`, `config`, `ingest.javadoc`, `ingest.examples`, `ingest.guides`, `ingest.trainings`, `catalog.sqlite`, `search.lucene`, `embeddings.onnx`, `retrieval`, `mcp`, `cli`. *(`ingest.guides` added 2026-08-21, Sprint Change Proposal; `ingest.trainings` added 2026-08-21, Sprint Change Proposal — packaged/shipped separately per AD-28, never in the serving image.)*
+- Gradle multi-project aggregator (`settings.gradle.kts`); root package `com.luciad.knowledge` with modules `domain`, `config`, `ingest.javadoc`, `ingest.examples`, `ingest.guides`, `ingest.trainings`, `catalog.sqlite`, `search.lucene`, `embeddings.onnx`, `retrieval`, `mcp`, `cli`. *(`ingest.guides` added 2026-08-21, Sprint Change Proposal; `ingest.trainings` added 2026-08-21, Sprint Change Proposal — packaged/shipped separately per AD-28, never in the serving image.)*
 - `packaging` (compose.yaml, Dockerfile, scripts/) is a build/deploy layer, not a Java module.
 - Repository layout per brief §4 and spine "Structural Seed": `agent/SKILL.md`, `tools/evaluation/` (Python, release-engineering only), `scripts/` (build-bundle.sh, ingest.sh, start.sh, smoke-test.sh), `models/`, `indexes/`.
 - No proprietary Luciad documentation/samples may be committed to the repo; tests use synthetic fixtures reproducing the required HTML/source structures.
@@ -272,7 +272,7 @@ Ingests PowerPoint training-deck PPTX/PDF exports via docling's vision/layout-mo
 ### Story 1.1: Scaffold domain model and module skeleton
 
 As a developer,
-I want the domain records (API element, Example, Workflow, Guide, Training, Relationship) and the Maven multi-module tree (`domain`, `config`, `ingest.javadoc`, `ingest.examples`, `ingest.guides`, `ingest.trainings`, `catalog.sqlite`, `search.lucene`, `embeddings.onnx`, `retrieval`, `mcp`, `cli`) scaffolded with dependencies pointing inward per AD-1,
+I want the domain records (API element, Example, Workflow, Guide, Training, Relationship) and the Gradle multi-project tree (`domain`, `config`, `ingest.javadoc`, `ingest.examples`, `ingest.guides`, `ingest.trainings`, `catalog.sqlite`, `search.lucene`, `embeddings.onnx`, `retrieval`, `mcp`, `cli`) scaffolded with dependencies pointing inward per AD-1,
 So that later epics implement real logic against stable ports instead of inventing types and module boundaries as they go.
 
 **Acceptance Criteria:**

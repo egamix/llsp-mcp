@@ -1,0 +1,130 @@
+# generated: 2026-08-24
+# last_updated: 2026-08-24
+# project: luciad-mcp
+# project_key: NOKEY
+# tracking_system: file-system
+# story_location: {project-root}/_bmad-output/implementation-artifacts
+
+# STATUS DEFINITIONS:
+# ==================
+# Epic Status:
+#   - backlog: Epic not yet started
+#   - in-progress: Epic actively being worked on
+#   - done: All stories in epic completed
+#
+# Epic Status Transitions:
+#   - backlog → in-progress: Automatically when first story is created (via create-story)
+#   - in-progress → done: Manually when all stories reach 'done' status
+#
+# Story Status:
+#   - backlog: Story only exists in epic file
+#   - ready-for-dev: Story file created in stories folder
+#   - in-progress: Developer actively working on implementation
+#   - review: Ready for code review (via Dev's code-review workflow)
+#   - done: Story completed
+#
+# Retrospective Status:
+#   - optional: Can be completed but not required
+#   - done: Retrospective has been completed
+#
+# Action Item Status:
+#   - open: Committed during a retrospective, not yet addressed
+#   - in-progress: Actively being worked on
+#   - done: Completed
+#
+# WORKFLOW NOTES:
+# ===============
+# - Epic transitions to 'in-progress' automatically when first story is created
+# - Stories can be worked in parallel if team capacity allows
+# - Developer typically creates next story after previous one is 'done' to incorporate learnings
+# - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
+# - Retrospective appends its action items to action_items; sprint-status surfaces open ones
+
+generated: 2026-08-24
+last_updated: 2026-08-24
+project: luciad-mcp
+project_key: NOKEY
+tracking_system: file-system
+story_location: "{project-root}/_bmad-output/implementation-artifacts"
+
+development_status:
+  # Epic 1: Foundation & Domain Contracts
+  epic-1: in-progress
+  1-1-scaffold-domain-model-and-module-skeleton: done
+  1-2-local-only-egress-free-cli-ingest-entrypoint: backlog
+  1-3-stub-the-multi-stage-resumable-pipeline-with-a-configurable-failure-policy: backlog
+  1-4-deterministic-ids-content-hashes-and-a-machine-readable-ingestion-report: backlog
+  epic-1-retrospective: optional
+
+  # Epic 2: Javadoc Knowledge Extraction
+  epic-2: backlog
+  2-1-discover-and-classify-javadoc-pages: backlog
+  2-2-parse-modern-and-legacy-javadoc-layouts-into-equivalent-fields: backlog
+  2-3-build-canonical-symbol-records-with-overload-distinction: backlog
+  2-4-persist-the-versioned-canonical-catalog: backlog
+  2-5-construct-the-typed-relationship-graph-in-two-passes: backlog
+  2-6-keep-unresolved-references-explicit-scope-traversal-to-the-documented-sdk: backlog
+  2-7-bounded-cycle-safe-relationship-traversal: backlog
+  epic-2-retrospective: optional
+
+  # Epic 3: Example, Workflow & Guide Knowledge
+  epic-3: backlog
+  3-1-parse-java-examples-via-ast: backlog
+  3-2-link-examples-to-catalog-symbols: backlog
+  3-3-apply-governance-supplied-quality-labels-and-technique-tags: backlog
+  3-4-ingest-and-link-workflow-documents: backlog
+  3-5-parse-and-link-guide-tutorial-articles: backlog
+  epic-3-retrospective: optional
+
+  # Epic 4: Hybrid Retrieval Engine
+  epic-4: backlog
+  4-1-detect-and-prioritize-exact-symbol-queries: backlog
+  4-2-index-canonical-and-lexical-fields-for-bm25: backlog
+  4-3-local-onnx-vector-search-with-explicit-failure-semantics: backlog
+  4-4-fuse-lexical-and-vector-results-under-exact-priority: backlog
+  4-5-enforce-a-consistent-embedding-fingerprint: backlog
+  epic-4-retrospective: optional
+
+  # Epic 5: MCP Tool Surface
+  epic-5: backlog
+  5-1-retrieval-and-symbol-tools: backlog
+  5-2-relationship-tools: backlog
+  5-3-example-and-workflow-tools: backlog
+  5-3b-guide-tools: backlog
+  5-3c-training-tools: backlog
+  5-3d-concept-technique-search-tool: backlog
+  5-4-validation-and-status-tools: backlog
+  5-5-streamable-http-transport: backlog
+  5-6-serve-from-a-fixed-active-build-pointer: backlog
+  5-7-structured-error-ambiguity-and-truncation-contract: backlog
+  5-8-draft-the-agent-retrieval-policy-skeleton: backlog
+  epic-5-retrospective: optional
+
+  # Epic 6: Index Lifecycle
+  epic-6: backlog
+  6-1-immutable-builds-with-pre-activation-validation-and-atomic-activation: backlog
+  6-2-reject-incompatible-builds: backlog
+  6-3-rollback-via-pointer-swap-and-build-retention: backlog
+  6-4-full-set-backups: backlog
+  epic-6-retrospective: optional
+
+  # Epic 7: Agent Guidance & Usability
+  epic-7: backlog
+  7-1-ship-the-agent-skill-md: backlog
+  7-2-guarantee-complete-citations-on-every-primary-result: backlog
+  epic-7-retrospective: optional
+
+  # Epic 8: Air-Gap Packaging & Release
+  epic-8: backlog
+  8-1-single-serving-image-and-compose-layout: backlog
+  8-2-air-gap-transfer-bundle: backlog
+  8-3-headless-cli-with-documented-exit-codes: backlog
+  8-4-separate-ingest-time-only-image-for-training-material-ingestion: backlog
+  epic-8-retrospective: optional
+
+  # Epic 9: Training Material Knowledge
+  epic-9: backlog
+  9-1-ingest-training-decks-via-docling: backlog
+  9-2-link-training-references-to-the-catalog: backlog
+  9-3-apply-governance-supplied-technique-tags-to-training-records: backlog
+  epic-9-retrospective: optional
