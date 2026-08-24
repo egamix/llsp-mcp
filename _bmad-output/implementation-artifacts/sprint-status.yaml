@@ -51,7 +51,7 @@ development_status:
   # Epic 1: Foundation & Domain Contracts
   epic-1: in-progress
   1-1-scaffold-domain-model-and-module-skeleton: done
-  1-2-local-only-egress-free-cli-ingest-entrypoint: backlog
+  1-2-local-only-egress-free-cli-ingest-entrypoint: ready-for-dev
   1-3-stub-the-multi-stage-resumable-pipeline-with-a-configurable-failure-policy: backlog
   1-4-deterministic-ids-content-hashes-and-a-machine-readable-ingestion-report: backlog
   epic-1-retrospective: optional
