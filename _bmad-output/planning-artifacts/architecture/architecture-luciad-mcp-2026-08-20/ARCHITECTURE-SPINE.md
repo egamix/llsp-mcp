@@ -3,7 +3,7 @@ name: LuciadLightspeed Knowledge MCP
 type: architecture-spine
 purpose: build-substrate
 altitude: initiative
-paradigm: layered / hexagonal (ports-and-adapters) Java modular monolith
+paradigm: single deployable Java process, split into modules; core data + rules kept behind interfaces, independent of the SQLite/Lucene/ONNX engines
 scope: whole-system spine — offline knowledge MCP appliance for the LuciadLightspeed Java SDK (ingestion, catalog+graph, hybrid retrieval, MCP surface, index lifecycle, packaging)
 status: final
 created: 2026-08-20
@@ -18,11 +18,11 @@ companions:
 
 # Architecture Spine — LuciadLightspeed Knowledge MCP
 
-## Design Paradigm
+## System Structure
 
-**Layered / hexagonal Java modular monolith.** One deployable process; a pure `domain` core with no outbound dependencies; infrastructure engines (SQLite, Lucene, ONNX) sit behind ports as adapters; ingestion, retrieval, and the MCP surface are application layers that orchestrate the domain over those ports. All dependencies point inward toward `domain`.
+**One Java program, built as a single deployable process, split into modules.** At the center is the `domain` module: plain data types and rules (records, the canonical-symbol format, relationship types) with no dependency on any database, framework, or file I/O. The storage and compute engines — SQLite (catalog), Lucene (search), ONNX (embeddings) — are reached only through interfaces that `domain` defines, so any one of them can be replaced without touching the core. Ingestion, retrieval, and the MCP surface are the outer modules that drive the core through those interfaces. Every module depends inward toward `domain`, and `domain` depends on nothing.
 
-`packaging` is a build-time/deployment concern (container image, hardening — AD-27), not a Java package; it wraps the built `cli` artifact and has no compile-time dependency edge into the module graph below.
+`packaging` is a build-time/deployment concern (container image, baseline posture — AD-27), not a Java package; it wraps the built `cli` artifact and has no compile-time dependency edge into the module graph below.
 
 Module → package map (root `com.luciad.knowledge`):
 
@@ -35,11 +35,11 @@ graph TD
   ingestExamples["ingest.examples · sample + workflow extraction"]
   ingestGuides["ingest.guides · JSoup HTML guide/tutorial parsing (parse-only)"]
   ingestTrainings["ingest.trainings · docling PPTX/PDF parsing (Python, network — AD-28 exception)"]
-  catalog["catalog.sqlite · symbol/relationship store (port+adapter)"]
-  search["search.lucene · BM25 + KNN index (port+adapter)"]
-  embeddings["embeddings.onnx · ONNX Runtime session pool (port+adapter)"]
+  catalog["catalog.sqlite · symbol/relationship store (engine behind an interface)"]
+  search["search.lucene · BM25 + KNN index (engine behind an interface)"]
+  embeddings["embeddings.onnx · ONNX Runtime session pool (engine behind an interface)"]
   config["config · application.yaml binding"]
-  domain["domain · records, canonical symbol, relationship types, manifest, ports"]
+  domain["domain · records, canonical symbol, relationship types, manifest, interfaces"]
 
   cli --> config
   cli --> ingestJavadoc
@@ -82,12 +82,12 @@ graph TD
 ### AD-1 — Dependencies point inward to `domain`; no cycles `[ADOPTED]`
 - **Binds:** all modules
 - **Prevents:** tangled coupling; `mcp`/`cli` reaching into parsers; engine leakage into `domain`.
-- **Rule:** `domain` has zero dependencies on other project modules or on SQLite/Lucene/ONNX types. Engines are reached only through `domain`-defined ports (`CatalogStore`, `LexicalIndex`, `VectorIndex`, `Embedder`). No module import cycle may exist; `mcp`/`retrieval` never import `ingest.*` and never call parser types.
+- **Rule:** `domain` has zero dependencies on other project modules or on SQLite/Lucene/ONNX types. Engines are reached only through interfaces defined in `domain` (`CatalogStore`, `LexicalIndex`, `VectorIndex`, `Embedder`). No module import cycle may exist; `mcp`/`retrieval` never import `ingest.*` and never call parser types.
 
-### AD-2 — Embedded engines only; single loopback listener `[ADOPTED]`
+### AD-2 — Embedded engines only; single internal-host listener `[ADOPTED]`
 - **Binds:** catalog.sqlite, search.lucene, embeddings.onnx, mcp
 - **Prevents:** anyone introducing an external database, search server, model server, or a second network service.
-- **Rule:** SQLite, Lucene, and ONNX run in-process as libraries. The only listening socket is the MCP Streamable HTTP transport, bound to loopback (v1). No component opens any other server socket or connects to an external data/model service.
+- **Rule:** SQLite, Lucene, and ONNX run in-process as libraries. The only listening socket is the MCP Streamable HTTP transport, bound to the internal host interface reachable by the trusted team (v1); it is never exposed to the public internet. No component opens any other server socket or connects to an external data/model service. *(Amended 2026-08-24 — v1 bind widened from loopback to the shared internal host to serve a small trusted team; the zero-external-egress guarantee is unchanged.)*
 
 ### AD-3 — Canonical symbol is the universal join key
 - **Binds:** domain, catalog.sqlite, search.lucene, ingest.*, retrieval, mcp
@@ -188,15 +188,15 @@ graph TD
 - **Prevents:** two builds of `retrieval` returning different top-10 orderings for the same query and index because tied fused scores fall back to collection-iteration or thread-scheduling order, violating reproducibility (adversarial review H5, NFR-13).
 - **Rule:** Fusion imposes a total order: primary key is the fused score (one declared fusion method, fixed here or by the F5 selection gate); secondary tie-break is the canonical wire/join key (AD-18) ascending. No result ordering may depend on collection iteration order, thread scheduling, or wall-clock. Identical (index, query, config) must yield byte-identical ordered results.
 
-### AD-21 — Text preprocessing lives once, behind the Embedder port
+### AD-21 — Text preprocessing lives once, behind the Embedder interface
 - **Binds:** embeddings.onnx, ingest.javadoc, ingest.examples, retrieval
 - **Prevents:** index-time and query-time preprocessing implemented separately by each caller, both stamping the same config version yet silently diverging (adversarial review H6, defeats AD-8).
-- **Rule:** All text preprocessing, tokenization, normalization, and query/passage prefixing are implemented solely inside `embeddings.onnx` behind the `Embedder` port. The port accepts raw text plus a role (`QUERY` | `PASSAGE`) and returns the vector; no other module preprocesses text destined for embedding. The `text-preprocessing version` in the AD-6 fingerprint is owned and stamped by `embeddings.onnx` from its own code version, not from config alone.
+- **Rule:** All text preprocessing, tokenization, normalization, and query/passage prefixing are implemented solely inside `embeddings.onnx` behind the `Embedder` interface. That interface accepts raw text plus a role (`QUERY` | `PASSAGE`) and returns the vector; no other module preprocesses text destined for embedding. The `text-preprocessing version` in the AD-6 fingerprint is owned and stamped by `embeddings.onnx` from its own code version, not from config alone.
 
 ### AD-22 — `catalog.sqlite` is the sole authority for record/edge identity
 - **Binds:** catalog.sqlite, ingest.javadoc, ingest.examples, domain
 - **Prevents:** two ingest modules independently hashing the same logical fact into different IDs (or different facts colliding into one ID) because "canonical identity fields" per entity was unspecified (adversarial review H7).
-- **Rule:** `catalog.sqlite` (the adapter) is the sole authority that computes edge/link/record IDs, from a `domain`-declared, per-entity `identityFields` spec applied to the wire/join key (AD-18). Ingest modules submit resolved logical tuples through `CatalogStore`; they never compute IDs and never assume a hash recipe. The store deduplicates by computed ID.
+- **Rule:** `catalog.sqlite` (the engine implementation) is the sole authority that computes edge/link/record IDs, from an `identityFields` spec declared in `domain`, per entity, applied to the wire/join key (AD-18). Ingest modules submit resolved logical tuples through `CatalogStore`; they never compute IDs and never assume a hash recipe. The store deduplicates by computed ID.
 
 ### AD-23 — Pointer-write ownership and cross-process observation contract
 - **Binds:** cli, mcp, retrieval
@@ -218,11 +218,12 @@ graph TD
 - **Rule:** Embedding model load failure is always explicit (fails ingestion, or fails startup for `serve`) — never silently swallowed. Falling back to lexical-only retrieval happens only when explicitly enabled by configuration, and that degraded mode is always visible via `index_status`. Hybrid retrieval never silently degrades to lexical-only without both the config opt-in and the status signal.
 - **Prevents:** a caller or downstream agent believing hybrid (lexical+vector) retrieval ran when it silently degraded to lexical-only, producing a quality regression with no observable signal (FR-18).
 
-### AD-27 — Container hardening posture is a build/packaging invariant `[ADOPTED]`
+### AD-27 — Container baseline posture is a build/packaging invariant `[ADOPTED]`
 - **Binds:** packaging, cli
 - **Prevents:** the operational/security envelope (NFR-12, FR-32) being left to each deployment's discretion instead of being fixed in the shipped artifact.
-- **Rule:** The shipped container/appliance runs as a non-root user, mounts the root filesystem read-only where practical, drops Linux capabilities, sets `no-new-privileges:true`, and mounts proprietary corpus/model inputs read-only. Ingestion and serving remain separable one-shot vs. long-running invocations of the same image (brief §14) — never fused into one always-mutable process.
-- **Amendment (2026-08-21, Sprint Change Proposal):** This hardened image is the *serving image*. It runs `ingest` (for the four offline record types: Javadoc, examples, workflows, guides), `validate-index`, and `serve`. It never contains docling, Python, or any network-capable tooling. Training-material ingestion (AD-28) ships and runs from a distinct, ingest-time-only image that is never deployed as, or alongside, the serving appliance.
+- **Rule:** The shipped container runs as a non-root user, mounts the root filesystem read-only where practical, drops Linux capabilities, sets `no-new-privileges:true`, and mounts proprietary corpus/model inputs read-only. These are standard container-hygiene defaults for an internal deployment, not a hardened public-facing appliance. Ingestion and serving remain separable one-shot vs. long-running invocations of the same image (brief §14) — never fused into one always-mutable process.
+- **Amendment (2026-08-21, Sprint Change Proposal):** This image is the *serving image*. It runs `ingest` (for the four offline record types: Javadoc, examples, workflows, guides), `validate-index`, and `serve`. It never contains docling, Python, or any network-capable tooling. Training-material ingestion (AD-28) ships and runs from a distinct, ingest-time-only image that is never deployed as, or alongside, the serving image.
+- **Amendment (2026-08-24):** v1 serves a small trusted internal team from a shared internal host — the "hardened appliance" framing and the loopback bind are dropped; the container-hygiene defaults above are retained. True hardening (authentication, TLS, tenant isolation) belongs to a future deployment profile, not v1.
 
 ### AD-28 — Training-material ingestion is a scoped, explicit exception to AD-9/AD-10 `[ADOPTED]`
 - **Binds:** cli, ingest.trainings
@@ -239,14 +240,14 @@ graph TD
 
 | Concern | Convention |
 | --- | --- |
-| Module / package naming | Root `com.luciad.knowledge`; one package per module (`domain`, `config`, `ingest.javadoc`, `ingest.examples`, `ingest.guides`, `ingest.trainings`, `catalog.sqlite`, `search.lucene`, `embeddings.onnx`, `retrieval`, `mcp`, `cli`). Ports live in `domain`; adapters in their engine module. `ingest.trainings` alone is packaged/shipped separately (AD-28). |
+| Module / package naming | Root `com.luciad.knowledge`; one package per module (`domain`, `config`, `ingest.javadoc`, `ingest.examples`, `ingest.guides`, `ingest.trainings`, `catalog.sqlite`, `search.lucene`, `embeddings.onnx`, `retrieval`, `mcp`, `cli`). Interfaces live in `domain`; their implementations live in each engine module. `ingest.trainings` alone is packaged/shipped separately (AD-28). |
 | Record & entity naming | Domain records are immutable Java `record` types (`ApiElement`, `MethodElement`, `Example`, `Workflow`, `Guide`, `Training`, `RelationshipEdge`, `Citation`, `IndexManifest`). |
 | Relationship types | Fixed enum, `UPPER_SNAKE_CASE`, exactly the 15 brief §6 values; no ad-hoc additions without an AD amendment. |
 | IDs | Deterministic: record/edge IDs are stable hashes over canonical identity fields (reproducibility, NFR-13); `buildId` is a content hash of the build inputs; never random, never wall-clock-derived. |
 | Dates & versions | ISO-8601 UTC timestamps; SDK version is an explicit string field on every record/edge/query. |
 | Tool I/O & error shape | MCP tool payloads are JSON with a single documented envelope: `results[]` + `truncated` + `total` + `citation` where applicable; errors use one structured error shape (`code`, `message`, `symbol?`) — never free-text-only. |
 | State & mutation | Serving is read-only over the active index; the only mutation path is a build writing a *new* immutable directory (AD-5). |
-| Logging & config | Redacted by default (AD-16); config solely from `application.yaml` (AD-16); no secrets required in v1 (loopback, offline). |
+| Logging & config | Redacted by default (AD-16); config solely from `application.yaml` (AD-16); no secrets required in v1 (trusted internal network, offline). |
 
 ## Stack
 
@@ -273,14 +274,14 @@ graph TD
 ```text
 luciad-knowledge-mcp/
   pom.xml                         # Maven multi-module aggregator
-  compose.yaml, Dockerfile        # packaging: image build + hardening (non-root, read-only FS, cap-drop) — AD-27
+  compose.yaml, Dockerfile        # packaging: image build + container baseline (non-root, read-only FS, cap-drop) — AD-27
   scripts/                        # build-bundle.sh, ingest.sh, start.sh, smoke-test.sh (release-engineering, not runtime)
   agent/SKILL.md                  # agent-usage guidance shipped alongside the appliance (FR-30/31 support)
   tools/evaluation/                # offline model prep/eval (Python) — never in the production path, per brief §4
   src/main/java/com/luciad/knowledge/
     cli/                          # ingest | serve | validate entrypoints
     config/                       # application.yaml binding
-    domain/                       # records, canonical symbol, relationship enum, ports, manifest
+    domain/                       # records, canonical symbol, relationship enum, interfaces, manifest
     ingest/javadoc/               # JSoup + JavaParser, parse-only
     ingest/examples/              # sample & workflow extraction + governance sidecar
     ingest/guides/                # JSoup guide/tutorial HTML parsing + catalog linking, parse-only
@@ -318,7 +319,7 @@ graph LR
   end
   subgraph Serve["Serve (cli serve)"]
     agent["Coding agent / developer"]
-    mcpsrv["MCP server (/mcp, loopback)"]
+    mcpsrv["MCP server (/mcp, internal host)"]
     ret["retrieval (exact-first fusion)"]
     active["Active index (read-only)"]
     agent -->|MCP tools| mcpsrv --> ret --> active
@@ -386,7 +387,7 @@ erDiagram
 - **Embedding model selection gate.** bge-small-en-v1.5 is a candidate only; final model + dimension + license + fingerprint + retrieval quality thresholds require the selection gate (PRD blockers B2/B3).
 - **Reference hardware + corpus (B1) / gold retrieval set + top-5 threshold (B2).** Required to make NFR-1..9 and retrieval-quality acceptance testable; owned by Epic 8 / NFR test strategy.
 - **JDK pin (B5).** Java 21 vs org current LTS — final pin before Epic 1 code.
-- **Shared multi-user / TLS / auth deployment profile.** Out of scope v1 (loopback only, AD-2); revisit for a future multi-user profile.
+- **Authenticated / TLS / multi-tenant (cross-team or org-wide) deployment profile.** Out of scope v1 — v1 serves a single trusted internal team on the internal network without auth (AD-2); revisit for a future authenticated profile.
 - **Public-base / private-overlay index composition.** Not in v1; deferred packaging concern.
 - **Corpus acquisition / provenance & license review (B3).** Legal gate for redistributing docs-derived indexes + model; owned by Epic 8 / release.
 - **Governance role assignment (B4).** Roles defined; assignment to named people is an org action, prerequisite to every approval gate.

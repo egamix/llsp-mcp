@@ -31,15 +31,15 @@ The system must substantially reduce invented packages, classes, methods, and ov
 - **Release operator / corpus owner** (offline ops): "Build, validate, activate, and roll back immutable per-SDK-version indexes inside an air gap without internet access." `→ brief §12, §14`
 
 ### 2.2 Non-Users (v1)
-- Multi-user / shared-team deployments (deferred to a later authenticated-TLS profile). `→ brief §3`
+- Public, cross-org, or authenticated multi-tenant deployments (deferred to a later authenticated-TLS profile). A single trusted internal team (≤ ~5 developers) on a shared host is served in v1. `→ brief §3`
 - Anyone expecting the appliance to generate answers itself — generation stays in the developer's agent. `→ brief §2`
-- Consumers on a LAN/shared host — v1 binds loopback only. `→ brief §3`
+- Public or cross-org consumers — v1 serves a small trusted internal team from a shared host on the internal network, not the public internet. `→ brief §3`
 
 ### 2.3 Key User Journeys
 The only "UI" is the MCP tool surface consumed by an agent; journeys are tool sequences, not screens.
 
 - **UJ-1. Agent builds a Luciad feature from a natural-language request.** Agent receives *"display a point object"* → `search_workflows`/`search_examples` for a relevant pattern → `resolve_symbol`/`get_class`/`get_method` for exact signatures → `find_implementations` when an interface is required → `check_symbols` on all proposed symbols → emits code citing the Javadoc page/example. Value lands when generated code compiles-conceptually against real symbols and every API choice is cited. `→ brief §1, §11`
-- **UJ-2. Operator activates a new index in the air gap.** Operator runs `ingest` on a supplied local corpus → `validate-index` → atomic activation of the immutable build → `serve` on loopback. Value lands when the MCP endpoint answers against the frozen index with zero network access. `→ brief §12, §14`
+- **UJ-2. Operator activates a new index in the air gap.** Operator runs `ingest` on a supplied local corpus → `validate-index` → atomic activation of the immutable build → `serve` on the shared internal host. Value lands when the MCP endpoint answers against the frozen index with zero external network access. `→ brief §12, §14`
 
 ## 3. Glossary
 
@@ -317,12 +317,12 @@ Every primary result includes SDK version, record type, relative source path, HT
 - A symbol-less Guide or Training record is servable as a primary result with a complete citation that simply omits the canonical-symbol field.
 
 ### F9. Packaging, deployment & offline/security posture
-**Description:** One Docker image with `ingest`/`validate-index`/`serve` modes, hardened, loopback-bound, air-gap transferable. `→ brief §3, §5, §13, §14`
+**Description:** One Docker image with `ingest`/`validate-index`/`serve` modes, deployable on a shared internal host, air-gap transferable. `→ brief §3, §5, §13, §14`
 
-#### FR-32: One serving image, three modes, hardened compose; separate ingest-time image for training materials
-The hardened appliance image runs `ingest` (Javadoc, examples, workflows, guides), `validate-index`, and `serve`; Compose separates one-shot ingestion from read-only serving; `pull_policy: never`, non-root, read-only root FS where practical, cap-drop ALL, `no-new-privileges`, proprietary inputs mounted read-only, MCP port bound to `127.0.0.1`. Training-material ingestion (docling, FR-39) runs from a **separate, ingest-time-only image**, never deployed alongside `serve`, never included in the served appliance, and not subject to NFR-9's appliance-footprint target. *(Amended 2026-08-21, Sprint Change Proposal — training-material ingestion.)* `→ brief §13, §14`
+#### FR-32: One serving image, three modes, internal-host compose; separate ingest-time image for training materials
+The serving image runs `ingest` (Javadoc, examples, workflows, guides), `validate-index`, and `serve`; Compose separates one-shot ingestion from read-only serving; `pull_policy: never`, non-root, read-only root FS where practical, cap-drop ALL, `no-new-privileges`, proprietary inputs mounted read-only, MCP port bound to the internal host interface reachable by the trusted team (not the public internet). Training-material ingestion (docling, FR-39) runs from a **separate, ingest-time-only image**, never deployed alongside `serve`, never included in the served appliance, and not subject to NFR-9's appliance-footprint target. *(Amended 2026-08-21, Sprint Change Proposal — training-material ingestion; amended 2026-08-24 — v1 serves a small trusted internal team from a shared host: loopback bind and "hardened appliance" framing dropped, container-hygiene defaults retained.)* `→ brief §13, §14`
 **Consequences (testable):**
-- The serve container runs read-only, non-root, loopback-only, answers MCP requests, and contains no Python/docling/network-capable tooling.
+- The serve container runs read-only, non-root, bound to the internal host interface (not the public internet), answers MCP requests, and contains no Python/docling/network-capable tooling.
 - Ingest (Javadoc/examples/workflows/guides) and serve make zero external calls during tests; only the separate training-ingest image is permitted network calls, and only while it is running.
 - The separate training-ingest image is absent from the air-gap bundle's serving artifacts (FR-33).
 
@@ -362,17 +362,17 @@ Luciad symbol/API references appearing in training-deck text and tables are reso
 - **No running Luciad itself.** `→ brief §2`
 - **No LangChain/LlamaIndex** as mandatory dependencies; **no external vector DB** (Elasticsearch/OpenSearch/Qdrant/etc.); **no separate local LLM**; **no server-side answer generation.** `→ brief §2`
 - **No cloud embeddings, runtime internet, telemetry, or update checks** during serving or during ingestion of the four fully-offline record types (Javadoc, examples, workflows, guides). The sole exception is training-material ingestion via docling (FR-39), confined to its own separate ingest-time image and never extended to serving. *(Amended 2026-08-21, Sprint Change Proposal.)* `→ brief §2, §14`
-- **No shared/multi-user or LAN-exposed deployment in v1**; **no public-base/private-overlay index design in v1.** `→ brief §3, §5`
+- **No public, cross-org, or authenticated multi-tenant deployment in v1** (a single trusted internal team on a shared internal host is in scope); **no public-base/private-overlay index design in v1.** `→ brief §3, §5`
 - **No HTTP crawler / portal client** in the production ingester, for any record type. Docling's own model-fetch (training-material ingestion only, FR-39, running in its separate ingest-time image) is the sole permitted model-downloader exception; it never runs inside the serving image. *(Amended 2026-08-21, Sprint Change Proposal.)* `→ brief §5, §12`
 - **No automated inference of coding techniques or best practices** from source code, prose, or file naming. Technique tags (FR-42) are governance-supplied only, via the same sidecar mechanism as quality labels (FR-14), never derived by static analysis or ML. *(Added 2026-08-21, Sprint Change Proposal.)* `→ brief §8, §14`
 
 ## 6. MVP Scope
 
 ### 6.1 In Scope
-Everything in the brief's §2 *Included* list and Definition of Done §18: file-only offline ingestion; structural Javadoc parsing; canonical catalog + relationship graph; example/workflow/guide/training-deck ingestion + linking; governance-supplied quality labels and cross-cutting technique tags (FR-42); hybrid (BM25+vector) retrieval with lexical fallback; the 19 MCP tools; immutable versioned indexes with validate/activate/rollback; per-developer loopback deployment; agent SKILL.md; air-gap packaging with SBOM/checksums/licenses. Guide-article support, training-deck (PPTX/PDF via docling) support, and technique-tag/`search_concepts` support all ship in MVP alongside the other original record types (decided 2026-08-20 and 2026-08-21, Sprint Change Proposals). `→ brief §2, §18`
+Everything in the brief's §2 *Included* list and Definition of Done §18: file-only offline ingestion; structural Javadoc parsing; canonical catalog + relationship graph; example/workflow/guide/training-deck ingestion + linking; governance-supplied quality labels and cross-cutting technique tags (FR-42); hybrid (BM25+vector) retrieval with lexical fallback; the 20 MCP tools; immutable versioned indexes with validate/activate/rollback; shared internal-host deployment for a small trusted team (≤ ~5 developers); agent SKILL.md; air-gap packaging with SBOM/checksums/licenses. Guide-article support, training-deck (PPTX/PDF via docling) support, and technique-tag/`search_concepts` support all ship in MVP alongside the other original record types (decided 2026-08-20 and 2026-08-21, Sprint Change Proposals). `→ brief §2, §18`
 
 ### 6.2 Out of Scope for MVP
-- Shared authenticated-TLS multi-user profile — deferred (later deployment profile). `→ brief §3`
+- Authenticated-TLS multi-tenant (cross-team / org-wide) profile — deferred (later deployment profile). `→ brief §3`
 - Public-base/private-overlay index layering — deferred until a demonstrated need. `→ brief §5`
 - Automated corpus acquisition/downloader — separate connected-environment release-engineering activity, never in the runtime image. `→ brief §5`
 - Python tooling (ONNX export, model comparison, retrieval eval) ships as release-engineering utilities only — never a runtime service/dependency — for the four fully-offline record types. Training-material ingestion (FR-39) is the sole exception: docling is a genuine ingest-time Python runtime dependency, network-enabled, confined to its own separate ingest-time image (FR-32) and never present in the serving image. *(Amended 2026-08-21, Sprint Change Proposal.)* `→ brief §2, §16`
@@ -414,7 +414,7 @@ From brief §14. All are *initial v1 targets*; changes require product- and tech
 | NFR-9 | Appliance footprint | image + model ≤ 1.5 GiB (excl. corpus/indexes); applies to the serving image only — the separate training-ingest image (FR-32) is a build-time-only artifact not subject to this target. *(Note added 2026-08-21, Sprint Change Proposal.)* | §14 |
 | NFR-10 | Response bounds | default 10, cap 50 results; ≤ 1 MiB serialized with truncation/continuation metadata | §14 |
 | NFR-11 | Offline behavior | zero DNS/HTTP/telemetry/model-download/update-check during serve and during ingestion of the four fully-offline record types (Javadoc, examples, workflows, guides); training-material ingestion (FR-39) is the sole, explicitly-scoped exception, confined to its separate ingest-time image and never extended to serving. *(Amended 2026-08-21, Sprint Change Proposal.)* | §14 |
-| NFR-12 | Security posture | non-root, read-only root FS where practical, cap-drop, loopback bind, no full-doc/source logging by default | §14 |
+| NFR-12 | Security posture | non-root, read-only root FS where practical, cap-drop, internal-host bind (no public exposure), no full-doc/source logging by default | §14 |
 | NFR-13 | Reproducibility | deterministic record IDs + content hashes for repeatable updates | §12 |
 | NFR-14 | Compatibility enforcement | reject any index whose fingerprint (schema/Lucene-major/symbol-format/model/dims/tokenizer/preprocessing) mismatches runtime. *Note (2026-08-21): the fingerprint is independent of which record types are indexed — adding the guide record type changes index content, not the fingerprint definition; a guide-inclusive index remains compatible with prior-fingerprint validation logic.* | §12, §14 |
 

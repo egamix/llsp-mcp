@@ -70,7 +70,7 @@ This document provides the complete epic and story breakdown for the LuciadLight
 - FR-31: Every primary result includes SDK version, record type, relative source path, HTML anchor when available, and stable record ID; canonical symbol/example ID is included when resolved and omitted — never fabricated — otherwise, so a symbol-less Guide/Training record remains servable. *(Amended 2026-08-21, Sprint Change Proposal — fixes an AD-15 defect that previously required canonical symbol unconditionally.)*
 
 **F9. Packaging, deployment & offline/security posture**
-- FR-32: One serving image runs `ingest` (four offline record types)/`validate-index`/`serve`; Compose separates one-shot ingestion from read-only serving; `pull_policy: never`, non-root, read-only root FS where practical, cap-drop ALL, `no-new-privileges`, proprietary inputs read-only, MCP bound to `127.0.0.1`. Training-material ingestion (FR-39) runs from a **separate, ingest-time-only image**, never in the served appliance, exempt from NFR-9. *(Amended 2026-08-21, Sprint Change Proposal.)*
+- FR-32: One serving image runs `ingest` (four offline record types)/`validate-index`/`serve`; Compose separates one-shot ingestion from read-only serving; `pull_policy: never`, non-root, read-only root FS where practical, cap-drop ALL, `no-new-privileges`, proprietary inputs read-only, MCP bound to the internal host interface reachable by the trusted team (not the public internet). Training-material ingestion (FR-39) runs from a **separate, ingest-time-only image**, never in the served appliance, exempt from NFR-9. *(Amended 2026-08-21, Sprint Change Proposal; amended 2026-08-24 — shared internal-host deployment, loopback bind and "hardened" framing dropped, container-hygiene defaults retained.)*
 - FR-33: Air-gap bundle = image tar (serving image only) + SHA256SUMS + SBOM + install docs + frozen index + model artifacts; SHA-256 verification; documented licenses; supports transferring a prebuilt combined index or rebuilding one inside the air gap. A frozen index may already include training records ingested pre-transfer via the separate image; the serving image tar contains no docling/Python tooling. *(Amended 2026-08-21, Sprint Change Proposal.)*
 - FR-34: CLI provides `ingest`, `validate-index`, `serve`, `stats` with documented options, headless, with exit codes.
 
@@ -94,7 +94,7 @@ This document provides the complete epic and story breakdown for the LuciadLight
 | NFR-9 | Appliance footprint | image + model ≤ 1.5 GiB (excl. corpus/indexes) — **serving image only**; the separate training-ingest image is exempt and intentionally left unbounded, since it is ingest-time-only and never deployed to or alongside the appliance *(2026-08-21, Sprint Change Proposal)* |
 | NFR-10 | Response bounds | default 10, cap 50 results; ≤ 1 MiB serialized with truncation/continuation metadata |
 | NFR-11 | Offline behavior | zero DNS/HTTP/telemetry/model-download/update-check during serve and during ingest of the four offline record types; training-material ingestion (FR-39) is the sole explicitly-scoped exception *(2026-08-21, Sprint Change Proposal)* |
-| NFR-12 | Security posture | non-root, read-only root FS where practical, cap-drop, loopback bind, no full-doc/source logging by default |
+| NFR-12 | Security posture | non-root, read-only root FS where practical, cap-drop, internal-host bind (no public exposure), no full-doc/source logging by default |
 | NFR-13 | Reproducibility | deterministic record IDs + content hashes for repeatable updates |
 | NFR-14 | Compatibility enforcement | reject any index whose fingerprint (schema/Lucene-major/symbol-format/model/dims/tokenizer/preprocessing) mismatches runtime |
 
@@ -104,7 +104,7 @@ NFR-1..9 are **unfalsifiable until B1** (reference hardware + representative cor
 
 **Architecture invariants (AD-1..AD-29, binding on implementation — see ARCHITECTURE-SPINE.md for full rule text):**
 - AD-1: Dependencies point inward to `domain`; no module cycles; engines reached only through domain-defined ports.
-- AD-2: Embedded engines only (SQLite/Lucene/ONNX in-process); single loopback MCP listener; no other server socket.
+- AD-2: Embedded engines only (SQLite/Lucene/ONNX in-process); single internal-host MCP listener; no other server socket.
 - AD-3 / AD-18: Canonical symbol is the universal, primary join key; exactly one canonical-symbol variant is the cross-module wire/join key — all other normalized variants are module-internal only. AD-29 adds technique tags as a secondary, non-symbol join key alongside this — never displacing it.
 - AD-4: Two-pass ingestion; unresolved references are recorded explicitly, never fabricated.
 - AD-5 / AD-23: Immutable index builds keyed `{sdkVersion}/{buildId}`; validate-then-atomic-activate; only `cli` writes the active pointer via atomic rename; serving process re-resolves the pointer at a defined boundary; a build directory is never deleted while referenced.
@@ -216,7 +216,7 @@ FR-28: Epic 6 - Rollback via pointer swap only; retained builds; side-by-side SD
 FR-29: Epic 6 - Full-set backups (manifest, catalog, Lucene dir, report, config, model, checksums)
 FR-30: Epic 7 - agent/SKILL.md with the mandatory retrieval policy and one worked example
 FR-31: Epic 7 - Full citation tuple on every primary result
-FR-32: Epic 8 - Single serving image for ingest/validate-index/serve; hardened Compose deployment; separate ingest-time image for training materials
+FR-32: Epic 8 - Single serving image for ingest/validate-index/serve; internal-host Compose deployment; separate ingest-time image for training materials
 FR-33: Epic 8 - Air-gap bundle with checksums, SBOM, licenses, transferable/rebuildable index (serving image only)
 FR-34: Epic 8 - CLI with ingest, validate-index, serve, stats; headless with exit codes
 FR-39: Epic 9 - Training-deck (PPTX/PDF) ingestion via docling's vision/layout-model pipeline
@@ -260,7 +260,7 @@ Ships the agent-facing `agent/SKILL.md` with the mandatory retrieval policy and 
 Implementation notes: completes the retrieval-policy skeleton drafted in Epic 5 rather than starting it from a blank page.
 
 ### Epic 8: Air-Gap Packaging & Release
-Produces a hardened, air-gap-transferable release — image, CLI, Compose layout, SBOM, checksums — that a release operator can install and run with zero egress. Also produces the separate, ingest-time-only image that runs training-material ingestion (FR-39) — a distinct artifact from the serving image, never deployed as or alongside it. *(Amended 2026-08-21, Sprint Change Proposal.)*
+Produces an air-gap-transferable release — image, CLI, Compose layout, SBOM, checksums — that a release operator can install and run with zero egress on a shared internal host. Also produces the separate, ingest-time-only image that runs training-material ingestion (FR-39) — a distinct artifact from the serving image, never deployed as or alongside it. *(Amended 2026-08-21, Sprint Change Proposal.)*
 **FRs covered:** FR-32, FR-33, FR-34
 
 ### Epic 9: Training Material Knowledge
@@ -765,17 +765,17 @@ So that I can always cite exactly where an answer came from, and a symbol-less G
 
 ## Epic 8: Air-Gap Packaging & Release
 
-### Story 8.1: Single hardened image and Compose layout
+### Story 8.1: Single serving image and Compose layout
 
 As a release operator,
-I want one image that runs `ingest`/`validate-index`/`serve`, with Compose separating one-shot ingestion from read-only serving, `pull_policy: never`, non-root, read-only root FS where practical, cap-drop ALL, `no-new-privileges`, proprietary inputs mounted read-only, and MCP bound to `127.0.0.1`,
-So that the deployed appliance can't be pulled from a registry, escalate privileges, or bind beyond loopback.
+I want one image that runs `ingest`/`validate-index`/`serve`, with Compose separating one-shot ingestion from read-only serving, `pull_policy: never`, non-root, read-only root FS where practical, cap-drop ALL, `no-new-privileges`, proprietary inputs mounted read-only, and MCP bound to the internal host interface reachable by the trusted team,
+So that the deployed image can't be pulled from a registry, escalate privileges, or be exposed to the public internet.
 
 **Acceptance Criteria:**
 **Given** the Compose file deployed in an air-gapped environment
 **When** the stack starts
 **Then** the serving container runs as non-root with the listed hardening flags active
-**And** the MCP endpoint is unreachable from outside the loopback interface
+**And** the MCP endpoint is reachable only on the internal network, never from the public internet
 
 ### Story 8.2: Air-gap transfer bundle
 
@@ -804,7 +804,7 @@ So that the appliance can be driven from scripts/CI without any interactive prom
 ### Story 8.4: Separate ingest-time-only image for training-material ingestion
 
 As a release operator,
-I want a distinct container image that runs `cli ingest` against the training-materials dir only (docling/Python/network tooling included), built and shipped separately from the hardened serving image,
+I want a distinct container image that runs `cli ingest` against the training-materials dir only (docling/Python/network tooling included), built and shipped separately from the serving image,
 So that the served MCP appliance never contains, and can never reach, network-capable or non-Java tooling. *(Added 2026-08-21, Sprint Change Proposal.)*
 
 **Acceptance Criteria:**
