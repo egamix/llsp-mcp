@@ -48,7 +48,7 @@ Downstream artifacts must use these terms verbatim.
 - **Canonical symbol** — the unique, version-scoped key identifying a type or member, overload-distinguishing (e.g. `pkg.Type#method(ParamType,Other)`). `→ brief §7`
 - **Normalized key** — auxiliary lookup variant of a canonical symbol (simple-name, dotted-member, erased-generic, camel-case). `→ brief §7`
 - **Catalog** — the SQLite store of canonical symbols and their metadata for one SDK version. `→ brief §3, §6`
-- **Relationship edge** — a typed, cited link between two canonical symbols (one of the 15 required relationship types). `→ brief §6`
+- **Relationship edge** — a typed, cited link between two canonical symbols (one of the 17 required relationship types). `→ brief §6` *(15→17, 2026-08-25 Sprint Change Proposal — AD-30.)*
 - **Record** — a primary retrieval unit: one API element, one example, one workflow, one guide, or one training-deck section. *(Amended 2026-08-21, Sprint Change Proposal, to add training-deck sections.)* `→ brief §6`
 - **Workflow (record)** — a curated Markdown/YAML task recipe (prerequisites, ordered steps, referenced symbols, linked examples, limitations, version). `→ brief §6`
 - **Guide (record)** — a curated SDK tutorial/how-to article (HTML, sourced from the LuciadLightspeed doc portal) explaining a concept or use case in prose, with embedded code snippets and step-by-step instructions. Distinct from a Workflow (a discrete task recipe) in that a Guide is a narrative explainer that may span multiple concepts and does not necessarily decompose into ordered steps with explicit prerequisites. *(Added 2026-08-21, Sprint Change Proposal.)*
@@ -81,12 +81,17 @@ Ingestion runs as ordered stages: catalog → relationships → examples/workflo
 **Consequences (testable):**
 - A killed ingestion resumes from the last completed checkpoint without redoing embedded records.
 - Malformed pages are handled per a configurable `fail-fast | collect-and-continue` policy.
+- File parsing uses bounded work queues and releases a completed AST after its records and unresolved references are emitted. *(Added 2026-08-25 Sprint Change Proposal — AD-30.)*
+- Catalog and index writes use bounded batches whose sizes are recorded in the ingestion report.
+- A resumed run validates input hashes + toolchain fingerprint before reusing work; a changed input set is a new build, not a resume (AD-25). A restarted build produces the same records, edges, and manifest as an uninterrupted build from the same inputs and toolchain (NFR-13). No restart or fallback path performs a network request (AD-9; `ingest.trainings` exception unchanged).
 
 #### FR-3: Deterministic, hashed, reportable ingestion
 Record IDs are deterministic; content hashes enable repeatable updates; a machine-readable ingestion report and progress/error counts are emitted. `→ brief §12`
 **Consequences (testable):**
 - Re-ingesting identical input yields identical record IDs and hashes.
 - The ingestion report is valid, machine-readable, and includes throughput and error summaries.
+- Distinct hashes exist for source bytes (`sourceHash`, new), extracted record (`recordHash` = AD-22 identity fields), relationship edge (`relationshipHash` = AD-22 identity fields), embedding input (`semanticHash` = AD-8/AD-21 embedding fingerprint), and toolchain (`toolchainFingerprint` = AD-6 compatibility fingerprint); a change to one does not spuriously invalidate the others. *(Added 2026-08-25 Sprint Change Proposal — AD-30.)*
+- The report includes counts for exact, ambiguous, and unresolved example relationships, grouped by relationship type and resolution kind.
 
 ### F2. Javadoc structural parsing & canonical symbols
 **Description:** Structure-aware parsing of thousands of Javadoc HTML files across modern and legacy doclet layouts, emitting one record per API element. `→ brief §7`
@@ -125,9 +130,9 @@ A version-scoped SQLite schema stores canonical symbols with unique keys and map
 - Every catalog symbol resolves to a source path + anchor.
 
 #### FR-9: Two-pass typed relationship construction
-Pass one builds the complete catalog + path/anchor map; pass two resolves internal links/declarations into typed edges; forward/inverse pairs are reconciled (e.g. `IMPLEMENTS`/`IMPLEMENTED_BY`). All 15 required relationship types are produced. `→ brief §6, §7`
+Pass one builds the complete catalog + path/anchor map; pass two resolves internal links/declarations into typed edges; forward/inverse pairs are reconciled (e.g. `IMPLEMENTS`/`IMPLEMENTED_BY`). All 17 required relationship types are produced. `→ brief §6, §7` *(15→17, 2026-08-25 Sprint Change Proposal — AD-30 refines the example edge into `USES_TYPE`/`CONSTRUCTS`/`CALLS`.)*
 **Consequences (testable):**
-- Each of the 15 relationship types is produced and unit-tested on fixtures.
+- Each of the 17 relationship types is produced and unit-tested on fixtures.
 - Method parameter/return/field/exception types are stored as linked canonical symbols when resolvable, not display strings.
 
 #### FR-10: Explicit unresolved/external references
@@ -146,15 +151,20 @@ Direct and recursive (CTE) traversal supports depth limits and cycle handling. `
 **Description:** JavaParser-based ingestion of examples and workflow docs, plus HTML-article parsing of guide/tutorial pages, preserving complete source/content, extracting Luciad references, and linking to the catalog — never compiling or executing. `→ brief §2, §8`
 
 #### FR-12: Example parsing preserves complete source (no execution)
-`.java` examples are parsed with JavaParser AST; complete source is preserved; large files get secondary method/class chunks retaining package/imports/enclosing type/required fields; examples are never compiled or run. `→ brief §8`
+`.java` examples are parsed with JavaParser AST; complete source is preserved **once**; the ingester emits **three levels of record — whole example, declared class/interface, and method/constructor**. Child (class/method) records are canonical SQLite rows linked to the parent example, each storing a `SourceRange` (relative path, start/end line+column) and the minimum source text needed for search and citation; Lucene holds method-sized projections. Examples are never compiled or run. `→ brief §8` *(Expanded 2026-08-25 Sprint Change Proposal — AD-30.)*
 **Consequences (testable):**
 - The complete original source is retrievable via `get_example`.
+- A method-sized search hit can fetch its complete parent example.
+- Every class/method record and every source-derived edge carries a `SourceRange` and citation.
 - No build or execution of any sample occurs during ingest (asserted by code review + absence-of-build test).
 
 #### FR-13: Luciad reference extraction & catalog linking
-Luciad imports and syntactically identifiable type/member references are extracted and linked to exact catalog entries after Javadocs are indexed; unresolved references stay unresolved. `→ brief §8`
+Luciad imports and syntactically identifiable type/member references are resolved against the catalog after Javadocs are indexed, using a **fixed resolution ladder** (FQN literal → explicit import + exact match → local/same-package declaration → unique wildcard-import match → owner+name+signature/arity match → ambiguous/unresolved). Each resolved reference emits a typed edge (`USES_TYPE`/`CONSTRUCTS`/`CALLS`, AD-30) carrying **resolution evidence** (source range, original token, candidate canonical symbols, selected symbol only when status is `EXACT`). Only an `EXACT` match becomes a verified Luciad symbol; `AMBIGUOUS` and `UNRESOLVED` references stay explicit and are never promoted (AD-4, AD-7). `→ brief §8` *(Expanded 2026-08-25 Sprint Change Proposal — AD-30.)*
 **Consequences (testable):**
 - A symbol can retrieve its linked examples via `find_examples_for_symbol`.
+- Two packages exposing the same simple class name stay `AMBIGUOUS` unless source context selects one exactly.
+- Overloaded methods stay `AMBIGUOUS` when parameter info is insufficient.
+- An incomplete example project still produces cited partial records without an SDK JAR or build execution.
 - An unresolvable reference is recorded as unresolved, never fabricated.
 
 #### FR-14: Governance-supplied quality metadata

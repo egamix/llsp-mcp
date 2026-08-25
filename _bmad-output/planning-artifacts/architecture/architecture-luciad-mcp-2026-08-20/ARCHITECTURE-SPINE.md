@@ -236,13 +236,19 @@ graph TD
 - **Rule:** `domain` declares a curated, fixed vocabulary of technique-tag values (governed the same way as AD-14's quality labels — sidecar-supplied, never parser/ML-inferred). `Example`, `Workflow`, `Guide`, and `Training` records (never `ApiElement`/`MethodElement`) may carry zero or more technique tags. A technique tag is a **secondary join key**: `retrieval` may group/fuse candidates across record types by shared technique tag, in addition to — never instead of — the canonical-symbol join (AD-18), which remains the sole *primary* join key. `catalog.sqlite` stores technique tags as an attribute on the owning record row (no new ERD entity, mirroring the quality-label precedent), and `search.lucene` indexes them as an exact-match filterable field alongside the existing quality filter (FR-17). The new `search_concepts` MCP tool (FR-43) is the primary consumer of this join key, federating matches across all four taggable record types into one fused, citation-complete list per the same convention as F5's hybrid fusion; an unrecognized tag value is rejected, never silently ignored or coerced to the nearest known value.
 - **Consequence:** a `Guide` or `Training` record with no resolved canonical-symbol link is no longer permanently unjoinable — it remains discoverable via `search_concepts` and via technique-tag filtering on the existing search tools, closing the gap AD-15's conditional-canonical-symbol amendment (above) made possible to serve but did not by itself make *discoverable*.
 
+### AD-30 — Structure-aware example ingestion: refined usage edges, evidence-bearing resolution, bounded graph scope `[ADOPTED]`
+- **Binds:** domain, ingest.examples, catalog.sqlite, search.lucene, retrieval
+- **Prevents:** (a) the single coarse `EXAMPLE_USES` edge being too weak to answer method-sized conceptual queries; (b) heuristic example resolution silently manufacturing verified Luciad symbols; (c) richer example analysis expanding into an IDE/second-graph-platform.
+- **Rule:** Java examples are parsed with JavaParser after a deterministic in-corpus pre-scan (packages, imports, declared types, constructors, methods, local source roots). The ingester emits example-, class-, and method-level records; the complete source is preserved once and child records carry a `SourceRange` plus the minimum text needed for search and citation. Example→symbol relationships use three edge types that REPLACE the former coarse `EXAMPLE_USES`: `USES_TYPE` (resolved Luciad type), `CONSTRUCTS` (resolved Luciad constructor/type), `CALLS` (resolved Luciad method; also a local helper method only when it is part of the Luciad usage sequence). Resolution runs in a fixed ladder — FQN literal → explicit import + exact catalog match → local/same-package declaration → unique wildcard-import match → owner+name+signature/arity match → ambiguous/unresolved — and every derived edge carries evidence (source range, original token, candidate canonical symbols, and the selected symbol only when status is `EXACT`). Only an exact match to the version-scoped catalog is ever returned as a verified Luciad symbol (consistent with AD-4, AD-7). Deferred until retrieval evaluation shows need: field read/write edges, control-flow, data-flow, full CPG. Storage stays SQLite (canonical example/class/method rows + typed edges); Lucene indexes method-sized projections. No LSP, graph server, SDK JAR, sample compilation, or execution is introduced (AD-10 unchanged). Cross-build incremental indexing is deferred until full-build correctness is measured.
+- **Note:** this refines brief §6's 15-type set to 17 for downstream artifacts; the brief is retained as the historical contract, and AD-30 supersedes it for the example domain (same amendment pattern as FR-35/FR-38/FR-41/AD-28/AD-29). The five build hashes referenced by Story 1.4 reconcile onto existing invariants — `recordHash`/`relationshipHash` are AD-22 identity fields, `semanticHash` is the AD-8/AD-21 embedding fingerprint, `toolchainFingerprint` is the AD-6 compatibility fingerprint (restart-scoped); only `sourceHash` (input-file bytes) is genuinely new.
+
 ## Consistency Conventions
 
 | Concern | Convention |
 | --- | --- |
 | Module / package naming | Root `com.luciadmcp.knowledge`; one package per module (`domain`, `config`, `ingest.javadoc`, `ingest.examples`, `ingest.guides`, `ingest.trainings`, `catalog.sqlite`, `search.lucene`, `embeddings.onnx`, `retrieval`, `mcp`, `cli`). Interfaces live in `domain`; their implementations live in each engine module. `ingest.trainings` alone is packaged/shipped separately (AD-28). |
-| Record & entity naming | Domain records are immutable Java `record` types (`ApiElement`, `MethodElement`, `Example`, `Workflow`, `Guide`, `Training`, `RelationshipEdge`, `Citation`, `IndexManifest`). |
-| Relationship types | Fixed enum, `UPPER_SNAKE_CASE`, exactly the 15 brief §6 values; no ad-hoc additions without an AD amendment. |
+| Record & entity naming | Domain records are immutable Java `record` types (`ApiElement`, `MethodElement`, `Example`, `ExampleClass`, `ExampleMethod`, `Workflow`, `Guide`, `Training`, `RelationshipEdge`, `Citation`, `IndexManifest`, `SourceRange`, `ResolutionEvidence`), plus enums `ResolutionStatus` (`EXACT`/`AMBIGUOUS`/`UNRESOLVED`) and `ResolutionKind` (`FQN_LITERAL`/`EXPLICIT_IMPORT`/`LOCAL_DECLARATION`/`SAME_PACKAGE`/`WILDCARD_IMPORT`/`OWNER_NAME_SIGNATURE`/`NONE`). *(Example record/resolution types added 2026-08-25 Sprint Change Proposal — AD-30; land incrementally in Story 1.4/3.x, Story 1.1 not reopened.)* |
+| Relationship types | Fixed enum, `UPPER_SNAKE_CASE`, exactly 17 values: the 13 Javadoc structural types + `WORKFLOW_REQUIRES` + `USES_TYPE`/`CONSTRUCTS`/`CALLS` (the last three refine the former coarse `EXAMPLE_USES` per AD-30); no ad-hoc additions without an AD amendment. *(15→17, 2026-08-25 Sprint Change Proposal — AD-30.)* |
 | IDs | Deterministic: record/edge IDs are stable hashes over canonical identity fields (reproducibility, NFR-13); `buildId` is a content hash of the build inputs; never random, never wall-clock-derived. |
 | Dates & versions | ISO-8601 UTC timestamps; SDK version is an explicit string field on every record/edge/query. |
 | Tool I/O & error shape | MCP tool payloads are JSON with a single documented envelope: `results[]` + `truncated` + `total` + `citation` where applicable; errors use one structured error shape (`code`, `message`, `symbol?`) — never free-text-only. |
@@ -339,7 +345,10 @@ erDiagram
   API_ELEMENT ||--o{ RELATIONSHIP_EDGE : source
   API_ELEMENT ||--o{ RELATIONSHIP_EDGE : target
   API_ELEMENT ||--o{ CITATION : cited_by
+  EXAMPLE ||--o{ EXAMPLE_CLASS : declares
+  EXAMPLE_CLASS ||--o{ EXAMPLE_METHOD : declares
   EXAMPLE ||--o{ EXAMPLE_SYMBOL_LINK : uses
+  EXAMPLE_METHOD ||--o{ EXAMPLE_SYMBOL_LINK : uses
   API_ELEMENT ||--o{ EXAMPLE_SYMBOL_LINK : used_in
   WORKFLOW ||--o{ WORKFLOW_REQUIREMENT : requires
   API_ELEMENT ||--o{ WORKFLOW_REQUIREMENT : required_by
@@ -356,6 +365,12 @@ erDiagram
     enum type
     string sdk_version
   }
+  EXAMPLE_SYMBOL_LINK {
+    enum edge_type
+    enum resolution_status
+    enum resolution_kind
+    string source_range
+  }
   CITATION {
     string canonical_symbol
     string source_doc
@@ -370,7 +385,7 @@ erDiagram
 | F1 File-only offline ingestion (FR-1..3) | cli, ingest.* | AD-9, AD-10, AD-4 |
 | F2 Javadoc parsing (FR-4..7) | ingest.javadoc | AD-4, AD-10, AD-3 |
 | F3 Catalog + relationship graph (FR-8..11) | catalog.sqlite, domain | AD-3, AD-4, AD-12; relationship-type convention |
-| F4 Examples, workflows & guides (FR-12..15, FR-35..36, FR-42) | ingest.examples, ingest.guides | AD-4, AD-10, AD-14, AD-3, AD-29 |
+| F4 Examples, workflows & guides (FR-12..15, FR-35..36, FR-42) | ingest.examples, ingest.guides | AD-4, AD-10, AD-14, AD-3, AD-29, AD-30 |
 | F5 Hybrid retrieval (FR-16..20) | retrieval, search.lucene, embeddings.onnx | AD-7, AD-7a, AD-8, AD-13, AD-18, AD-19, AD-20, AD-21, AD-26 |
 | F6 MCP surface — 20 tools (FR-21..25, FR-38, FR-41, FR-43) | mcp | AD-11, AD-2, AD-7, AD-19, AD-24, AD-29, tool-envelope convention |
 | F7 Index lifecycle (FR-26..29) | cli, catalog.sqlite, search.lucene, domain | AD-5, AD-6, AD-12, AD-17, AD-22, AD-23, AD-25 |

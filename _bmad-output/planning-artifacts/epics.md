@@ -29,7 +29,7 @@ This document provides the complete epic and story breakdown for the LuciadLight
 
 **F3. Canonical catalog & relationship graph**
 - FR-8: Versioned SQLite catalog stores canonical symbols with unique, version-scoped keys and maps relative HTML paths/anchors to symbols.
-- FR-9: Two-pass typed relationship construction — pass one builds the catalog + path/anchor map, pass two resolves links/declarations into typed edges, forward/inverse pairs reconciled; all 15 required relationship types produced.
+- FR-9: Two-pass typed relationship construction — pass one builds the catalog + path/anchor map, pass two resolves links/declarations into typed edges, forward/inverse pairs reconciled; all 17 required relationship types produced (AD-30; the 3 example edges emitted in Epic 3).
 - FR-10: Unresolved external/undocumented links stay explicit, never guessed; traversal restricted to the documented SDK universe and reports that scope.
 - FR-11: Bounded direct and recursive (CTE) traversal with depth limits and cycle handling.
 
@@ -163,9 +163,9 @@ NFR-1..9 are **unfalsifiable until B1** (reference hardware + representative cor
 
 **Testing strategy requirements (brief §15 — inform per-epic acceptance criteria):**
 - Synthetic Javadoc fixtures covering modern/legacy layouts, interfaces/abstract classes, constructors, overloaded methods, generics/arrays, deprecated elements, since/params/returns/throws, inherited-method sections, broken/incomplete HTML.
-- Unit tests: canonical symbol normalization, overload distinction, Javadoc extraction, example AST parsing, example-to-symbol linking, link/anchor resolution, all 15 relationship types, transitive/recursive traversal with cycles and depth limits, SDK-version filtering, exact resolution + ambiguity/not-found behavior, ranking/citation completeness, embedding fingerprint compatibility, hybrid fusion preserving exact priority.
+- Unit tests: canonical symbol normalization, overload distinction, Javadoc extraction, example AST parsing, example-to-symbol linking, link/anchor resolution, all 17 relationship types (incl. `USES_TYPE`/`CONSTRUCTS`/`CALLS`), example resolution ladder + evidence, transitive/recursive traversal with cycles and depth limits, SDK-version filtering, exact resolution + ambiguity/not-found behavior, ranking/citation completeness, embedding fingerprint compatibility, hybrid fusion preserving exact priority.
 - Integration tests: ingest synthetic corpus → start MCP server → call every tool → confirm bounded outputs/structured errors/no network access/read-only serving/rejection of incompatible index.
-- Retrieval evaluation: maintain a gold dataset (exact lookup, ambiguous overloads, conceptual queries, deprecated APIs, example-preferred requests, nonexistent classes, interface-to-implementation navigation, example-preferred-implementation queries) against the SM-1..SM-9 / SM-C1 measures in the PRD.
+- Retrieval evaluation: maintain a gold dataset (exact lookup, ambiguous overloads, conceptual queries, deprecated APIs, example-preferred requests, nonexistent classes, interface-to-implementation navigation, example-preferred-implementation queries) against the SM-1..SM-9 / SM-C1 measures in the PRD. *(Added 2026-08-25 Sprint Change Proposal — AD-30, ties to B2:)* example-focused gold cases — a question answered by one method inside a large example; a constructor + required sequence of calls; a local helper method leading to Luciad calls; an ambiguous simple class name from two packages; an overloaded method unresolvable from arity alone; a sample with missing dependencies; whole-example-only vs method-level retrieval comparison (adopt method-level only if it improves or usefully complements top-5 without creating false verified symbols).
 
 **Governance & Definition of Done requirements (brief §14, §18 — inform release-readiness stories, likely Epic 8):**
 - Five named roles (product owner, technical owner, corpus owner, security/legal reviewer, release operator) each own explicit sign-offs; quality labels are governance metadata only.
@@ -186,7 +186,7 @@ FR-5: Epic 2 - Modern and legacy Javadoc layout parsing into equivalent extracte
 FR-6: Epic 2 - One record per API element; overloads always distinct
 FR-7: Epic 2 - Canonical symbol keys and normalized lookup variants
 FR-8: Epic 2 - Versioned SQLite catalog with unique version-scoped symbol keys
-FR-9: Epic 2 - Two-pass typed relationship construction across all 15 relationship types
+FR-9: Epic 2 - Two-pass typed relationship construction across all 17 relationship types (AD-30; `USES_TYPE`/`CONSTRUCTS`/`CALLS` emitted by Epic 3 example linking)
 FR-10: Epic 2 - Unresolved external/undocumented links stay explicit, never guessed
 FR-11: Epic 2 - Bounded direct and recursive traversal with depth limits and cycle handling
 FR-12: Epic 3 - Java example ingestion via JavaParser AST, never compiled or executed
@@ -229,7 +229,7 @@ Establishes the domain model (API element/Example/Workflow/Relationship records)
 **FRs covered:** FR-1, FR-2, FR-3
 
 ### Epic 2: Javadoc Knowledge Extraction
-Ingests a real Javadoc tree into canonical, version-scoped symbol records with a typed relationship graph across all 15 relationship types, covering both modern and legacy layouts. Merges what the source brief split into two epics (structural parsing; catalog + relationship graph) — both touch the same catalog/relationship modules with no standalone value between them, so they ship as one epic with ordered stories.
+Ingests a real Javadoc tree into canonical, version-scoped symbol records with a typed relationship graph across the 14 Javadoc-derived relationship types (of the 17 total; the 3 example edges are emitted in Epic 3, AD-30), covering both modern and legacy layouts. Merges what the source brief split into two epics (structural parsing; catalog + relationship graph) — both touch the same catalog/relationship modules with no standalone value between them, so they ship as one epic with ordered stories.
 **FRs covered:** FR-4, FR-5, FR-6, FR-7, FR-8, FR-9, FR-10, FR-11
 
 ### Epic 3: Example, Workflow & Guide Knowledge
@@ -310,6 +310,16 @@ So that Epic 2 onward fill in real stage logic without redesigning orchestration
 **And** setting the policy to `collect-and-continue` lets a stubbed stage record a failure and continue rather than aborting
 **And** setting `fail-fast` aborts the run on the first stage failure
 
+*(Expanded 2026-08-25 Sprint Change Proposal — AD-30; the discipline below applies once the examples/workflows stage is filled in.)*
+**And** file parsing uses bounded work queues; a completed AST is released after its records and unresolved references are emitted
+**And** SQLite and Lucene writes use bounded batches whose sizes are fixed/configured and recorded in the ingestion report
+**And** restart state records completed stages and validates input hashes plus the toolchain fingerprint before reusing prior work (AD-25)
+**And** a failure in one malformed optional example is recorded with its file and stage and may allow the run to continue under `collect-and-continue`
+**And** a failure affecting catalog integrity, index compatibility, a required manifest, or final validation invalidates the build and blocks activation (AD-5)
+**And** a restarted build produces the same records, edges, and manifest as an uninterrupted build from the same inputs and toolchain (NFR-13)
+**And** no restart or fallback path performs a network request (AD-9; `ingest.trainings` exception unchanged)
+*(Note: "discover inputs" and "pre-scan symbols" are example-scoped sub-steps inside the existing examples/workflows stage, not new top-level pipeline stages — the eight-stage shape is unchanged.)*
+
 ### Story 1.4: Deterministic IDs, content hashes, and a machine-readable ingestion report
 
 As a release operator,
@@ -322,6 +332,13 @@ So that re-ingesting the same inputs is verifiably reproducible and a failed run
 **Then** every record ID and content hash is identical between runs
 **And** a JSON report is written summarizing stage throughput and any collected errors
 **And** changing one input byte changes only the hashes of records that content actually touches, not unrelated records
+
+*(Expanded 2026-08-25 Sprint Change Proposal — AD-30; five distinct hashes mapped onto existing invariants, no parallel machinery invented.)*
+**And** five hashes are defined and tested: `sourceHash` (input-file bytes, new), `recordHash` (canonical record = AD-22 identity fields), `relationshipHash` (SDK version + source ID + rel type + target ID + evidence = AD-22 identity fields), `semanticHash` (exact normalized embedder input = AD-8/AD-21 embedding fingerprint), `toolchainFingerprint` (parser + schema + normalizer + relationship-rules + embedding fingerprint = AD-6 compatibility fingerprint)
+**And** a change to parser, schema, normalization, resolution rules, or embedding config changes the relevant fingerprint and blocks unsafe reuse
+**And** the ingestion report includes counts for exact, ambiguous, and unresolved example relationships, grouped by relationship type and resolution kind
+**And** SQLite uniqueness constraints prevent duplicate records and edges even if the same source root is discovered twice
+**And** cross-build incremental indexing is out of scope for this story; hashes support restart safety now and may support incremental builds later
 
 ## Epic 2: Javadoc Knowledge Extraction
 
@@ -378,16 +395,16 @@ So that the catalog is queryable and reproducible across SDK versions without co
 ### Story 2.5: Construct the typed relationship graph in two passes
 
 As a developer,
-I want pass one to build the catalog and path/anchor map, and pass two to resolve links/declarations into all 15 required typed relationship edges with forward/inverse pairs reconciled,
+I want pass one to build the catalog and path/anchor map, and pass two to resolve links/declarations into all 17 required typed relationship edges with forward/inverse pairs reconciled,
 So that inheritance, implementation, and reference relationships are queryable as first-class typed data, not re-derived from HTML at query time.
 
 **Acceptance Criteria:**
-**Given** a fixture exercising every one of the 15 relationship types
+**Given** a fixture exercising every one of the 17 relationship types
 **When** both passes complete
-**Then** all 15 types are present in the graph
+**Then** all 17 types are present in the graph
 **And** every forward edge has its correct inverse edge, and vice versa
 
-The 15 required relationship types (brief §6): `EXTENDS_CLASS`, `EXTENDS_INTERFACE`, `IMPLEMENTS`, `IMPLEMENTED_BY`, `DIRECT_SUBCLASS`, `RETURN_TYPE`, `PARAMETER_TYPE`, `THROWS_TYPE`, `FIELD_TYPE`, `CONSTRUCTOR_PARAMETER_TYPE`, `OVERRIDES`, `SPECIFIED_BY`, `SEE_ALSO`, `EXAMPLE_USES`, `WORKFLOW_REQUIRES`.
+The 17 required relationship types (brief §6, refined by AD-30): `EXTENDS_CLASS`, `EXTENDS_INTERFACE`, `IMPLEMENTS`, `IMPLEMENTED_BY`, `DIRECT_SUBCLASS`, `RETURN_TYPE`, `PARAMETER_TYPE`, `THROWS_TYPE`, `FIELD_TYPE`, `CONSTRUCTOR_PARAMETER_TYPE`, `OVERRIDES`, `SPECIFIED_BY`, `SEE_ALSO`, `WORKFLOW_REQUIRES`, `USES_TYPE`, `CONSTRUCTS`, `CALLS`. The last three refine the former coarse `EXAMPLE_USES` (AD-30); the Javadoc two-pass here produces the 14 structural + workflow types, while `USES_TYPE`/`CONSTRUCTS`/`CALLS` are emitted by example ingestion (Story 3.2). *(15→17, 2026-08-25 Sprint Change Proposal.)*
 
 ### Story 2.6: Keep unresolved references explicit, scope traversal to the documented SDK
 
@@ -418,27 +435,38 @@ So that a query over a graph containing cycles (e.g. mutually referencing interf
 ### Story 3.1: Parse Java examples via AST
 
 As a developer,
-I want `.java` examples parsed via JavaParser AST with complete source preserved, and large files split into secondary method/class chunks,
-So that examples are indexable without ever being compiled or executed.
+I want `.java` examples parsed via JavaParser AST with complete source preserved once, and three levels of record emitted — whole example, declared class/interface, and method/constructor — each child carrying a `SourceRange` and parent link,
+So that a method-sized usage sequence is retrievable without ever compiling or executing the sample.
 
 **Acceptance Criteria:**
 **Given** a large multi-class example file
 **When** it is parsed
-**Then** the complete original source is preserved as one record
-**And** secondary method/class-level chunk records are produced for large files
+**Then** the complete original source is preserved once as the whole-example record
+**And** class/interface and method/constructor records are produced with parent-child links
+**And** each child record stores a `SourceRange` (relative path, start/end line+column) and the minimum text needed for search and citation, referencing the source rather than copying the whole file
+**And** child records are canonical SQLite rows and Lucene holds method-sized projections
 **And** no compilation, symbol-solving, or execution occurs anywhere in the pipeline
+*(Expanded 2026-08-25 Sprint Change Proposal — AD-30. Depends on the domain resolution model + Story 1.4 hashes being approved before implementation.)*
 
 ### Story 3.2: Link examples to catalog symbols
 
 As a developer,
-I want Luciad imports and syntactically identifiable references in an example linked to catalog entries, run only after Javadocs are indexed,
-So that a symbol lookup can surface examples that actually use it.
+I want Luciad references in an example resolved against the catalog via a fixed resolution ladder, run only after Javadocs are indexed, emitting typed `USES_TYPE`/`CONSTRUCTS`/`CALLS` edges with resolution evidence,
+So that a symbol lookup can surface examples that actually use it, without ever guessing a verified symbol.
 
 **Acceptance Criteria:**
 **Given** an example importing and referencing catalog symbols
 **When** linking runs after the catalog exists
-**Then** each resolvable reference is linked to its catalog record
-**And** an unresolvable reference stays explicitly unresolved rather than guessed
+**Then** each resolvable reference is linked to its catalog record via a typed edge (`USES_TYPE`/`CONSTRUCTS`/`CALLS`) carrying evidence (source range, original token, candidate canonical symbols, selected symbol only when `EXACT`)
+**And** a constructor + chained calls produce `CONSTRUCTS`, `USES_TYPE`, and `CALLS` edges as appropriate
+**And** an FQN literal and an explicit-import reference each resolve exactly (`EXACT`)
+**And** the same simple name declared in two packages stays `AMBIGUOUS` unless source context selects one
+**And** an overloaded method unresolvable from arity/signature alone stays `AMBIGUOUS`
+**And** an unresolvable reference stays explicitly `UNRESOLVED` rather than guessed
+**And** an example project with missing dependencies still produces cited partial records without an SDK JAR or build execution
+**And** a method-sized hit can fetch its complete parent example
+**And** method-level vs whole-example retrieval is compared on gold queries without reducing exact-symbol accuracy
+*(Expanded 2026-08-25 Sprint Change Proposal — AD-30. Resolution ladder: FQN literal → explicit import + exact match → local/same-package declaration → unique wildcard-import match → owner+name+signature/arity → ambiguous/unresolved. Only `EXACT` becomes a verified Luciad symbol, per AD-4/AD-7.)*
 
 ### Story 3.3: Apply governance-supplied quality labels and technique tags
 
