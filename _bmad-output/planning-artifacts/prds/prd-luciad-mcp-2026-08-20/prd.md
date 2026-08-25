@@ -235,7 +235,7 @@ The same pinned model, tokenizer, preprocessing, normalization, dimensions, and 
 - Embedded content excludes navigation and empty records.
 
 ### F6. MCP tool surface
-**Description:** A deliberately small MCP tool surface over Streamable HTTP at `/mcp` (optional stdio), with bounded responses and never-guess guarantees. All 19 tools below are FRs. *(14 → 16 → 18 → 19, 2026-08-21, Sprint Change Proposals.)* `→ brief §3, §10`
+**Description:** A deliberately small MCP tool surface over Streamable HTTP at `/mcp` (optional stdio), with bounded responses and never-guess guarantees. All 20 tools below are FRs. *(15 → 17 → 19 → 20, 2026-08-21, Sprint Change Proposals; the prior PRD "19" here was an off-by-one against epics/architecture, corrected 2026-08-25.)* `→ brief §3, §10`
 
 #### FR-21: Retrieval & symbol tools
 Implement `search_api`, `resolve_symbol`, `get_class`, `get_method`, `get_api_context` per §10 contracts. `→ brief §10`
@@ -437,7 +437,7 @@ From brief §14. All are *initial v1 targets*; changes require product- and tech
 
 ## API Contracts / Public Surface
 
-The public surface is the 19 MCP tools (FR-21–FR-25, FR-38, FR-41, FR-43) whose input/output contracts are specified in brief §10 (FR-38 added 2026-08-21, FR-41 added 2026-08-21, and FR-43 added 2026-08-21, Sprint Change Proposals — contracts to be specified alongside the others at architecture sign-off). The **final tool schemas require sign-off** and are ratified in the architecture step, not here. Breaking changes to tool schemas or the canonical-symbol/relationship formats bump the compatibility fingerprint (NFR-14). `→ brief §10, §12`
+The public surface is the 20 MCP tools (FR-21–FR-25, FR-38, FR-41, FR-43) whose input/output contracts are specified in brief §10 (FR-38 added 2026-08-21, FR-41 added 2026-08-21, and FR-43 added 2026-08-21, Sprint Change Proposals — contracts to be specified alongside the others at architecture sign-off). The **final tool schemas require sign-off** and are ratified in the architecture step, not here. Breaking changes to tool schemas or the canonical-symbol/relationship formats bump the compatibility fingerprint (NFR-14). `→ brief §10, §12`
 
 ## 8. Open Questions
 

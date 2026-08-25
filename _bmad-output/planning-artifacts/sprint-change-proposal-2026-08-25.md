@@ -68,7 +68,7 @@ Every item on the proposal's "Explicitly Unaffected" list holds: Java 21/Gradle,
 
 ### 2.4 Pre-existing inconsistency (out of scope, noted)
 
-PRD says "19 tools" at §F6 header (line ~228) and §API Contracts (line ~430), while epics and the architecture spine say 20 (`search_concepts` was the 20th). This predates this change and is unrelated to it — **not** fixed here. Flagged for a separate cleanup.
+PRD said "19 tools" at §F6 header and §API Contracts, while epics and the architecture spine say 20 (`search_concepts` was the 20th). This predated this change and was unrelated to it. **Fixed as a follow-up on 2026-08-25** (both PRD references corrected to 20, progression aligned to `15 → 17 → 19 → 20`); the readiness report's stale "15 relationship types" was corrected to 17 at the same time.
 
 ---
 
@@ -254,7 +254,7 @@ Ties to **B2** (gold dataset, owner: product + corpus owner). No SM renumber; th
 - **[OPEN → resolved here]** Enum handling → **refine `EXAMPLE_USES` into 3 (15→17)**.
 - **[OPEN → resolved here]** Record storage → **SQLite canonical rows + Lucene projections**.
 - **[OPEN — still open, corpus owner]** Representative Luciad sample corpus + gold questions for the Epic 3 method-vs-whole comparison (ties to B2).
-- **[Pre-existing, out of scope]** PRD "19 tools" strays (§F6 header, §API Contracts) vs the correct "20" in epics/architecture — fix separately.
+- **[Pre-existing, fixed 2026-08-25]** PRD "19 tools" strays (§F6 header, §API Contracts) corrected to "20" to match epics/architecture; readiness-report "15 relationship types" corrected to 17.
 
 ---
 

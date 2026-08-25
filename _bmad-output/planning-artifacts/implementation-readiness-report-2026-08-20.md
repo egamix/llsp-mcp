@@ -52,7 +52,7 @@ inputDocuments:
 
 **F3. Canonical catalog & relationship graph**
 - FR-8: Versioned SQLite catalog; unique keys per SDK version; path/anchor mapping.
-- FR-9: Two-pass typed relationship construction; all 15 relationship types; forward/inverse reconciliation; linked-symbol types.
+- FR-9: Two-pass typed relationship construction; all 17 relationship types (AD-30, 2026-08-25); forward/inverse reconciliation; linked-symbol types.
 - FR-10: Explicit unresolved/external references (never fabricated); traversal bounded to documented SDK universe.
 - FR-11: Bounded direct + recursive (CTE) traversal with depth limits and cycle handling.
 
