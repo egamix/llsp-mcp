@@ -1,6 +1,10 @@
+---
+baseline_commit: 9fb75f15d145fc982a3724553e669d288d5f07ec
+---
+
 # Story 1.4: Deterministic IDs, content hashes, and a machine-readable ingestion report
 
-Status: ready-for-dev
+Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -28,37 +32,37 @@ so that re-ingesting the same inputs is verifiably reproducible and a failed run
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Define the five hash functions in `domain` as pure deterministic helpers (AC: 1, 2, 3)
-  - [ ] Add a `ContentHashes` (or equivalent) type in `com.luciadmcp.knowledge.domain` exposing `sourceHash(byte[])`, `recordHash(...)`, `relationshipHash(...)`, `semanticHash(String)`, and `toolchainFingerprint(...)`. SHA-256, lowercase hex, UTF-8 for text — reuse the exact digest idiom already in `BuildContext.sha256Hex`.
-  - [ ] Drive `recordHash` / `relationshipHash` from an explicit ordered `identityFields` list per entity so the recipe is declared, not implicit. Relationship identity fields are exactly: SDK version, source ID, relationship type, target ID, evidence.
-  - [ ] `semanticHash` hashes the already-normalized embedder input string verbatim — this type does not itself normalize text (that lives in the embedder later); it hashes what it is given.
-  - [ ] Field separators must be unambiguous (no delimiter that can appear in a field value collides two distinct tuples into one hash). Document the chosen separator.
-- [ ] Task 2: Unit-test each hash for determinism, known-answer, and locality (AC: 1, 2, 3)
-  - [ ] Same input twice → identical hash; a fixed input → a pinned expected hex string (known-answer, guards accidental recipe drift).
-  - [ ] Two records differing in one identity field → different `recordHash`; two records with identical identity fields → identical `recordHash`.
-  - [ ] Changing one byte of one source file changes that file's `sourceHash` and no other file's.
-  - [ ] Separator-collision test: tuples like `("a","bc")` and `("ab","c")` hash differently.
-- [ ] Task 3: Add `toolchainFingerprint` to the manifest and prove it gates reuse (AC: 4)
-  - [ ] Extend `IndexManifest` (currently `buildId` + `sdkVersion`) with the toolchain fingerprint field. Keep it a record; do not invent validation/activation/retention fields that belong to Epic 6.
-  - [ ] Compute the fingerprint from the toolchain component versions available now (parser/schema/normalizer/relationship-rules/embedding config); where a component is still a stub, use its stub version constant so the recipe is exercised end-to-end.
-  - [ ] Test: changing any one component version changes the fingerprint; an equal component set reproduces it.
-- [ ] Task 4: Replace the provisional `buildId` recipe with the content-inclusive recipe (AC: 1, 5)
-  - [ ] `BuildContext.forInputs` folds `sourceHash` of the input files into the sealed digest, not just normalized path strings. Preserve the existing ordered, deterministic construction and the `b-` + prefix `buildId` form.
-  - [ ] Same inputs → same `buildId` and same staging dir (resume); one changed input byte → different `buildId` (fresh run). Update `BuildContextTest` expectations and drop the "PROVISIONAL" Javadoc note.
-  - [ ] Keep it egress-free and side-effect-free beyond reading the declared input files.
-- [ ] Task 5: Emit the machine-readable JSON ingestion report (AC: 6, 7)
-  - [ ] Write a small hand-rolled JSON serializer in `cli` (no new third-party dependency — Story 1.3 deliberately used text to avoid preempting this; keep the zero-egress, minimal-dependency posture). Deterministic key order, escaped strings.
-  - [ ] Report shape: `buildId`, `sdkVersion`, `toolchainFingerprint`, `aborted`, `activationOccurred`, `stages` (each stage: ran | skipped-on-resume | completed), `failures` (severity + file + stage), and `relationshipCounts` grouped by relationship type then resolution kind with exact/ambiguous/unresolved sub-counts.
-  - [ ] Written to a fixed path under the build output (e.g. `{out}/{buildId}/ingestion-report.json`) at the end of `runToResult`, including the aborted-return paths.
-  - [ ] Extend `PipelineResult` (or add a report-model type) so the report is built from the run outcome already tracked; do not recompute state.
-- [ ] Task 6: Tests for the report and the no-egress guarantee (AC: 6, 7, 8)
-  - [ ] Clean run, fail-fast abort, and collect-and-continue runs each write a report; assert the JSON parses, has stable key order, and reflects the correct stage/failure/count state.
-  - [ ] Aborted run still writes a report with `aborted=true` and `activationOccurred=false`.
-  - [ ] Two identical runs produce byte-identical report content (determinism).
-  - [ ] Extend the pipeline egress test so the hashing + report-write + resume cycle records zero host resolutions; the trainings/network-exception path is deliberately not exercised.
-- [ ] Task 7: Build, verify dependency direction, finalize (all AC)
-  - [ ] `./gradlew cli:test domain:test checkDependencyDirection` green (run from repo root; task has no leading colon).
-  - [ ] Fill Dev Agent Record, File List, Change Log; mark tasks [x]; set Status review; update sprint-status.yaml 1-4 → review.
+- [x] Task 1: Define the five hash functions in `domain` as pure deterministic helpers (AC: 1, 2, 3)
+  - [x] Add a `ContentHashes` (or equivalent) type in `com.luciadmcp.knowledge.domain` exposing `sourceHash(byte[])`, `recordHash(...)`, `relationshipHash(...)`, `semanticHash(String)`, and `toolchainFingerprint(...)`. SHA-256, lowercase hex, UTF-8 for text — reuse the exact digest idiom already in `BuildContext.sha256Hex`.
+  - [x] Drive `recordHash` / `relationshipHash` from an explicit ordered `identityFields` list per entity so the recipe is declared, not implicit. Relationship identity fields are exactly: SDK version, source ID, relationship type, target ID, evidence.
+  - [x] `semanticHash` hashes the already-normalized embedder input string verbatim — this type does not itself normalize text (that lives in the embedder later); it hashes what it is given.
+  - [x] Field separators must be unambiguous (no delimiter that can appear in a field value collides two distinct tuples into one hash). Document the chosen separator.
+- [x] Task 2: Unit-test each hash for determinism, known-answer, and locality (AC: 1, 2, 3)
+  - [x] Same input twice → identical hash; a fixed input → a pinned expected hex string (known-answer, guards accidental recipe drift).
+  - [x] Two records differing in one identity field → different `recordHash`; two records with identical identity fields → identical `recordHash`.
+  - [x] Changing one byte of one source file changes that file's `sourceHash` and no other file's.
+  - [x] Separator-collision test: tuples like `("a","bc")` and `("ab","c")` hash differently.
+- [x] Task 3: Add `toolchainFingerprint` to the manifest and prove it gates reuse (AC: 4)
+  - [x] Extend `IndexManifest` (currently `buildId` + `sdkVersion`) with the toolchain fingerprint field. Keep it a record; do not invent validation/activation/retention fields that belong to Epic 6.
+  - [x] Compute the fingerprint from the toolchain component versions available now (parser/schema/normalizer/relationship-rules/embedding config); where a component is still a stub, use its stub version constant so the recipe is exercised end-to-end.
+  - [x] Test: changing any one component version changes the fingerprint; an equal component set reproduces it.
+- [x] Task 4: Replace the provisional `buildId` recipe with the content-inclusive recipe (AC: 1, 5)
+  - [x] `BuildContext.forInputs` folds `sourceHash` of the input files into the sealed digest, not just normalized path strings. Preserve the existing ordered, deterministic construction and the `b-` + prefix `buildId` form.
+  - [x] Same inputs → same `buildId` and same staging dir (resume); one changed input byte → different `buildId` (fresh run). Update `BuildContextTest` expectations and drop the "PROVISIONAL" Javadoc note.
+  - [x] Keep it egress-free and side-effect-free beyond reading the declared input files.
+- [x] Task 5: Emit the machine-readable JSON ingestion report (AC: 6, 7)
+  - [x] Write a small hand-rolled JSON serializer in `cli` (no new third-party dependency — Story 1.3 deliberately used text to avoid preempting this; keep the zero-egress, minimal-dependency posture). Deterministic key order, escaped strings.
+  - [x] Report shape: `buildId`, `sdkVersion`, `toolchainFingerprint`, `aborted`, `activationOccurred`, `stages` (each stage: ran | skipped-on-resume | completed), `failures` (severity + file + stage), and `relationshipCounts` grouped by relationship type then resolution kind with exact/ambiguous/unresolved sub-counts.
+  - [x] Written to a fixed path under the build output (e.g. `{out}/{buildId}/ingestion-report.json`) at the end of `runToResult`, including the aborted-return paths.
+  - [x] Extend `PipelineResult` (or add a report-model type) so the report is built from the run outcome already tracked; do not recompute state.
+- [x] Task 6: Tests for the report and the no-egress guarantee (AC: 6, 7, 8)
+  - [x] Clean run, fail-fast abort, and collect-and-continue runs each write a report; assert the JSON parses, has stable key order, and reflects the correct stage/failure/count state.
+  - [x] Aborted run still writes a report with `aborted=true` and `activationOccurred=false`.
+  - [x] Two identical runs produce byte-identical report content (determinism).
+  - [x] Extend the pipeline egress test so the hashing + report-write + resume cycle records zero host resolutions; the trainings/network-exception path is deliberately not exercised.
+- [x] Task 7: Build, verify dependency direction, finalize (all AC)
+  - [x] `./gradlew cli:test domain:test checkDependencyDirection` green (run from repo root; task has no leading colon).
+  - [x] Fill Dev Agent Record, File List, Change Log; mark tasks [x]; set Status review; update sprint-status.yaml 1-4 → review.
 
 ## Dev Notes
 
@@ -123,8 +127,41 @@ Story 1.3 built the resumable pipeline skeleton and deliberately left two things
 
 ### Agent Model Used
 
+claude-4-8-opus (Claude Code)
+
 ### Debug Log References
+
+- `cd app && ./gradlew domain:test cli:test domain:checkDependencyDirection cli:checkDependencyDirection --console=plain` — BUILD SUCCESSFUL.
+- Test counts (forced rerun): ContentHashesTest 12, IndexManifestTest 4, IngestionReportTest 5, PipelineEgressTest 2, IngestPipelineRunnerTest 8, BuildContextTest 7 — all 0 failures / 0 errors.
 
 ### Completion Notes List
 
+- **Five hashes, one idiom.** `ContentHashes` (domain) exposes the five pure SHA-256/lowercase-hex functions. Multi-field hashes use length-prefixed framing (`<utf8ByteLength>:<bytes>`) so no field value can collide two distinct tuples; a null field frames as `-1:`, distinct from empty `0:`. `sourceHash`/`semanticHash` are bare digests of the given bytes/UTF-8 text. Known-answer tests pin explicit hex for every framed hash so a recipe change fails loudly.
+- **Manifest fingerprint.** `IndexManifest` is now `(buildId, sdkVersion, toolchainFingerprint)` with blank-field rejection; the fingerprint value lives here, but the refuse-on-load gate is Epic 6 (not implemented). The runner computes it from five distinct stub component versions so the recipe is exercised end-to-end.
+- **Content-inclusive buildId.** `BuildContext.forInputs` now folds each input file's `sourceHash` (in sorted relative-path order, `/`-separated keys) into the sealed digest alongside the normalized input paths. The `out` destination is never folded in (it is output, not input, and folding it would break resume). Same inputs → same `buildId`/staging dir; one changed byte or an added file → new `buildId` and a fresh run.
+- **Deterministic report.** Hand-rolled JSON writer in `cli` (no new dependency): fixed key order, escaped strings, ordered lists, no timestamps. Written to `{out}/{buildId}/ingestion-report.json` on every return path — clean and both aborted paths. Per-stage status is one of COMPLETED / SKIPPED_ON_RESUME / FAILED / NOT_RUN. Two fresh runs over identical inputs produce byte-identical report content.
+- **Out-of-scope, as designed:** records/edges do not exist yet (`catalog-sqlite` is a stub), so `recordHash`/`relationshipHash` are proven as pure functions over synthetic identity fields — not wired to a catalog. SQLite uniqueness constraints are deferred to Epic 2. Relationship-resolution counts are structurally present and zero (`relationshipResolution` with empty `byType`/`byResolutionKind`); the shape is fixed for Epics 2–3 to populate. Cross-build incremental indexing remains out of scope.
+- **Zero egress preserved.** `PipelineEgressTest` gained a case asserting the full-run hashing + report write happens under the armed guard with zero host resolutions; the trainings/AD-28 network exception is not exercised.
+
 ### File List
+
+- `app/domain/src/main/java/com/luciadmcp/knowledge/domain/ContentHashes.java` (NEW)
+- `app/domain/src/main/java/com/luciadmcp/knowledge/domain/IndexManifest.java` (UPDATE — added `toolchainFingerprint`)
+- `app/domain/src/test/java/com/luciadmcp/knowledge/domain/ContentHashesTest.java` (NEW)
+- `app/domain/src/test/java/com/luciadmcp/knowledge/domain/IndexManifestTest.java` (NEW)
+- `app/domain/build.gradle.kts` (UPDATE — test-only JUnit deps)
+- `app/cli/src/main/java/com/luciadmcp/knowledge/cli/pipeline/BuildContext.java` (UPDATE — content-inclusive digest)
+- `app/cli/src/main/java/com/luciadmcp/knowledge/cli/pipeline/StageStatus.java` (NEW)
+- `app/cli/src/main/java/com/luciadmcp/knowledge/cli/pipeline/IngestionReport.java` (NEW)
+- `app/cli/src/main/java/com/luciadmcp/knowledge/cli/pipeline/IngestPipelineRunner.java` (UPDATE — fingerprint + 3-arg manifest + report emission + per-stage status)
+- `app/cli/src/test/java/com/luciadmcp/knowledge/cli/pipeline/BuildContextTest.java` (UPDATE — content-hash cases)
+- `app/cli/src/test/java/com/luciadmcp/knowledge/cli/pipeline/IngestPipelineRunnerTest.java` (UPDATE — 3-arg manifest fingerprint assertion)
+- `app/cli/src/test/java/com/luciadmcp/knowledge/cli/pipeline/IngestionReportTest.java` (NEW)
+- `app/cli/src/test/java/com/luciadmcp/knowledge/cli/pipeline/PipelineEgressTest.java` (UPDATE — report-write no-egress case)
+
+## Change Log
+
+| Date       | Version | Description                                                                 | Author |
+|------------|---------|-----------------------------------------------------------------------------|--------|
+| 2026-08-25 | 0.1     | Story drafted (spec authored).                                              | eric   |
+| 2026-08-25 | 1.0     | Implemented: five content hashes, manifest fingerprint, content-inclusive buildId, deterministic JSON ingestion report; all tests green. Status → review. | eric   |

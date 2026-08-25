@@ -158,11 +158,18 @@ class IngestPipelineRunnerTest {
         assertEquals(EnumSet.allOf(PipelineStage.class), resumed.completedStages());
 
         // Manifest identity is a deterministic function of the inputs: recomputing it for the same
-        // inputs yields the same manifest the resumed run reports.
+        // inputs yields the same manifest the resumed run reports. The toolchain fingerprint is a
+        // pure function of the stub component versions, so it too reproduces exactly.
         BuildContext expectedCtx = BuildContext.forInputs(resumedArgs);
+        String expectedFingerprint = com.luciadmcp.knowledge.domain.ContentHashes.toolchainFingerprint(
+                IngestPipelineRunner.STUB_PARSER_VERSION,
+                IngestPipelineRunner.STUB_SCHEMA_VERSION,
+                IngestPipelineRunner.STUB_NORMALIZER_VERSION,
+                IngestPipelineRunner.STUB_RELATIONSHIP_RULES_VERSION,
+                IngestPipelineRunner.STUB_EMBEDDING_CONFIG_ID);
         assertEquals(
                 new com.luciadmcp.knowledge.domain.IndexManifest(
-                        expectedCtx.buildId(), IngestPipelineRunner.STUB_SDK_VERSION),
+                        expectedCtx.buildId(), IngestPipelineRunner.STUB_SDK_VERSION, expectedFingerprint),
                 resumed.manifest());
     }
 

@@ -57,4 +57,29 @@ class PipelineEgressTest {
         assertEquals(EnumSet.allOf(PipelineStage.class), resumed.completedStages());
         assertTrue(resumed.activationOccurred());
     }
+
+    /** Input hashing and the JSON report write are local-only: a clean run under the guard is silent. */
+    @Test
+    void noEgressAcrossHashingAndReportWrite(@TempDir Path tmp) throws Exception {
+        EgressGuard.assertInstalledAndTrips();
+
+        IngestArguments args = PipelineTestSupport.argsIn(tmp);
+
+        EgressGuard.arm();
+        try {
+            // forInputs reads and hashes every input file; runToResult writes the JSON report. Both
+            // are disk-only.
+            IngestPipelineRunner.withDefaultStages().runToResult(args);
+        } finally {
+            EgressGuard.disarm();
+        }
+
+        assertTrue(EgressGuard.violations().isEmpty(),
+                () -> "hashing + report write must not attempt egress; violations=" + EgressGuard.violations());
+        Path report = args.out()
+                .resolve(BuildContext.forInputs(args).buildId())
+                .resolve(IngestPipelineRunner.REPORT_FILE);
+        assertTrue(java.nio.file.Files.isRegularFile(report),
+                () -> "the ingestion report should have been written under the armed guard: " + report);
+    }
 }
