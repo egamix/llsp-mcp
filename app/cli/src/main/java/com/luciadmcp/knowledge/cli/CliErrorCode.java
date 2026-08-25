@@ -26,5 +26,7 @@ public enum CliErrorCode {
     /** A value is not a local filesystem path (URL / {@code scheme://} / UNC / remote form). */
     NON_LOCAL_PATH,
     /** A supplied input directory does not exist or is not a directory. */
-    NOT_A_DIRECTORY
+    NOT_A_DIRECTORY,
+    /** A recognized option was given a value outside its allowed set (e.g. {@code --failure-policy}). */
+    INVALID_OPTION_VALUE
 }
