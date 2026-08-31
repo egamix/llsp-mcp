@@ -67,6 +67,11 @@ subprojects {
     // any subproject can add tests; modules opt in by declaring the testImplementation deps.
     tasks.withType<Test>().configureEach {
         useJUnitPlatform()
+        // Surface System.Logger/JUL progress output (e.g. ingest discovery) in the test console.
+        testLogging {
+            showStandardStreams = true
+            events("passed", "skipped", "failed")
+        }
     }
 
     // AD-1 enforcement: fail the build on any forbidden module dependency edge.

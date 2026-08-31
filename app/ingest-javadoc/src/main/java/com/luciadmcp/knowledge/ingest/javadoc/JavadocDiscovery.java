@@ -2,14 +2,18 @@ package com.luciadmcp.knowledge.ingest.javadoc;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.lang.System.Logger;
+import java.lang.System.Logger.Level;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.EnumMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
 import org.jsoup.Jsoup;
@@ -31,6 +35,11 @@ import org.jsoup.nodes.Document;
  * (that happens with persistence in Story 2.4).
  */
 public final class JavadocDiscovery {
+
+    private static final Logger LOG = System.getLogger(JavadocDiscovery.class.getName());
+
+    /** Emit an INFO progress line after this many classified pages (large trees have ~17k). */
+    private static final int PROGRESS_EVERY = 500;
 
     /** The four search-index files modern Javadoc emits at the tree root. */
     private static final String[] SEARCH_INDEX_FILES = {
@@ -60,17 +69,23 @@ public final class JavadocDiscovery {
         }
         Path base = root.toAbsolutePath().normalize();
         List<String> warnings = new ArrayList<>();
+        LOG.log(Level.INFO, "discovery: scanning Javadoc tree {0}", base);
 
         List<ClassifiedPage> pages = walkAndClassify(base, warnings);
         boolean searchIndexPresent = crossCheckSearchIndex(base, pages, warnings);
 
+        LOG.log(Level.INFO, "discovery: done — {0} pages [{1}], searchIndex={2}, warnings={3}",
+                pages.size(), summarize(pages), searchIndexPresent, warnings.size());
         return new DiscoveryResult(pages, searchIndexPresent, warnings);
     }
 
     /** Recursive {@code *.html} walk + structural classification, in ascending relative-path order. */
     private List<ClassifiedPage> walkAndClassify(Path base, List<String> warnings) {
         List<Path> htmlFiles = walkHtml(base);
-        List<ClassifiedPage> pages = new ArrayList<>(htmlFiles.size());
+        int total = htmlFiles.size();
+        LOG.log(Level.INFO, "discovery: found {0} HTML pages; classifying", total);
+        List<ClassifiedPage> pages = new ArrayList<>(total);
+        int done = 0;
         for (Path file : htmlFiles) {
             String relativePath = relativeKey(base, file);
             PageType type;
@@ -80,11 +95,33 @@ public final class JavadocDiscovery {
             } catch (IOException e) {
                 // A page we cannot read/parse is UNKNOWN, not a crash (AC 7); recorded for later policy.
                 warnings.add("failed to read/parse " + relativePath + ": " + e.getMessage());
+                LOG.log(Level.WARNING, "discovery: failed to read/parse {0}: {1}", relativePath, e.getMessage());
                 type = PageType.UNKNOWN;
             }
+            // Per-page detail is DEBUG so proprietary class names are not logged by default (brief §logging).
+            LOG.log(Level.DEBUG, "discovery: {0} -> {1}", relativePath, type);
             pages.add(new ClassifiedPage(relativePath, type));
+            if (++done % PROGRESS_EVERY == 0 && done < total) {
+                LOG.log(Level.INFO, "discovery: classified {0}/{1} pages", done, total);
+            }
         }
         return pages;
+    }
+
+    /** Compact "TYPE=210, EXCLUDED=218, ..." breakdown for the summary log line (counts only). */
+    private static String summarize(List<ClassifiedPage> pages) {
+        Map<PageType, Integer> counts = new EnumMap<>(PageType.class);
+        for (ClassifiedPage page : pages) {
+            counts.merge(page.type(), 1, Integer::sum);
+        }
+        StringBuilder sb = new StringBuilder();
+        for (Map.Entry<PageType, Integer> e : counts.entrySet()) {
+            if (sb.length() > 0) {
+                sb.append(", ");
+            }
+            sb.append(e.getKey()).append('=').append(e.getValue());
+        }
+        return sb.toString();
     }
 
     private static List<Path> walkHtml(Path base) {

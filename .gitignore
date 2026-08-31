@@ -28,3 +28,5 @@ target/
 /shape/
 docs.zip
 review_diff_*.patch
+# Throwaway manual harness that points at a local Javadoc corpus (env-gated, skips in CI).
+**/ScratchRealDocsTest.java
