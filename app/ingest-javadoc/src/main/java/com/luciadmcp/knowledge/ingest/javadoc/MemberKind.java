@@ -9,12 +9,15 @@ package com.luciadmcp.knowledge.ingest.javadoc;
  */
 public enum MemberKind {
 
-    /** A method (the default when the enclosing detail section is neither constructor nor field). */
+    /** A method (the default when the enclosing detail section is none of the more specific kinds). */
     METHOD,
 
     /** A constructor (enclosing detail section marked constructor). */
     CONSTRUCTOR,
 
     /** A field (enclosing detail section marked field). */
-    FIELD
+    FIELD,
+
+    /** An enum constant (enclosing detail section is the enum-constant detail group). */
+    ENUM_CONSTANT
 }

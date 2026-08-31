@@ -37,13 +37,16 @@ import org.jsoup.nodes.Element;
  */
 public final class JavadocFieldExtractor {
 
-    // Type-level description container: modern section.class-description, legacy div.description.
-    private static final String TYPE_DESC_SCOPE = "section.class-description, div.description";
+    // Type-level description container: modern section.class-description (JDK 17+ / 11–16), the
+    // intermediate HTML5 doclet's section.description, and legacy div.description.
+    private static final String TYPE_DESC_SCOPE =
+            "section.class-description, section.description, div.description";
 
     // A member's description/deprecation-comment block, and the deprecation markers, across eras.
     private static final String BLOCK = ".block";
     private static final String DEPRECATED_LABEL = "span.deprecated-label, span.deprecatedLabel";
-    private static final String DEPRECATION_BLOCK = "div.deprecation-block, .deprecation-block";
+    private static final String DEPRECATION_BLOCK =
+            "div.deprecation-block, .deprecation-block, .deprecationBlock";
     private static final String DEPRECATION_COMMENT = ".deprecation-comment, .deprecationComment";
 
     // A member's signature text container across eras.
@@ -153,17 +156,20 @@ public final class JavadocFieldExtractor {
             issues.add(relativePath + ": member with no recoverable name; skipped");
             return null;
         }
-        MemberKind kind = memberKind(block);
+        MemberKind kind = memberKind(block, relativePath, name, issues);
         Element sig = block.selectFirst(SIGNATURE);
         String signature = sig == null ? "" : norm(sig);
 
+        Deprecation deprecation = findDeprecation(block);
+
         Element descBlock = firstNonDeprecationBlock(block);
         String description = descBlock == null ? "" : norm(descBlock);
-        if (description.isEmpty()) {
+        // A member documented solely via @deprecated (a non-empty deprecation comment, no separate
+        // description block) is documented — not missing docs. Only flag a genuine empty.
+        boolean documentedByDeprecation = deprecation.present() && !deprecation.comment().isEmpty();
+        if (description.isEmpty() && !documentedByDeprecation) {
             issues.add(relativePath + ": member '" + name + "' is missing its description");
         }
-
-        Deprecation deprecation = findDeprecation(block);
 
         Notes notes = parseNotes(block, relativePath, name, issues);
 
@@ -171,28 +177,58 @@ public final class JavadocFieldExtractor {
                 notes.params, notes.returns, notes.throwsTypes, notes.since, deprecation);
     }
 
-    /** The member's kind, decided by the enclosing detail section's structure — never by filename. */
-    private static MemberKind memberKind(Element block) {
-        // Modern: the enclosing details section carries the kind in its id/class
-        // (e.g. constructor-details / constructor-detail, field-details, method-details).
-        if (block.closest("[id*=constructor], [class*=constructor]") != null) {
+    /**
+     * The member's kind, decided by the <b>enclosing details-group</b> section — never by the
+     * member's own {@code section.detail} id (which is the member signature, so a method named
+     * {@code getField}/{@code getConstructor} must not self-match). Modern groups carry the kind in
+     * the group section's id/class (e.g. {@code constructor-details}, {@code field-details},
+     * {@code constant-details}); legacy carries it in the nearest ancestor {@code h3} heading
+     * ("Constructor Detail"/"Field Detail"/"Enum Constant Detail"/...). An unrecognized group is
+     * recorded as an issue and defaulted to {@code METHOD} rather than silently guessed (AD-4).
+     */
+    private static MemberKind memberKind(
+            Element block, String relativePath, String name, List<String> issues) {
+        // Probe = the enclosing details-group descriptor (modern id/class) plus the legacy heading,
+        // never the member section's own id. Starting the group search at block.parent() excludes
+        // block itself, so closest-style self-inclusion cannot misfire on the member's signature.
+        String descriptor = groupDescriptor(block.parent());
+        String heading = nearestSectionHeading(block);
+        String probe = ((descriptor == null ? "" : descriptor) + " "
+                + (heading == null ? "" : heading.toLowerCase(Locale.ROOT))).trim();
+
+        if (probe.contains("constructor")) {
             return MemberKind.CONSTRUCTOR;
         }
-        if (block.closest("[id*=field], [class*=field]") != null) {
+        if (probe.contains("constant")) { // "constant-details" / "Enum Constant Detail"
+            return MemberKind.ENUM_CONSTANT;
+        }
+        if (probe.contains("field")) {
             return MemberKind.FIELD;
         }
-        // Legacy: the nearest ancestor section heading ("Constructor Detail"/"Field Detail"/...).
-        String heading = nearestSectionHeading(block);
-        if (heading != null) {
-            String h = heading.toLowerCase(Locale.ROOT);
-            if (h.contains("constructor")) {
-                return MemberKind.CONSTRUCTOR;
-            }
-            if (h.contains("field")) {
-                return MemberKind.FIELD;
+        if (probe.contains("method")) {
+            return MemberKind.METHOD;
+        }
+        // Recognized nothing (e.g. an annotation-interface element group, or a future doclet
+        // section): don't fabricate a kind — record it and default to METHOD (AD-4).
+        issues.add(relativePath + ": member '" + name
+                + "' is in an unrecognized detail section; kind defaulted to METHOD");
+        return MemberKind.METHOD;
+    }
+
+    /**
+     * Lowercased {@code id + class} of the nearest ancestor (self-inclusive of {@code start}) whose
+     * id/class names a Javadoc detail group (contains {@code "detail"}), e.g.
+     * {@code "method-detail method-details"}, or null if none. Used to read a modern member's kind
+     * from its enclosing group rather than from its own signature-bearing section id.
+     */
+    private static String groupDescriptor(Element start) {
+        for (Element a = start; a != null; a = a.parent()) {
+            String combined = (a.id() + " " + a.className()).toLowerCase(Locale.ROOT);
+            if (combined.contains("detail")) {
+                return combined;
             }
         }
-        return MemberKind.METHOD;
+        return null;
     }
 
     /** Text of the nearest ancestor's direct {@code h3} section heading (legacy), or null. */
@@ -219,10 +255,7 @@ public final class JavadocFieldExtractor {
     /** The tag notes ({@code @param}/{@code @return}/{@code @throws}/{@code @since}) parsed from a scope. */
     private Notes parseNotes(Element scope, String relativePath, String memberName, List<String> issues) {
         Notes notes = new Notes();
-        Element dl = scope.selectFirst("dl.notes");
-        if (dl == null) {
-            dl = scope.selectFirst("dl");
-        }
+        Element dl = notesList(scope);
         if (dl == null) {
             return notes; // no tag notes is normal, not an issue
         }
@@ -232,7 +265,7 @@ public final class JavadocFieldExtractor {
         for (Element el : dl.children()) {
             String tag = el.tagName();
             if (tag.equals("dt")) {
-                if (currentLabel != null && ddsForCurrent == 0) {
+                if (currentLabel != null && ddsForCurrent == 0 && isConsumedLabel(currentLabel)) {
                     issues.add(relativePath + ": member '" + memberName
                             + "' has a truncated '" + currentLabel + "' tag with no value");
                 }
@@ -243,22 +276,50 @@ public final class JavadocFieldExtractor {
                 ddsForCurrent++;
             }
         }
-        if (currentLabel != null && ddsForCurrent == 0) {
+        if (currentLabel != null && ddsForCurrent == 0 && isConsumedLabel(currentLabel)) {
             issues.add(relativePath + ": member '" + memberName
                     + "' has a truncated '" + currentLabel + "' tag with no value");
         }
         return notes;
     }
 
+    /**
+     * The structural tag-notes {@code dl} within {@code scope}: prefer {@code dl.notes}; otherwise
+     * fall back to the first {@code dl} that is <b>not</b> nested inside a description {@code .block}
+     * (an author-written definition list inside the prose must never be mistaken for the notes list).
+     */
+    private static Element notesList(Element scope) {
+        Element dl = scope.selectFirst("dl.notes");
+        if (dl != null) {
+            return dl;
+        }
+        for (Element candidate : scope.select("dl")) {
+            if (candidate.closest(BLOCK) == null) {
+                return candidate;
+            }
+        }
+        return null;
+    }
+
     private static void dispatchNote(String label, Element dd, Notes notes) {
         switch (label) {
-            case "parameters", "type parameters" -> notes.params.add(splitNameProse(dd, Param::new));
+            // Only positional value parameters. "type parameters" (a generic method's <T>) is a
+            // separate concept and must not land in the positional param list — ignored this story.
+            case "parameters" -> notes.params.add(splitNameProse(dd, Param::new));
             case "returns" -> notes.returns = norm(dd);
             case "throws", "exceptions" ->
                     notes.throwsTypes.add(splitNameProse(dd, ThrownException::new));
             case "since" -> notes.since = norm(dd);
-            default -> { /* See Also:, Overrides:, Specified by: — out of scope for this story */ }
+            default -> { /* Type Parameters:, See Also:, Overrides: — out of scope for this story */ }
         }
+    }
+
+    /** Labels this extractor actually consumes — a dangling one of these is a real truncation. */
+    private static boolean isConsumedLabel(String label) {
+        return switch (label) {
+            case "parameters", "returns", "throws", "exceptions", "since" -> true;
+            default -> false;
+        };
     }
 
     /**
@@ -295,10 +356,7 @@ public final class JavadocFieldExtractor {
 
     /** The value of a {@code dl}/{@code dl.notes} label within {@code scope} (e.g. type-level Since:). */
     private static String notesValue(Element scope, String labelWanted) {
-        Element dl = scope.selectFirst("dl.notes");
-        if (dl == null) {
-            dl = scope.selectFirst("dl");
-        }
+        Element dl = notesList(scope);
         if (dl == null) {
             return "";
         }
@@ -329,13 +387,27 @@ public final class JavadocFieldExtractor {
 
     /** The {@code @deprecated} state within {@code scope}: modern deprecation-block or legacy label. */
     private static Deprecation findDeprecation(Element scope) {
-        boolean present = scope.selectFirst(DEPRECATED_LABEL) != null
-                || scope.selectFirst(DEPRECATION_BLOCK) != null;
-        if (!present) {
+        Element label = scope.selectFirst(DEPRECATED_LABEL);
+        Element deprBlock = scope.selectFirst(DEPRECATION_BLOCK);
+        if (label == null && deprBlock == null) {
             return Deprecation.NONE;
         }
         Element comment = scope.selectFirst(DEPRECATION_COMMENT);
-        return Deprecation.of(comment == null ? "" : norm(comment));
+        if (comment != null) {
+            return Deprecation.of(norm(comment));
+        }
+        // No dedicated comment element: recover the prose rendered as bare text in the deprecation
+        // container (the block if present, else the label's parent), minus the label's own text.
+        Element container = deprBlock != null ? deprBlock : (label == null ? null : label.parent());
+        if (container == null) {
+            return Deprecation.of("");
+        }
+        String full = norm(container);
+        String labelText = label == null ? "" : norm(label);
+        String prose = !labelText.isEmpty() && full.startsWith(labelText)
+                ? full.substring(labelText.length()).trim()
+                : full;
+        return Deprecation.of(prose);
     }
 
     private static boolean hasDirectChild(Element parent, String tagName) {

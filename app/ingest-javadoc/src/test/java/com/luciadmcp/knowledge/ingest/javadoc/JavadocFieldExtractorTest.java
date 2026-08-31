@@ -68,6 +68,51 @@ class JavadocFieldExtractorTest {
     }
 
     @Test
+    void enumConstantsClassifyConsistentlyAcrossEras() throws Exception {
+        String path = "com/example/Direction.html";
+        ExtractionResult jdk8 = extractor.extract(fixture("jdk8/Direction.html"), path);
+        ExtractionResult jdk11 = extractor.extract(fixture("jdk11/Direction.html"), path);
+        ExtractionResult jdk17 = extractor.extract(fixture("jdk17/Direction.html"), path);
+
+        assertTrue(jdk8.issues().isEmpty(), () -> "jdk8 issues: " + jdk8.issues());
+        assertTrue(jdk11.issues().isEmpty(), () -> "jdk11 issues: " + jdk11.issues());
+        assertTrue(jdk17.issues().isEmpty(), () -> "jdk17 issues: " + jdk17.issues());
+
+        assertEquals(jdk8.type(), jdk11.type(), "JDK 8 legacy vs JDK 11–16 modern enum must match");
+        assertEquals(jdk11.type(), jdk17.type(), "JDK 11–16 vs JDK 17+ modern enum must match");
+
+        assertEquals(List.of("NORTH", "SOUTH"),
+                jdk11.type().members().stream().map(ExtractedMember::name).toList());
+        assertEquals(List.of(MemberKind.ENUM_CONSTANT, MemberKind.ENUM_CONSTANT),
+                jdk11.type().members().stream().map(ExtractedMember::kind).toList(),
+                "enum constants must classify as ENUM_CONSTANT, not METHOD");
+    }
+
+    @Test
+    void methodWhoseNameContainsFieldOrConstructorIsNotMisclassified() {
+        // Regression for the member-kind self-id match: on a modern page the member's own
+        // section.detail id IS the signature, so a method like getField(int)/getConstructor() must
+        // take its kind from the enclosing details group ("Method Detail"), never from its own id.
+        Document modern = Jsoup.parse(
+                "<html><body class=\"class-declaration-page\"><main>"
+                        + "<section class=\"class-description\" id=\"class-description\">"
+                        + "<div class=\"block\">A type.</div></section>"
+                        + "<section class=\"method-details\" id=\"method-detail\"><h2>Method Detail</h2>"
+                        + "<ul class=\"member-list\">"
+                        + "<li><section class=\"detail\" id=\"getField(int)\"><h3>getField</h3>"
+                        + "<div class=\"member-signature\">int getField(int i)</div>"
+                        + "<div class=\"block\">Gets the field.</div></section></li>"
+                        + "<li><section class=\"detail\" id=\"getConstructor()\"><h3>getConstructor</h3>"
+                        + "<div class=\"member-signature\">Object getConstructor()</div>"
+                        + "<div class=\"block\">Gets it.</div></section></li>"
+                        + "</ul></section></main></body></html>");
+
+        List<ExtractedMember> members = extractor.extract(modern, PATH).type().members();
+        assertEquals(List.of(MemberKind.METHOD, MemberKind.METHOD),
+                members.stream().map(ExtractedMember::kind).toList());
+    }
+
+    @Test
     void methodTagFieldsAreExtracted() throws Exception {
         ExtractedMember doThing = memberNamed(extractor.extract(fixture("jdk11/Widget.html"), PATH), "doThing");
 

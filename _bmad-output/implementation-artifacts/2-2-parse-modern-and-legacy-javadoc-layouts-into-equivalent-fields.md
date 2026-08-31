@@ -4,7 +4,7 @@ baseline_commit: 7a3b43a4f70c86ddf9d825e4f9f25e49f7e332f8
 
 # Story 2.2: Parse modern and legacy Javadoc layouts into equivalent fields
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -202,3 +202,64 @@ claude-4-8-opus (dev-story workflow)
 | Date       | Change                                                                 |
 |------------|------------------------------------------------------------------------|
 | 2026-08-31 | Story 2.2 implemented: layout-agnostic Javadoc field extraction (modern JDK 11–16/17+ and legacy JDK 8) into an internal `ExtractedType`/`ExtractedMember` model with equal fields across eras (AC 1) and graceful degradation with explicit issues (AC 5/6). No `cli` import (AD-1), no domain record touched. Full suite + `checkDependencyDirection` green. Status → review. |
+
+## Review Findings
+
+_Code review 2026-08-31 (baseline `7a3b43a`..HEAD). Three adversarial layers: Blind Hunter, Edge Case Hunter, Acceptance Auditor. 0 decision-needed, 7 patch, 4 deferred, 3 dismissed. Blind+Edge independently agreed on the one High._
+
+### Patch
+
+- [ ] [Review][Patch] Member-kind self-id match misclassifies methods whose anchor id contains "field"/"constructor" (HIGH) — `block.closest("[id*=field]/[class*=field]")` includes the member's own `section.detail`, whose id is the member signature; a real method like `getField(int)`/`getConstructor()` is tagged `FIELD`/`CONSTRUCTOR`, and diverges from the legacy heading-based path (breaks AC 1 on real trees, corrupts 2.3 identity). Fix: search the enclosing details-group section only (start from `block.parent()`), never the member section's own id. [app/ingest-javadoc/.../JavadocFieldExtractor.java:175]
+- [ ] [Review][Patch] `Type Parameters:` folded into the positional value-parameter list (MED) — `dispatchNote` maps both `"parameters"` and `"type parameters"` to `notes.params`, so a generic method's `<T>` lands in param slot 0, corrupting order/count for 2.3. Fix: map only `"parameters"`; let `"type parameters"` fall through (ignored this story). [app/ingest-javadoc/.../JavadocFieldExtractor.java:255]
+- [ ] [Review][Patch] Notes `dl` fallback grabs an author `<dl>` nested in a description `.block` (MED) — `selectFirst("dl")` can pick a definition list inside the description, producing a spurious "truncated tag" issue and hijacking/silently dropping the real `@since`. Fix: fall back only to a `<dl>` not inside a `.block` (structural notes list). [app/ingest-javadoc/.../JavadocFieldExtractor.java:222,298]
+- [ ] [Review][Patch] Signatures/prose diverge across eras on U+00A0 (MED) — modern `.member-signature` uses `&nbsp;` (U+00A0) between tokens; `norm()` (`text().trim()`) neither collapses nor strips U+00A0, so a modern signature ≠ the legacy `<pre>` plain-space one on real pages (breaks full-record equality / 2.3 `kind+name+signature` identity). Fix: normalize U+00A0 to space and collapse in `norm()`. [app/ingest-javadoc/.../JavadocFieldExtractor.java:360]
+- [ ] [Review][Patch] Type-description scope misses `section.description` (MED) — `TYPE_DESC_SCOPE = "section.class-description, div.description"` matches neither a `<section class="description">` (intermediate HTML5-era doclet); type description/`@since`/`@deprecated` are all dropped and a false "no type-description section found" issue is raised. Fix: add `section.description` to the selector. [app/ingest-javadoc/.../JavadocFieldExtractor.java:41]
+- [ ] [Review][Patch] Unwrapped deprecation comment (following text) is dropped; camelCase `deprecationBlock` absent from selector (MED/LOW) — legacy/modern deprecation prose that is bare following text (no `.deprecationComment` element) yields `Deprecation(present=true, comment="")`; and `DEPRECATION_BLOCK` lacks the JDK 11–15 camelCase token (currently masked by the label check). Fix: when no comment element, fall back to the deprecation container's text minus the label; add `.deprecationBlock` to the selector. [app/ingest-javadoc/.../JavadocFieldExtractor.java:46,331]
+- [ ] [Review][Patch] Spurious "missing description" issue for members documented only via `@deprecated` (LOW) — a deprecated member with a deprecation comment but no separate description `.block` emits a false "missing its description" issue (noise under collect-and-continue). Fix: suppress that issue when the member is deprecated with a non-empty comment. [app/ingest-javadoc/.../JavadocFieldExtractor.java:162]
+
+### Deferred
+
+- [x] [Review][Defer] Multi-paragraph description split across multiple `.block` elements — only the first is kept; the rest are dropped (uncommon; concatenation risks over-grabbing). Revisit if real trees show multi-block descriptions. [app/ingest-javadoc/.../JavadocFieldExtractor.java:318]
+- [x] [Review][Defer] Nameless `@param`/`@throws` (no leading `<code>`, no `" - "`) is emitted with empty name and no AD-4 issue — real Javadoc always wraps the name in `<code>`, so low real-world likelihood. [app/ingest-javadoc/.../JavadocFieldExtractor.java:269]
+- [x] [Review][Defer] Enum constants classify as `METHOD` — the detail group ("Enum Constant Detail" / `constant-details`) matches neither constructor nor field; `MemberKind` has no enum-constant value. Needs an enum-constant kind or a FIELD mapping — a model decision for Story 2.3. [app/ingest-javadoc/.../JavadocFieldExtractor.java:175]
+- [x] [Review][Defer] Legacy single-block deprecation+description (both in one `.block`, no wrapper) does not cleanly separate the two proses — mitigated by the deprecation-comment fallback (text lands in the deprecation comment), but the description stays empty. Revisit if real trees use this form. [app/ingest-javadoc/.../JavadocFieldExtractor.java:318]
+
+### Dismissed (3)
+
+- JDK 17+ `ul.member-list` container is "not load-bearing" — by design: `section.detail` is the correct per-member element in JDK 17+, shared with JDK 11–16; the classifier's `MEMBER_BLOCK_SELECTOR` was correctly avoided.
+- Fixtures placed under a new `javadoc-fixtures/extract/` tree instead of extending `modern/`/`legacy/` — deliberate and cleaner; Task 4 also warned against overloading the Story 2.1 classification stubs.
+- AC 5 "unparseable fragment" not represented — JSoup is lenient (never throws on bad markup); the real broken cases (empty description, truncated `dl`, nameless member) are covered by the broken fixtures.
+
+### Independent Re-Review — Verdicts (2026-08-31, cross-model)
+
+_Independent cross-model re-verification of the same-model review above (handover: `2-2-review-handover.md`). Every finding was re-derived from the code; the load-bearing JSoup claims were settled with a throwaway probe on JSoup 1.23.1, not asserted from memory. Outcome: 1 decision-needed, 7 patch, 5 defer, 3 dismissed. **All patches applied 2026-08-31; :ingest-javadoc:test + checkDependencyDirection green (12 cases, 0 failures).** Headline correction: the same-model U+00A0 signature finding (Patch #4) is refuted._
+
+**Probe results (JSoup 1.23.1):** `Element.closest()` IS self-inclusive; `[attr*=val]` IS case-insensitive; `Element.text()` COLLAPSES U+00A0 to a normal space; a `<dl>` nested inside a description `.block` IS caught by `selectFirst("dl")`.
+
+#### Decision needed — RESOLVED
+
+- [x] [Review][Decision] Enum-constant / annotation-element members silently labeled `METHOD`. **Resolved: option (c).** Added `MemberKind.ENUM_CONSTANT`; `memberKind` now reads the kind from the enclosing details-group (constructor / enum-constant / field / method) and records an AD-4 issue for an unrecognized group (e.g. annotation-interface elements) instead of silently defaulting. New enum fixtures across all three eras + `enumConstantsClassifyConsistentlyAcrossEras` lock it. Note for Story 2.3: the `MemberKind` model was started early here; annotation-element kind is still open. [JavadocFieldExtractor.java, MemberKind.java]
+
+#### Patch (all applied)
+
+- [x] [Review][Patch] Member-kind self-id match (CONFIRMED HIGH) — probe proved `closest()` self-inclusive AND `[attr*=]` case-insensitive, so ANY member whose signature/anchor contains "field"/"constructor" self-misclassified; diverged from the legacy heading path. Fixed: `memberKind` searches the enclosing group from `block.parent()` (never the member's own section id); validated against jdk8/jdk11/jdk17 + regression test `methodWhoseNameContainsFieldOrConstructorIsNotMisclassified`. [JavadocFieldExtractor.java]
+- [x] [Review][Patch] `Type Parameters:` folded into positional params (CONFIRMED MED) — now maps only `"parameters"`; `"type parameters"` falls through. [JavadocFieldExtractor.java]
+- [x] [Review][Patch] Notes `dl` fallback grabbed an author `<dl>` inside a description `.block` (CONFIRMED MED) — new `notesList` helper falls back only to a `<dl>` whose `closest(".block") == null`. [JavadocFieldExtractor.java]
+- [x] [Review][Patch] Type-desc scope missed `section.description` (LOW, UNVERIFIED) — added as a safe additive guard; still to be validated against the real 432-page export. [JavadocFieldExtractor.java]
+- [x] [Review][Patch] Deprecation selector gaps (LOW-MED) — added camelCase `.deprecationBlock`; `findDeprecation` now falls back to container-text-minus-label when no `.deprecation-comment` element is present. [JavadocFieldExtractor.java]
+- [x] [Review][Patch] Spurious "missing description" for `@deprecated`-only members (LOW) — suppressed when the member is deprecated with a non-empty comment. [JavadocFieldExtractor.java]
+- [x] [Review][Patch] Truncated-tag issue fired for out-of-scope labels (LOW) — now only for labels the extractor consumes (`isConsumedLabel`). [JavadocFieldExtractor.java]
+
+#### Defer
+
+- [x] [Review][Defer] Broader signature divergence across eras (modifiers/annotations/FQN param-type rendering, and U+200B word-break that modern doclets insert and `text()` does NOT collapse) — the real cross-era signature risk that replaces the refuted U+00A0 finding. Needs real-tree validation + a normalization decision (Story 2.3 identity). [JavadocFieldExtractor.java:360]
+- [x] [Review][Defer] Legacy member whose `<h4>` is not a direct child of `li.blockList` is dropped from `memberBlocks` with no issue (AD-4 silent drop). New this re-review; low likelihood (JDK 8 emits `<h4>` as a direct child). [JavadocFieldExtractor.java:142-147]
+- [x] [Review][Defer] A `<dd>` with no preceding `<dt>`, or under an empty/unrecognized `<dt>` label, is silently discarded with no issue (AD-4). New this re-review. [JavadocFieldExtractor.java:241-262]
+- [x] [Review][Defer] `SIGNATURE` group selector returns the document-order first match, so a `<pre>` code sample in a member with no signature block is captured as the signature. New this re-review; low likelihood. [JavadocFieldExtractor.java:50,157]
+- [x] [Review][Defer] (Confirmed from same-model) Multi-paragraph `.block`, nameless `@param`/`@throws`, legacy single-block deprecation+description — remain deferred; already in `deferred-work.md`.
+
+#### Dismissed (this re-review)
+
+- **U+00A0 signature divergence (same-model Patch #4) — REFUTED.** The probe shows `Element.text()` collapses `&nbsp;` (U+00A0) to a normal space on JSoup 1.23.1, so modern (`&nbsp;`) and legacy (plain space) signatures normalize equal. The proposed `norm()` nbsp-normalization fixes a non-problem on this version. (The genuine cross-era signature risk is the separate defer above.)
+- Multiple `Returns:`/`Since:` `dd`s overwrite (last wins) — degenerate markup; acceptable.
+- Non-ASCII dash separator in `@param`/`@throws` prose — cosmetic and consistent across both eras (no AC-1 divergence).
