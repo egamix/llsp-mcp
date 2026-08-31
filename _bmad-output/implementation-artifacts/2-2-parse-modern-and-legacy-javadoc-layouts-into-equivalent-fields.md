@@ -1,6 +1,10 @@
+---
+baseline_commit: 7a3b43a4f70c86ddf9d825e4f9f25e49f7e332f8
+---
+
 # Story 2.2: Parse modern and legacy Javadoc layouts into equivalent fields
 
-Status: ready-for-dev
+Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -23,38 +27,38 @@ so that the catalog doesn't depend on which Javadoc generator produced the sourc
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Define the extracted-fields model inside `ingest.javadoc` (AC: 3, 4, 7)
-  - [ ] Add an `ExtractedType` record (suggested) in `com.luciadmcp.knowledge.ingest.javadoc`: `relativePath` (String, `/`-separated — reuse the value from the `ClassifiedPage`), the type's `description` (String, may be empty), `since` (String or `Optional<String>`), `deprecated` (a small holder: a boolean/flag plus the deprecation prose, since `@deprecated` carries text), and an ordered `List<ExtractedMember>`.
-  - [ ] Add an `ExtractedMember` record: the member's structural `name` (as it appears in the page, e.g. `doThing`), `signature` (the raw signature text, e.g. `void doThing(int count)`), a `kind` (an enum: `METHOD`/`CONSTRUCTOR`/`FIELD` — decided by structure, not filename), `description`, an **ordered** `List` of params (each: param name + prose), `returns` (String/Optional), an **ordered** `List` of throws (each: exception name/text + prose), `since`, and `deprecated`.
-  - [ ] Keep the model minimal and free of canonical symbols, anchors, and domain types. It is an internal contract consumed by Story 2.3 (canonical symbols) and Story 2.4 (persistence) — exactly the discipline `ClassifiedPage`/`PageType` established in Story 2.1. Do **NOT** add a canonical-symbol field, an SDK-version field, or an HTML anchor field here.
-  - [ ] Validate record invariants in compact canonical constructors the same way `ClassifiedPage` does (reject null `relativePath`/`kind`; default null lists to empty immutable lists via `List.copyOf`).
-- [ ] Task 2: Implement the layout-agnostic field extractor (AC: 1, 2, 3, 5, 7)
-  - [ ] Add a `JavadocFieldExtractor` (suggested) with one public method taking a JSoup `Document` (and the page's `relativePath`) and returning an `ExtractedType` plus its issues. Keep JSoup types **out of** any type the CATALOG stage will consume — mirror how `JavadocPageClassifier` keeps `Document` internal and returns plain records.
-  - [ ] Extract **type-level** fields:
+- [x] Task 1: Define the extracted-fields model inside `ingest.javadoc` (AC: 3, 4, 7)
+  - [x] Add an `ExtractedType` record (suggested) in `com.luciadmcp.knowledge.ingest.javadoc`: `relativePath` (String, `/`-separated — reuse the value from the `ClassifiedPage`), the type's `description` (String, may be empty), `since` (String or `Optional<String>`), `deprecated` (a small holder: a boolean/flag plus the deprecation prose, since `@deprecated` carries text), and an ordered `List<ExtractedMember>`.
+  - [x] Add an `ExtractedMember` record: the member's structural `name` (as it appears in the page, e.g. `doThing`), `signature` (the raw signature text, e.g. `void doThing(int count)`), a `kind` (an enum: `METHOD`/`CONSTRUCTOR`/`FIELD` — decided by structure, not filename), `description`, an **ordered** `List` of params (each: param name + prose), `returns` (String/Optional), an **ordered** `List` of throws (each: exception name/text + prose), `since`, and `deprecated`.
+  - [x] Keep the model minimal and free of canonical symbols, anchors, and domain types. It is an internal contract consumed by Story 2.3 (canonical symbols) and Story 2.4 (persistence) — exactly the discipline `ClassifiedPage`/`PageType` established in Story 2.1. Do **NOT** add a canonical-symbol field, an SDK-version field, or an HTML anchor field here.
+  - [x] Validate record invariants in compact canonical constructors the same way `ClassifiedPage` does (reject null `relativePath`/`kind`; default null lists to empty immutable lists via `List.copyOf`).
+- [x] Task 2: Implement the layout-agnostic field extractor (AC: 1, 2, 3, 5, 7)
+  - [x] Add a `JavadocFieldExtractor` (suggested) with one public method taking a JSoup `Document` (and the page's `relativePath`) and returning an `ExtractedType` plus its issues. Keep JSoup types **out of** any type the CATALOG stage will consume — mirror how `JavadocPageClassifier` keeps `Document` internal and returns plain records.
+  - [x] Extract **type-level** fields:
     - Modern: type description from `section.class-description .block` (fallback `section.class-description`); `@since`/`@deprecated` from the class-description's `dl.notes` (`dt` label → following `dd`) and `div.deprecation-block`/`span.deprecated-label`.
     - Legacy: type description from `div.description .block` / the type's `div.block`; `@since` from the description `dl` (`dt` "Since:" → `dd`); `@deprecated` from `div.block > span.deprecatedLabel` + `.deprecationComment`/following text.
-  - [ ] Extract **members** from the detail sections (the authoritative source for full doc fields — summary tables carry only a one-line description):
+  - [x] Extract **members** from the detail sections (the authoritative source for full doc fields — summary tables carry only a one-line description):
     - Modern (JDK 11–16): `section.detail` blocks — member name/signature from `.member-signature` (or the section's `h3`/`h4`), description from `.block`, tag notes from `dl.notes` (`dt` text `Parameters:`/`Returns:`/`Throws:`/`Since:` mapping to the following `dd`s; a `Parameters:`/`Throws:` `dd` typically starts with a `<code>`/name span then the prose).
     - Modern (JDK 17+): same as above but members live under `ul.member-list > li` inside `section.detail`; the summary container is `.summary-table` (do **not** reuse the classifier's `hasMemberBlocks` selector — see the Review note in Dev Notes).
     - Legacy (JDK 8): `ul.blockList > li.blockList` member blocks with `h4` (member name), `pre` (signature), `div.block` (description), and a `dl` whose `dt` "Parameters:"/"Returns:"/"Throws:"/"Since:" precede `dd`s.
-  - [ ] Distinguish `@param`/`@throws` list items in order; keep param order and throws order stable (they are semantically ordered). Split each param `dd` into (name, prose) and each throws `dd` into (exception, prose) using the structural leading `<code>`/name element, not a text regex where the DOM already separates them.
-  - [ ] Normalize whitespace in extracted prose (collapse runs, trim) so modern and legacy produce byte-equal field values for the same content — this is what makes AC 1 hold. Use `Element.text()`/`wholeText()` deliberately and consistently across both layouts.
-- [ ] Task 3: Graceful degradation and issue reporting — module-local, no `cli` types (AC: 5, 6, 8)
-  - [ ] Add an issues channel on the result: either an `ExtractionResult` holder `{ ExtractedType type, List<String> issues }` or an issues accessor. Model it on Story 2.1's `DiscoveryResult` (`pages` + `warnings`) — same shape, same intent.
-  - [ ] Wrap per-member and per-field extraction so a malformed sub-tree records an issue (`relativePath` + what was missing/unparseable + which member when applicable) and continues to the next member/field. Never throw out of the public method on bad markup; only genuinely exceptional I/O (unreadable file if you also accept a `Path` overload) may surface, consistent with `JavadocDiscovery.walkAndClassify` catching `IOException` → recorded, not fatal.
-  - [ ] An absent optional field (no `@since`, no `@deprecated`, no `@return` on a void method) is **normal and silent** — not an issue. Only genuinely broken/incomplete structure (a member with no recoverable name, a truncated tag list, an empty required description block) is an issue. Do not over-report.
-  - [ ] Do **NOT** import `FailurePolicy`/`StageFailure`/`FailureSeverity` or any `com.luciadmcp.knowledge.cli.*` type. Do **NOT** decide fail-fast vs continue here. The mapping of these issues onto the run policy happens in `cli` at the CATALOG stage in Story 2.4; this story only produces the issue list in the module's own vocabulary.
-- [ ] Task 4: Synthetic fixtures over one shared API surface (AC: 1, 2, 5)
-  - [ ] Under `app/ingest-javadoc/src/test/resources/`, author hand-written HTML fixtures — **no proprietary Luciad content** (repo rule). Build the **same API surface** (e.g. a class with: a class description + `@since` + a `@deprecated` note; one method with `@param`×2/`@return`/`@throws`/`@since`; a deprecated overloaded method; a constructor with a `@param`; a field with a description) rendered three ways: JDK 8 legacy, JDK 11–16 modern, JDK 17+ modern.
-  - [ ] Extend, do not fork, the existing fixture trees where sensible (`javadoc-fixtures/modern/`, `javadoc-fixtures/legacy/`). Existing `Widget.html`/`LegacyClass.html` are classification-only stubs (description/members are placeholders) — add richer type pages for extraction rather than overloading those.
-  - [ ] Add at least one **broken/incomplete** fixture per family: a member missing its `.block`/`div.block` description, a `dl`/`dl.notes` truncated mid-list, an empty `section.class-description`.
-- [ ] Task 5: Tests (AC: 1–8)
-  - [ ] AC 1 headline: parse the legacy and modern (both eras) fixtures for the shared API surface and assert the resulting `ExtractedType` field values and ordered member lists are **equal** across layouts. Make this test explicit and readable — it is the story's proof.
-  - [ ] AC 3: assert only `TYPE` pages are extracted (a `PACKAGE`/`OVERVIEW`/`EXCLUDED` page passed in is either rejected or yields no members — pick one contract and test it); assert type-level `description`/`since`/`deprecated` are captured.
-  - [ ] AC 2: assert JDK 8 / JDK 11–16 / JDK 17+ member containers all extract the same member set and fields.
-  - [ ] AC 5/6: assert the broken/incomplete fixtures extract the recoverable fields, record explicit issues for the unrecoverable ones, and **do not throw**; assert no `cli` type is referenced (a source/import check like `NoJsoupConnectSourceTest`, or simply by the module not compiling against `cli` — AD-1 already enforces this at the Gradle level).
-  - [ ] AC 7: assert two runs over the same fixture return equal results and member order is stable; assert no `Jsoup.connect` (the existing `NoJsoupConnectSourceTest` source-scan already guards the whole module — confirm it still passes and covers the new class).
-  - [ ] Use JUnit 5 (Jupiter), `@TempDir` only where a temp tree is genuinely needed; prefer classpath-resource fixtures. Mirror `JavadocDiscoveryTest` style.
+  - [x] Distinguish `@param`/`@throws` list items in order; keep param order and throws order stable (they are semantically ordered). Split each param `dd` into (name, prose) and each throws `dd` into (exception, prose) using the structural leading `<code>`/name element, not a text regex where the DOM already separates them.
+  - [x] Normalize whitespace in extracted prose (collapse runs, trim) so modern and legacy produce byte-equal field values for the same content — this is what makes AC 1 hold. Use `Element.text()`/`wholeText()` deliberately and consistently across both layouts.
+- [x] Task 3: Graceful degradation and issue reporting — module-local, no `cli` types (AC: 5, 6, 8)
+  - [x] Add an issues channel on the result: either an `ExtractionResult` holder `{ ExtractedType type, List<String> issues }` or an issues accessor. Model it on Story 2.1's `DiscoveryResult` (`pages` + `warnings`) — same shape, same intent.
+  - [x] Wrap per-member and per-field extraction so a malformed sub-tree records an issue (`relativePath` + what was missing/unparseable + which member when applicable) and continues to the next member/field. Never throw out of the public method on bad markup; only genuinely exceptional I/O (unreadable file if you also accept a `Path` overload) may surface, consistent with `JavadocDiscovery.walkAndClassify` catching `IOException` → recorded, not fatal.
+  - [x] An absent optional field (no `@since`, no `@deprecated`, no `@return` on a void method) is **normal and silent** — not an issue. Only genuinely broken/incomplete structure (a member with no recoverable name, a truncated tag list, an empty required description block) is an issue. Do not over-report.
+  - [x] Do **NOT** import `FailurePolicy`/`StageFailure`/`FailureSeverity` or any `com.luciadmcp.knowledge.cli.*` type. Do **NOT** decide fail-fast vs continue here. The mapping of these issues onto the run policy happens in `cli` at the CATALOG stage in Story 2.4; this story only produces the issue list in the module's own vocabulary.
+- [x] Task 4: Synthetic fixtures over one shared API surface (AC: 1, 2, 5)
+  - [x] Under `app/ingest-javadoc/src/test/resources/`, author hand-written HTML fixtures — **no proprietary Luciad content** (repo rule). Build the **same API surface** (e.g. a class with: a class description + `@since` + a `@deprecated` note; one method with `@param`×2/`@return`/`@throws`/`@since`; a deprecated overloaded method; a constructor with a `@param`; a field with a description) rendered three ways: JDK 8 legacy, JDK 11–16 modern, JDK 17+ modern.
+  - [x] Extend, do not fork, the existing fixture trees where sensible (`javadoc-fixtures/modern/`, `javadoc-fixtures/legacy/`). Existing `Widget.html`/`LegacyClass.html` are classification-only stubs (description/members are placeholders) — add richer type pages for extraction rather than overloading those.
+  - [x] Add at least one **broken/incomplete** fixture per family: a member missing its `.block`/`div.block` description, a `dl`/`dl.notes` truncated mid-list, an empty `section.class-description`.
+- [x] Task 5: Tests (AC: 1–8)
+  - [x] AC 1 headline: parse the legacy and modern (both eras) fixtures for the shared API surface and assert the resulting `ExtractedType` field values and ordered member lists are **equal** across layouts. Make this test explicit and readable — it is the story's proof.
+  - [x] AC 3: assert only `TYPE` pages are extracted (a `PACKAGE`/`OVERVIEW`/`EXCLUDED` page passed in is either rejected or yields no members — pick one contract and test it); assert type-level `description`/`since`/`deprecated` are captured.
+  - [x] AC 2: assert JDK 8 / JDK 11–16 / JDK 17+ member containers all extract the same member set and fields.
+  - [x] AC 5/6: assert the broken/incomplete fixtures extract the recoverable fields, record explicit issues for the unrecoverable ones, and **do not throw**; assert no `cli` type is referenced (a source/import check like `NoJsoupConnectSourceTest`, or simply by the module not compiling against `cli` — AD-1 already enforces this at the Gradle level).
+  - [x] AC 7: assert two runs over the same fixture return equal results and member order is stable; assert no `Jsoup.connect` (the existing `NoJsoupConnectSourceTest` source-scan already guards the whole module — confirm it still passes and covers the new class).
+  - [x] Use JUnit 5 (Jupiter), `@TempDir` only where a temp tree is genuinely needed; prefer classpath-resource fixtures. Mirror `JavadocDiscoveryTest` style.
 
 ## Dev Notes
 
@@ -157,8 +161,44 @@ cd app && GRADLE_OPTS=-Djavax.net.ssl.trustStoreType=Windows-ROOT ./gradlew :ing
 
 ### Agent Model Used
 
+claude-4-8-opus (dev-story workflow)
+
 ### Debug Log References
+
+- `:ingest-javadoc:test checkDependencyDirection` — pass (12 new `JavadocFieldExtractorTest` cases + all Story 2.1 tests green; `NoJsoupConnectSourceTest` still passes and now also covers the new class).
+- `test checkDependencyDirection` (full, all modules) — pass, no regressions. `ingest-javadoc:checkDependencyDirection` confirms no accidental `cli` import (AD-1).
 
 ### Completion Notes List
 
+- Delivered a layout-agnostic `JavadocFieldExtractor` producing an `ingest.javadoc`-internal `ExtractedType` (type-level description/`@since`/`@deprecated` + ordered `ExtractedMember`s with description/params/returns/throws/`@since`/`@deprecated`). No domain record created or extended; no canonical symbol minted — the deferred Epic-2 domain gate is untouched (AC 4).
+- **AC 1 headline proof:** `modernAndLegacyLayoutsExtractEqualFields` parses the same API surface authored three ways (JDK 8 legacy, JDK 11–16 modern, JDK 17+ modern) and asserts the whole `ExtractedType` is equal across all three eras. Signatures were authored identically across fixtures so full-record equality (not a projection) holds; equality is compared with a common `relativePath` argument since fixtures live at different disk paths.
+- **Member kind is structural, never filename:** modern uses `Element.closest("[id*=constructor]/[class*=constructor]", ...field...)` on the enclosing detail section; legacy walks to the nearest ancestor `h3` section heading ("Constructor Detail"/"Field Detail"/…). Default is `METHOD`.
+- **Did NOT reuse the classifier's `MEMBER_BLOCK_SELECTOR`** (the deferred Story 2.1 review note): extraction selects member *detail* blocks — modern `section.detail`, legacy `li.blockList` with a direct `h4` child — and pulls full fields from `dl.notes`/`dl` (`Parameters:`/`Returns:`/`Throws:`/`Since:`). Param/throws `dd`s are split into (name, prose) via the leading `<code>`/`<a>` element with a `" - "` text fallback.
+- **Graceful degradation (AC 5/6):** never throws on malformed markup (JSoup is lenient; structural gaps are the real "broken" case). Records explicit issues for an empty type description, a member missing its description, a truncated `dl` tag (a `dt` with no following `dd`), and a member with no recoverable heading (skipped). Absent optional fields (no `@since`/`@return`/`@deprecated`) are normal and silent — not over-reported.
+- **AD-1 held in the module's own terms:** the extractor imports no `cli` type; degradation is surfaced as a `List<String>` issues channel on `ExtractionResult` (modeled on `DiscoveryResult.warnings`). Mapping issues onto the `fail-fast | collect-and-continue` policy is deferred to the CATALOG stage in Story 2.4, as the story specified.
+- **AD-9/AD-10:** `Jsoup.parse(file, null)` (local bytes, honors BOM/meta charset); `Jsoup.connect` never used — the existing source-scan guard covers the new class. Not wired into `PipelineStage.CATALOG`/`IngestPipelineRunner` (AC 8).
+- No build/dependency change: JSoup 1.23.1 + JUnit were already wired in Story 2.1.
+
 ### File List
+
+- **NEW** app/ingest-javadoc/src/main/java/com/luciadmcp/knowledge/ingest/javadoc/MemberKind.java
+- **NEW** app/ingest-javadoc/src/main/java/com/luciadmcp/knowledge/ingest/javadoc/Deprecation.java
+- **NEW** app/ingest-javadoc/src/main/java/com/luciadmcp/knowledge/ingest/javadoc/Param.java
+- **NEW** app/ingest-javadoc/src/main/java/com/luciadmcp/knowledge/ingest/javadoc/ThrownException.java
+- **NEW** app/ingest-javadoc/src/main/java/com/luciadmcp/knowledge/ingest/javadoc/ExtractedMember.java
+- **NEW** app/ingest-javadoc/src/main/java/com/luciadmcp/knowledge/ingest/javadoc/ExtractedType.java
+- **NEW** app/ingest-javadoc/src/main/java/com/luciadmcp/knowledge/ingest/javadoc/ExtractionResult.java
+- **NEW** app/ingest-javadoc/src/main/java/com/luciadmcp/knowledge/ingest/javadoc/JavadocFieldExtractor.java
+- **UPDATE** app/ingest-javadoc/src/main/java/com/luciadmcp/knowledge/ingest/javadoc/package-info.java (mention field extraction)
+- **NEW** app/ingest-javadoc/src/test/java/com/luciadmcp/knowledge/ingest/javadoc/JavadocFieldExtractorTest.java
+- **NEW** app/ingest-javadoc/src/test/resources/javadoc-fixtures/extract/jdk17/Widget.html
+- **NEW** app/ingest-javadoc/src/test/resources/javadoc-fixtures/extract/jdk11/Widget.html
+- **NEW** app/ingest-javadoc/src/test/resources/javadoc-fixtures/extract/jdk8/Widget.html
+- **NEW** app/ingest-javadoc/src/test/resources/javadoc-fixtures/extract/broken/modern-broken.html
+- **NEW** app/ingest-javadoc/src/test/resources/javadoc-fixtures/extract/broken/legacy-broken.html
+
+## Change Log
+
+| Date       | Change                                                                 |
+|------------|------------------------------------------------------------------------|
+| 2026-08-31 | Story 2.2 implemented: layout-agnostic Javadoc field extraction (modern JDK 11–16/17+ and legacy JDK 8) into an internal `ExtractedType`/`ExtractedMember` model with equal fields across eras (AC 1) and graceful degradation with explicit issues (AC 5/6). No `cli` import (AD-1), no domain record touched. Full suite + `checkDependencyDirection` green. Status → review. |

@@ -9,7 +9,14 @@
  * The output is a deterministic, relative-path-ordered set of
  * {@link com.luciadmcp.knowledge.ingest.javadoc.ClassifiedPage}.
  *
- * <p>Field extraction (Story 2.2), canonical symbols (Story 2.3), and catalog persistence (Story 2.4)
- * build on this. This package mints no {@code domain} records and performs no network I/O (AD-9).
+ * <p>Story 2.2 adds {@link com.luciadmcp.knowledge.ingest.javadoc.JavadocFieldExtractor}, which mines a
+ * {@link com.luciadmcp.knowledge.ingest.javadoc.PageType#TYPE} page into a layout-agnostic
+ * {@link com.luciadmcp.knowledge.ingest.javadoc.ExtractedType} — type-level description/{@code @since}/
+ * {@code @deprecated} plus per-member fields — identically for modern (JDK 11+) and legacy (JDK 8)
+ * generators. Broken/incomplete markup degrades into explicit issues on the
+ * {@link com.luciadmcp.knowledge.ingest.javadoc.ExtractionResult} rather than crashing.
+ *
+ * <p>Canonical symbols (Story 2.3) and catalog persistence (Story 2.4) build on this. This package
+ * mints no {@code domain} records and performs no network I/O (AD-9).
  */
 package com.luciadmcp.knowledge.ingest.javadoc;
