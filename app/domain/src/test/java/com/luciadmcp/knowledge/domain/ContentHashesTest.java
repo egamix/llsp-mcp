@@ -93,6 +93,23 @@ class ContentHashesTest {
     }
 
     @Test
+    void changingOneRelationshipFieldChangesOnlyThatRelationshipHash() {
+        String a = ContentHashes.relationshipHash(
+                "2024.0", "Foo", RelationshipType.EXTENDS_CLASS, "Bar", "FQN_LITERAL");
+        String b = ContentHashes.relationshipHash(
+                "2024.0", "Foo", RelationshipType.EXTENDS_CLASS, "Baz", "FQN_LITERAL");
+        String unrelated = ContentHashes.relationshipHash(
+                "2024.0", "Other", RelationshipType.IMPLEMENTS, "Qux", "FQN_LITERAL");
+
+        assertNotEquals(a, b, "a differing target id must change the relationship hash");
+        // The unrelated relationship's hash is a pure function of its own fields — unaffected by a/b.
+        assertEquals(
+                ContentHashes.relationshipHash(
+                        "2024.0", "Other", RelationshipType.IMPLEMENTS, "Qux", "FQN_LITERAL"),
+                unrelated);
+    }
+
+    @Test
     void differentEntityTypesDoNotCollide() {
         assertNotEquals(
                 ContentHashes.recordHash("ApiElement", List.of("X")),

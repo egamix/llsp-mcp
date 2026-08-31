@@ -20,6 +20,13 @@ public interface Stage {
     /**
      * Executes this stage.
      *
+     * <p>An uncaught exception is a second, distinct failure channel from reporting a
+     * {@link StageFailure}: it aborts the run unconditionally, bypassing {@link FailurePolicy}
+     * entirely and leaving the stage uncheckpointed, regardless of severity or policy. It is
+     * reserved for programming errors and crash simulation in tests — not for expected failure
+     * conditions, which must go through {@code failures} so the orchestrator's policy decision
+     * applies.
+     *
      * @param context  the coordinator-owned build context (AD-17)
      * @param failures sink for any {@link StageFailure} this stage raises
      */

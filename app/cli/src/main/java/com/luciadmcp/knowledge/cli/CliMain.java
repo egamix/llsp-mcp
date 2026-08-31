@@ -54,6 +54,9 @@ public final class CliMain {
         } catch (CliException e) {
             err.println(e.error().render());
             return EXIT_USAGE_ERROR;
+        } catch (RuntimeException e) {
+            err.println("error: " + e.getMessage());
+            return EXIT_USAGE_ERROR;
         }
     }
 }

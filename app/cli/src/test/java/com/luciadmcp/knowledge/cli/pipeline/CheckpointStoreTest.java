@@ -4,6 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -67,6 +69,31 @@ class CheckpointStoreTest {
         assertFalse(store.isCompleted(PipelineStage.CATALOG),
                 "a checkpoint from a different sealed input digest must not be reused");
         assertTrue(store.completedStages().isEmpty());
+    }
+
+    /** An unreadable checkpoint (unknown stage name) is treated as absent, but not silently. */
+    @Test
+    void unreadableCheckpointStartsFreshAndLogsAWarning(@TempDir Path tmp) throws Exception {
+        Path staging = tmp.resolve("staging");
+        Files.createDirectories(staging);
+        Files.writeString(
+                staging.resolve(CheckpointStore.CHECKPOINT_FILE),
+                "digest=digest-corrupt\nstage=NOT_A_REAL_STAGE\n",
+                StandardCharsets.UTF_8);
+
+        PrintStream originalErr = System.err;
+        ByteArrayOutputStream errBuf = new ByteArrayOutputStream();
+        CheckpointStore store;
+        try (PrintStream captured = new PrintStream(errBuf, true, StandardCharsets.UTF_8)) {
+            System.setErr(captured);
+            store = new CheckpointStore(contextAt(staging, "digest-corrupt"));
+        } finally {
+            System.setErr(originalErr);
+        }
+
+        assertTrue(store.completedStages().isEmpty(), "an unreadable checkpoint must start fresh");
+        String logged = errBuf.toString(StandardCharsets.UTF_8);
+        assertTrue(logged.contains("checkpoint"), () -> "expected a warning about the checkpoint, got: " + logged);
     }
 
     /** Stages are written in fixed pipeline order regardless of the order they were marked. */

@@ -28,5 +28,7 @@ public enum CliErrorCode {
     /** A supplied input directory does not exist or is not a directory. */
     NOT_A_DIRECTORY,
     /** A recognized option was given a value outside its allowed set (e.g. {@code --failure-policy}). */
-    INVALID_OPTION_VALUE
+    INVALID_OPTION_VALUE,
+    /** {@code --out} is the same as, or nested within, one of the input directories. */
+    OUTPUT_NESTED_IN_INPUT
 }

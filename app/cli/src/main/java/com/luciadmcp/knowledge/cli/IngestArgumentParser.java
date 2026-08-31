@@ -144,10 +144,24 @@ public final class IngestArgumentParser {
      * outright rather than resolved.
      */
     private static void requireLocalPath(String option, String value) {
+        if (value.isBlank()) {
+            throw new CliException(CliError.of(
+                    CliErrorCode.MISSING_OPTION_VALUE, "option requires a directory value", option));
+        }
         if (URL_SCHEME.matcher(value).find()) {
             throw new CliException(CliError.of(
                     CliErrorCode.NON_LOCAL_PATH,
                     "value for " + option + " must be a local path, not a URL", value));
+        }
+        // Windows extended-length device-path prefixes (\\?\, \\.\) are local paths, not UNC shares —
+        // except \\?\UNC\server\share, which is the extended-length form of a genuine UNC network path.
+        if (value.startsWith("\\\\?\\UNC\\")) {
+            throw new CliException(CliError.of(
+                    CliErrorCode.NON_LOCAL_PATH,
+                    "value for " + option + " must be a local path, not a UNC/network path", value));
+        }
+        if (value.startsWith("\\\\?\\") || value.startsWith("\\\\.\\")) {
+            return;
         }
         if (value.startsWith("\\\\") || value.startsWith("//")) {
             throw new CliException(CliError.of(

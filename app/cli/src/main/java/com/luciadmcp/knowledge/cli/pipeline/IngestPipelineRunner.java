@@ -4,6 +4,7 @@ import com.luciadmcp.knowledge.cli.IngestArguments;
 import com.luciadmcp.knowledge.cli.IngestPipeline;
 import com.luciadmcp.knowledge.domain.ContentHashes;
 import com.luciadmcp.knowledge.domain.IndexManifest;
+import java.io.UncheckedIOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.EnumMap;
@@ -33,9 +34,11 @@ import java.util.Map;
  * </ul>
  *
  * <h2>Ingestion report</h2>
- * <p>Every run — clean or aborted — writes {@code {out}/{buildId}/ingestion-report.json} before
- * returning, so a failed build is diagnosable from a machine-readable artifact rather than logs
- * (AC 6, 7). The report is deterministic: identical inputs produce byte-identical report content.
+ * <p>Every run that reaches a return point — clean or aborted — attempts to write
+ * {@code {out}/{buildId}/ingestion-report.json} before returning, so a failed build is diagnosable
+ * from a machine-readable artifact rather than logs (AC 6, 7). The report is deterministic:
+ * identical inputs produce byte-identical report content. A run that crashes with an uncaught
+ * exception before reaching a return point (see {@link Stage}) writes no report.
  */
 public final class IngestPipelineRunner implements IngestPipeline {
 
@@ -154,10 +157,16 @@ public final class IngestPipelineRunner implements IngestPipeline {
                 return aborted(args, context, manifest, checkpoint, collected, statuses);
             }
 
-            // Clean, or recoverable under collect-and-continue: the stage is done, so record it and
-            // move on. Recording lets a resumed run skip it.
-            checkpoint.markCompleted(stage);
-            statuses.put(stage, StageStatus.COMPLETED);
+            if (stageFailures.isEmpty()) {
+                // Clean: the stage is done, so record it. Recording lets a resumed run skip it.
+                checkpoint.markCompleted(stage);
+                statuses.put(stage, StageStatus.COMPLETED);
+            } else {
+                // Recoverable under collect-and-continue: recorded above, run continues, but the
+                // stage is NOT checkpointed — a resume must re-run it so its failure is reproduced
+                // rather than silently dropped from a later run's results.
+                statuses.put(stage, StageStatus.FAILED);
+            }
         }
 
         boolean activationOccurred = checkpoint.isCompleted(PipelineStage.ACTIVATION);
@@ -209,7 +218,13 @@ public final class IngestPipelineRunner implements IngestPipeline {
                 IngestionReport.ResolutionSummary.empty());
 
         Path reportPath = args.out().resolve(manifest.buildId()).resolve(REPORT_FILE);
-        report.writeTo(reportPath);
+        try {
+            report.writeTo(reportPath);
+        } catch (UncheckedIOException e) {
+            // The in-memory result (already computed by the caller) is still returned; a report-write
+            // failure must not mask a run's actual outcome behind an unrelated I/O exception.
+            System.err.println("warning: failed to write ingestion report to " + reportPath + ": " + e.getMessage());
+        }
     }
 
     private static boolean containsSeverity(List<StageFailure> failures, FailureSeverity severity) {

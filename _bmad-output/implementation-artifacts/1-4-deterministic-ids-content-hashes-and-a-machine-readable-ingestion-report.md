@@ -4,7 +4,7 @@ baseline_commit: 9fb75f15d145fc982a3724553e669d288d5f07ec
 
 # Story 1.4: Deterministic IDs, content hashes, and a machine-readable ingestion report
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -63,6 +63,39 @@ so that re-ingesting the same inputs is verifiably reproducible and a failed run
 - [x] Task 7: Build, verify dependency direction, finalize (all AC)
   - [x] `./gradlew cli:test domain:test checkDependencyDirection` green (run from repo root; task has no leading colon).
   - [x] Fill Dev Agent Record, File List, Change Log; mark tasks [x]; set Status review; update sprint-status.yaml 1-4 → review.
+
+### Review Findings
+
+**Resolved since last pass — verified against current code (2026-08-31):**
+
+- [x] [Review][Patch] Relationship-resolution report shape doesn't match the spec's stated grouping — RESOLVED: `IngestionReport.ResolutionCell` implements the joint `(relationshipType, resolutionKind, exact, ambiguous, unresolved)` breakdown per the 2026-08-25 decision. [`IngestionReport.java:64-78`]
+- [x] [Review][Patch] `IngestionReport`/`StageStatus` were `public` but package-only — RESOLVED: both are package-private records/enum (no `public` modifier). [`IngestionReport.java:30`, `StageStatus.java:15`]
+- [x] [Review][Patch] No check that `--out` is disjoint from the input roots — RESOLVED: `IngestCommand.requireOutputNotNestedInInputs`/`requireNotAncestor` reject `--out` nested in any input root. [`IngestCommand.java:95-113`]
+- [x] [Review][Patch] `writeReport`'s write failure discarded the already-computed `PipelineResult` — RESOLVED: `writeReport` now catches `UncheckedIOException` internally, logs a warning, and the caller still returns its already-built `PipelineResult`. [`IngestPipelineRunner.java:220-227`]
+- [x] [Review][Patch] `ContentHashesTest` had no per-field locality test for `relationshipHash` — RESOLVED: `changingOneRelationshipFieldChangesOnlyThatRelationshipHash` covers it. [`ContentHashesTest.java:96-110`]
+- [x] [Review][Patch] `IngestPipelineRunner` class Javadoc overclaimed report coverage on crash — RESOLVED: class Javadoc now states "a run that crashes with an uncaught exception before reaching a return point... writes no report." [`IngestPipelineRunner.java:40-41`]
+
+**Open:**
+
+- [x] [Review][Patch] Task 7's Debug Log Reference records a narrower `domain:checkDependencyDirection cli:checkDependencyDirection` invocation than the spec's own Task 7 command (bare `checkDependencyDirection`, the full aggregate task). Re-run the aggregate command and correct the Debug Log Reference text to match what was actually verified. [Dev Agent Record, this file] — FIXED: re-ran with the bare aggregate `checkDependencyDirection` task; Debug Log Reference below corrected to match.
+- [x] [Review][Patch] `IngestArgumentParser.requireLocalPath` treats any value starting with `\\?\` or `\\.\` as local, but `\\?\UNC\server\share` is the Windows extended-length form of a genuine UNC network path — it starts with `\\?\` and is incorrectly waved through, bypassing the AD-9 zero-egress argument-contract guard this method exists to enforce. Check for the `\\?\UNC\` prefix specifically and reject it as non-local. [`IngestArgumentParser.java:156-159`] — FIXED: explicit `\\?\UNC\` rejection added before the extended-length-device-path allow; covered by new test `extendedLengthUncPathIsRejectedAsNonLocal`.
+- [x] [Review][Patch] `IngestCommand.requireNotAncestor` compares `.toAbsolutePath().normalize()` paths, not `.toRealPath()` — if `--out` is (or resolves through) a symlink/junction whose real target sits inside an input root, the nested-output guard is bypassed even though the guard exists specifically to protect the buildId-determinism guarantee this story introduces. No test exercises this guard directly either (no `IngestCommandTest`). Resolve real paths for the input roots (already required to exist) before the ancestry check; `--out` may not exist yet, so only real-path it when it does. [`IngestCommand.java:95-113`] — FIXED: `requireOutputNotNestedInInputs` now resolves `--out` by walking up to its nearest existing/symlinked ancestor (following any symlinks along the way) and comparing real paths against each real input root; covered by new tests `outputNestedInsideInputDirectoryIsRejected` and `outputSymlinkedIntoInputDirectoryIsRejected` (the latter skips gracefully where symlink creation isn't permitted).
+- [x] [Review][Patch] `CheckpointStore.load()` silently discards on `IllegalArgumentException` (digest mismatch or corrupt file) via a bare `catch { return; }` with no log line — a user expecting a resume gets a silent fresh run with no diagnostic trail. Add a single warning log so the behavior is observable. [`CheckpointStore.java`] — FIXED: catch branch now logs a stderr warning naming the checkpoint file and the unknown stage before starting fresh; covered by new test `unreadableCheckpointStartsFreshAndLogsAWarning`.
+**Defer:**
+
+- [x] [Review][Defer] A report-write failure (`writeReport`'s catch) is downgraded to a stderr warning with no signal in the returned `PipelineResult`, the report file, or the exit code — so the one case where the diagnostic artifact this story exists to provide is missing is itself only diagnosable by reading logs, contradicting the story's own goal ("diagnosable without reading logs by hand"). [`IngestPipelineRunner.java:220-227`] — deferred: exit-code/observability granularity for run outcomes is Story 8.3's scope; this story's ACs only require the report be written on success/abort, not that its own write-failure be surfaced distinctly.
+- [x] [Review][Defer] `CliMain` catches `RuntimeException` broadly and maps every non-`CliException` failure (bad flag or internal I/O failure alike) to the same `EXIT_USAGE_ERROR` — but this is the class's own documented, deliberate scope: a single usage-error code suffices for this story, and the full exit-code table is Story 8.3. [`CliMain.java`] — deferred, matches existing documented scope boundary, revisit with Story 8.3.
+- [x] [Review][Defer] `CliMain` has no `catch (Error e)` — an `Error` (e.g. `OutOfMemoryError` during hashing) escapes uncaught with a raw stack trace instead of a controlled exit. Same deliberate single-exit-code scope as above; broadly catching `Error` is also its own anti-pattern (can mask fatal JVM state) and isn't required by any AC here. [`CliMain.java`] — deferred, revisit with Story 8.3 if a documented exit-code table calls for it.
+- [x] [Review][Defer] `IngestionReport`'s record constructor has no null validation on any field (contrast `BuildContext`, which does) — but its only production caller (`IngestPipelineRunner.writeReport`) always supplies non-null values today. Same reasoning as the already-deferred `ContentHashes` null-tolerance item below: no real external caller yet. [`IngestionReport.java:40-43`]
+- [x] [Review][Defer] `BuildContext.hashRootFiles`/`readAll` fully buffers each input file into memory via `Files.readAllBytes` and rehashes every byte of every file on every invocation, including pure resume-checkpoint checks — no streaming digest, no caching. [`BuildContext.java:90-119`] — deferred, real for large model/javadoc trees but this story's Dev Notes scope synthetic fixtures only; revisit once input volumes become non-trivial.
+- [x] [Review][Defer] `Files.walk` in `hashRootFiles` doesn't follow symlinks, extending the existing Story-1.3-deferred path-identity limitation (symlinks/junctions never resolved) to file *content* walking, not just path digesting. [`BuildContext.java:95`] — deferred, same root cause as the existing Story-1.3 deferred item on symlink/case handling.
+- [x] [Review][Defer] Neither the outer path-list join in `BuildContext.forInputs` (`String.join("\n", ordered)`) nor `relativeKey`'s backslash-to-slash conversion are length-prefix framed the way `ContentHashes`' multi-field hashes are — a filename containing a literal newline (or a POSIX path segment containing a literal backslash) could theoretically shift entries and collide two distinct input sets onto the same digest. [`BuildContext.java:79,109-111`] — deferred, vanishingly unlikely for structured Javadoc/sample/model trees; same hardening technique as `ContentHashes` framing would apply if ever revisited.
+- [x] [Review][Defer] `ContentHashes.relationshipHash`/`toolchainFingerprint` null-tolerance is inconsistent (only `type` is checked; other fields silently accept null) — but there are no real callers yet: records/edges don't exist per this story's own scope boundary, and `toolchainFingerprint` is only ever invoked with hardcoded non-null stub constants today. [`ContentHashes.java:92-105,138-152`] — deferred, revisit once Epic 2/3 wires real callers and the actual nullability contract is known.
+- [x] [Review][Defer] No formal `identityFields`-per-entity-type registry (AD-22) — currently just a caller convention. [`ContentHashes.java:65-79`] — deferred, out of scope until real entity types exist (Epic 2+).
+- [x] [Review][Defer] `IngestionReport` has no schema/report-version field, and `ResolutionSummary` has no invariant tying its totals to its group sums. [`IngestionReport.java:52-79`] — deferred, speculative hardening for a structure that's currently always zero/empty; revisit once Epic 2/3 populates real data.
+- [x] [Review][Defer] TOCTOU race in `hashRootFiles`: a file deleted between being listed by `Files.walk` and read by `Files.readAllBytes` crashes the whole run via an uncaught `UncheckedIOException` rather than a graceful `StageFailure`. [`BuildContext.java:90-106`] — deferred, low-likelihood for a single local invocation over a stable input tree; consistent with the rest of the codebase not guarding against concurrent external mutation during a run.
+
+**Dismissed as noise (5, dropped from this list):** the pipeline-restart test was re-verified to genuinely crash-then-resume within the same staging directory (Blind Hunter's claim was incorrect); the `sameFileContentProducesSameBuildId` test is weak but not a defect; the `domain/build.gradle.kts` `testImplementation` JUnit addition matches already-established Story 1.1/1.2 precedent under AD-1, not a new relaxation; `writeReport`'s `catch (UncheckedIOException)` is appropriately scoped since `IngestionReport.writeTo` never throws anything else; and a claimed `ResolutionSummary` totals/cells invariant gap duplicates the already-deferred item above.
 
 ## Dev Notes
 
@@ -131,8 +164,9 @@ claude-4-8-opus (Claude Code)
 
 ### Debug Log References
 
-- `cd app && ./gradlew domain:test cli:test domain:checkDependencyDirection cli:checkDependencyDirection --console=plain` — BUILD SUCCESSFUL.
+- `cd app && GRADLE_OPTS=-Djavax.net.ssl.trustStoreType=Windows-ROOT ./gradlew domain:test cli:test checkDependencyDirection --console=plain` — BUILD SUCCESSFUL (bare aggregate `checkDependencyDirection`, per code review 2026-08-31; runs the task across every module, not just `domain`/`cli`).
 - Test counts (forced rerun): ContentHashesTest 12, IndexManifestTest 4, IngestionReportTest 5, PipelineEgressTest 2, IngestPipelineRunnerTest 8, BuildContextTest 7 — all 0 failures / 0 errors.
+- Code review 2026-08-31: added `IngestArgumentContractTest.extendedLengthUncPathIsRejectedAsNonLocal/outputNestedInsideInputDirectoryIsRejected/outputSymlinkedIntoInputDirectoryIsRejected` and `CheckpointStoreTest.unreadableCheckpointStartsFreshAndLogsAWarning`; full `domain:test cli:test checkDependencyDirection` run green.
 
 ### Completion Notes List
 

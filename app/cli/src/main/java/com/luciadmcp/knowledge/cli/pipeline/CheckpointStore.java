@@ -91,7 +91,15 @@ public final class CheckpointStore {
             } else if (line.startsWith(STAGE_PREFIX)) {
                 String name = line.substring(STAGE_PREFIX.length()).trim();
                 if (!name.isEmpty()) {
-                    loaded.add(PipelineStage.valueOf(name));
+                    try {
+                        loaded.add(PipelineStage.valueOf(name));
+                    } catch (IllegalArgumentException e) {
+                        // An unknown/stale stage name makes the whole checkpoint untrustworthy;
+                        // treat it the same as a digest mismatch and start fresh.
+                        System.err.println("warning: ignoring unreadable checkpoint " + checkpointFile
+                                + " (unknown stage \"" + name + "\"); starting a fresh run");
+                        return;
+                    }
                 }
             }
         }

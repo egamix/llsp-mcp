@@ -23,10 +23,11 @@ import java.util.List;
  * @param activationOccurred   whether the ACTIVATION stage ran to completion
  * @param stages               per-stage throughput (ran / skipped-on-resume / completed / not-run)
  * @param failures             every failure collected during the run
- * @param relationshipResolution exact/ambiguous/unresolved relationship counts, grouped by type and
- *                                resolution kind (structurally present; zero under stub stages)
+ * @param relationshipResolution exact/ambiguous/unresolved relationship counts, grouped jointly by
+ *                                relationship type then resolution kind (structurally present; zero
+ *                                under stub stages)
  */
-public record IngestionReport(
+record IngestionReport(
         String buildId,
         String sdkVersion,
         String toolchainFingerprint,
@@ -42,44 +43,38 @@ public record IngestionReport(
     }
 
     /** One stage's throughput line. */
-    public record StageEntry(PipelineStage stage, StageStatus status) {
+    record StageEntry(PipelineStage stage, StageStatus status) {
     }
 
     /** One failure: which stage, how severe, and the offending file (null when not file-attributable). */
-    public record FailureEntry(PipelineStage stage, FailureSeverity severity, String file, String message) {
+    record FailureEntry(PipelineStage stage, FailureSeverity severity, String file, String message) {
     }
 
     /**
-     * Relationship-resolution counts. Totals plus two independent groupings — by relationship type
-     * and by resolution kind. With Story-1.3 stub stages there are no relationships, so the totals
-     * are zero and both groupings are empty; the shape is fixed here for Epics 2–3 to populate.
+     * Relationship-resolution counts. Totals plus a joint breakdown by relationship type and
+     * resolution kind: one {@link ResolutionCell} per (type, kind) combination actually observed.
+     * With Story-1.3 stub stages there are no relationships, so the totals are zero and {@code cells}
+     * is empty; the shape is fixed here for Epics 2–3 to populate.
      *
-     * @param exact            count of exactly-resolved relationships
-     * @param ambiguous        count of ambiguously-resolved relationships
-     * @param unresolved       count of unresolved relationships
-     * @param byType           per-relationship-type breakdown (empty under stubs)
-     * @param byResolutionKind per-resolution-kind breakdown (empty under stubs)
+     * @param exact      count of exactly-resolved relationships
+     * @param ambiguous  count of ambiguously-resolved relationships
+     * @param unresolved count of unresolved relationships
+     * @param cells      per-(relationship-type, resolution-kind) breakdown (empty under stubs)
      */
-    public record ResolutionSummary(
-            long exact,
-            long ambiguous,
-            long unresolved,
-            List<ResolutionGroup> byType,
-            List<ResolutionGroup> byResolutionKind) {
+    record ResolutionSummary(long exact, long ambiguous, long unresolved, List<ResolutionCell> cells) {
 
-        public ResolutionSummary {
-            byType = List.copyOf(byType);
-            byResolutionKind = List.copyOf(byResolutionKind);
+        ResolutionSummary {
+            cells = List.copyOf(cells);
         }
 
         /** The zero summary used while stages are stubs and no relationships exist yet. */
-        public static ResolutionSummary empty() {
-            return new ResolutionSummary(0, 0, 0, List.of(), List.of());
+        static ResolutionSummary empty() {
+            return new ResolutionSummary(0, 0, 0, List.of());
         }
     }
 
-    /** One grouping bucket: a key (relationship type name, or resolution kind) and its status counts. */
-    public record ResolutionGroup(String key, long exact, long ambiguous, long unresolved) {
+    /** One relationship-type × resolution-kind cell and its status counts. */
+    record ResolutionCell(String relationshipType, String resolutionKind, long exact, long ambiguous, long unresolved) {
     }
 
     /** Writes the deterministic JSON to {@code path}, creating parent directories as needed. */
@@ -127,23 +122,23 @@ public record IngestionReport(
         sb.append("    \"exact\": ").append(r.exact()).append(",\n");
         sb.append("    \"ambiguous\": ").append(r.ambiguous()).append(",\n");
         sb.append("    \"unresolved\": ").append(r.unresolved()).append(",\n");
-        groups(sb, "byType", r.byType()).append(",\n");
-        groups(sb, "byResolutionKind", r.byResolutionKind()).append("\n");
+        cells(sb, r.cells()).append("\n");
         sb.append("  }\n");
 
         sb.append("}\n");
         return sb.toString();
     }
 
-    private static StringBuilder groups(StringBuilder sb, String name, List<ResolutionGroup> list) {
-        sb.append("    ").append(quote(name)).append(": [");
+    private static StringBuilder cells(StringBuilder sb, List<ResolutionCell> list) {
+        sb.append("    \"cells\": [");
         for (int i = 0; i < list.size(); i++) {
-            ResolutionGroup g = list.get(i);
+            ResolutionCell c = list.get(i);
             sb.append(i == 0 ? "\n" : ",\n");
-            sb.append("      {\"key\": ").append(quote(g.key()))
-                    .append(", \"exact\": ").append(g.exact())
-                    .append(", \"ambiguous\": ").append(g.ambiguous())
-                    .append(", \"unresolved\": ").append(g.unresolved()).append("}");
+            sb.append("      {\"relationshipType\": ").append(quote(c.relationshipType()))
+                    .append(", \"resolutionKind\": ").append(quote(c.resolutionKind()))
+                    .append(", \"exact\": ").append(c.exact())
+                    .append(", \"ambiguous\": ").append(c.ambiguous())
+                    .append(", \"unresolved\": ").append(c.unresolved()).append("}");
         }
         sb.append(list.isEmpty() ? "]" : "\n    ]");
         return sb;

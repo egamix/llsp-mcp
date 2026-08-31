@@ -4,7 +4,7 @@ baseline_commit: c8d174d2da82841fa858a842fccf385014bf9394
 
 # Story 1.2: Local-only, egress-free `cli ingest` entrypoint
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -45,6 +45,17 @@ so that an air-gapped rebuild cannot accidentally reach the network, except for 
 - [x] **Task 6: Verify the full clean build stays green** (AC: 1, 2, 3)
   - [x] Run `cd app && ./gradlew check` (see Story 1.1 local-toolchain notes for the corporate-proxy `GRADLE_OPTS` workaround if the wrapper or dependency resolution hits PKIX). Confirm: all modules still compile, `checkDependencyDirection` still passes for every module, the egress harness passes on the offline paths, and the negative self-test confirms the guard trips.
   - [x] Confirm an unknown flag / extra arg / URL-shaped value to `cli ingest` exits non-zero with a clear message (AC 3) via a test.
+
+### Review Findings
+
+- [x] [Review][Defer] Mapped network drives / UNC-via-symlink defeat the "local-only, egress-free" guarantee — `requireLocalPath` only rejects literal `\\server\share`/`//` strings, and the DNS-based `EgressGuard` never fires for SMB access via a drive letter (no `InetAddress` lookup involved). [`IngestArgumentParser.java:146-157`, `IngestCommand.java:77-83`] — deferred, revisit in Epic 8 hardening.
+- [x] [Review][Patch] `TrainingIngestSeam.ingest(...)` is never called from `IngestCommand.run`, even though Task 3 and the Completion Notes say trainings handling is "routed to" the seam — wire the call so `--trainings` reaches the seam (and consistently throws `UnsupportedOperationException` until Epic 9 implements it). [`IngestCommand.java:70`, `TrainingIngestSeam.java`] — fixed: `IngestCommand.run` now calls `TrainingIngestSeam.ingest(t)`.
+- [x] [Review][Patch] `CliMain` only catches `CliException`; other unchecked exceptions from filesystem/path operations (`UncheckedIOException` from `ensureOutputDirectory`, a possible `InvalidPathException` from `Path.of(value)` on a platform-invalid path string) escape uncaught — crashing with a raw stack trace and the JVM default exit code instead of the documented `EXIT_USAGE_ERROR`/structured `CliError` contract. [`CliMain.java:46-57`, `IngestArgumentParser.java:138`, `IngestCommand.java:92-96`] — fixed: added a `catch (RuntimeException e)` fallback that prints `error: ...` and returns `EXIT_USAGE_ERROR`.
+- [x] [Review][Patch] `requireLocalPath`'s blanket `value.startsWith("\\\\")` rejects legitimate Windows extended-length device-path prefixes (`\\?\`, `\\.\`) as `NON_LOCAL_PATH`. [`IngestArgumentParser.java:152-156`] — fixed: device-path prefixes are now recognized and exempted before the UNC check.
+- [x] [Review][Patch] An empty-string option value (e.g. `--out ""`) is not rejected; `Path.of("")` resolves to the current working directory, so a blank value silently targets cwd instead of failing as a missing value. [`IngestArgumentParser.java:79-88`] — fixed: `requireLocalPath` now rejects blank values as `MISSING_OPTION_VALUE`.
+- [x] [Review][Patch] Missing test coverage for already-implemented branches: `DUPLICATE_OPTION` rejection, the "option is the very last token" `MISSING_OPTION_VALUE` case, `ensureOutputDirectory`'s "`--out` exists but is a file" branch, and (once the seam is wired) a test proving `--trainings` reaches `TrainingIngestSeam`. [`IngestArgumentContractTest.java`] — fixed: 4 new tests added, all passing.
+- [x] [Review][Defer] `NoNetworkClasspathTest`'s jar-name-fragment scan cannot catch JDK built-in `java.net.http.HttpClient`/raw `Socket` usage (no jar needed) — a structural limitation of the "ban artifact names" approach, not exercised by any code in this diff. [`NoNetworkClasspathTest.java`] — deferred, pre-existing limitation of the chosen mechanism; no current call site exploits it.
+- [x] [Review][Defer] No check that `--out` is the same as or nested within an input directory (`--javadoc`/`--samples`/`--guides`/`--model`/`--trainings`). [`IngestCommand.java:62-72`] — deferred; current pipeline is a no-op so there is no real read/write collision risk yet — revisit once a pipeline stage actually writes into `--out`.
 
 ## Dev Notes
 

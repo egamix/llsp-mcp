@@ -71,7 +71,10 @@ class IngestPipelineRunnerTest {
 
         assertFalse(result.aborted(), "collect-and-continue must not abort on a recoverable failure");
         assertTrue(result.activationOccurred(), "the run should reach ACTIVATION");
-        assertEquals(EnumSet.allOf(PipelineStage.class), result.completedStages());
+        assertEquals(
+                EnumSet.complementOf(EnumSet.of(PipelineStage.EXAMPLES_WORKFLOWS)),
+                result.completedStages(),
+                "a stage that recorded a recoverable failure must not be checkpointed, so a resume re-runs it");
         assertEquals(1, result.failures().size());
         StageFailure recorded = result.failures().get(0);
         assertEquals(PipelineStage.EXAMPLES_WORKFLOWS, recorded.stage());
@@ -132,6 +135,30 @@ class IngestPipelineRunnerTest {
                 "the invalidating failure must be reported");
     }
 
+    /** AC 6: a build-invalidating failure also aborts and blocks ACTIVATION under fail-fast. */
+    @Test
+    void buildInvalidatingFailureBlocksActivationUnderFailFast(@TempDir Path tmp) throws Exception {
+        IngestArguments args = PipelineTestSupport.argsIn(tmp);
+
+        List<PipelineStage> log = new ArrayList<>();
+        List<Stage> stages = PipelineTestSupport.recordingStages(log);
+        PipelineTestSupport.injectFailure(
+                stages,
+                PipelineStage.VALIDATION,
+                StageFailure.of(PipelineStage.VALIDATION, FailureSeverity.BUILD_INVALIDATING, "final validation failed"));
+
+        PipelineResult result = new IngestPipelineRunner(stages, FailurePolicy.FAIL_FAST).runToResult(args);
+
+        assertTrue(result.aborted());
+        assertFalse(result.activationOccurred(), "activation must be blocked when the build is invalidated");
+        assertFalse(log.contains(PipelineStage.ACTIVATION), "ACTIVATION must never run on an invalidated build");
+        assertFalse(result.completedStages().contains(PipelineStage.VALIDATION),
+                "the invalidating stage must not be recorded complete");
+        assertTrue(result.failures().stream()
+                        .anyMatch(f -> f.severity() == FailureSeverity.BUILD_INVALIDATING),
+                "the invalidating failure must be reported");
+    }
+
     /** AC 7 / NFR-13: an interrupted-then-resumed run reproduces a clean run's stage set and manifest. */
     @Test
     void restartReproducesCleanRunStagesAndManifest(@TempDir Path tmp) throws Exception {
@@ -142,7 +169,12 @@ class IngestPipelineRunnerTest {
                 new IngestPipelineRunner(PipelineTestSupport.recordingStages(cleanLog), FailurePolicy.FAIL_FAST)
                         .runToResult(cleanArgs);
 
-        // Interrupted-then-resumed run over a different-but-structurally-identical input set.
+        // Interrupted-then-resumed run over a different-but-structurally-identical input set. Two
+        // independently executed builds necessarily get different buildIds (buildId digests every
+        // path, including `out`, and each run needs its own `out`/staging dir to avoid colliding
+        // with the other) — so this test cross-checks the path-independent parts of the outcome
+        // directly against `clean`, and checks each run's own buildId for drift, rather than
+        // asserting a buildId equality that the design doesn't support.
         IngestArguments resumedArgs = PipelineTestSupport.argsIn(tmp.resolve("resumed"));
         List<PipelineStage> crashLog = new ArrayList<>();
         List<Stage> crashing = PipelineTestSupport.recordingStages(crashLog);
@@ -153,24 +185,22 @@ class IngestPipelineRunnerTest {
                 new IngestPipelineRunner(PipelineTestSupport.recordingStages(new ArrayList<>()), FailurePolicy.FAIL_FAST)
                         .runToResult(resumedArgs);
 
-        // Same completed-stage set (path-independent: all eight, in fixed order).
+        // Same completed-stage set, activation outcome, and abort outcome as the clean run.
         assertEquals(clean.completedStages(), resumed.completedStages());
         assertEquals(EnumSet.allOf(PipelineStage.class), resumed.completedStages());
+        assertEquals(clean.activationOccurred(), resumed.activationOccurred());
+        assertEquals(clean.aborted(), resumed.aborted());
 
-        // Manifest identity is a deterministic function of the inputs: recomputing it for the same
-        // inputs yields the same manifest the resumed run reports. The toolchain fingerprint is a
-        // pure function of the stub component versions, so it too reproduces exactly.
-        BuildContext expectedCtx = BuildContext.forInputs(resumedArgs);
-        String expectedFingerprint = com.luciadmcp.knowledge.domain.ContentHashes.toolchainFingerprint(
-                IngestPipelineRunner.STUB_PARSER_VERSION,
-                IngestPipelineRunner.STUB_SCHEMA_VERSION,
-                IngestPipelineRunner.STUB_NORMALIZER_VERSION,
-                IngestPipelineRunner.STUB_RELATIONSHIP_RULES_VERSION,
-                IngestPipelineRunner.STUB_EMBEDDING_CONFIG_ID);
-        assertEquals(
-                new com.luciadmcp.knowledge.domain.IndexManifest(
-                        expectedCtx.buildId(), IngestPipelineRunner.STUB_SDK_VERSION, expectedFingerprint),
-                resumed.manifest());
+        // Same manifest content wherever it's input-independent: sdkVersion and toolchainFingerprint
+        // are pure functions of the stub component versions, so a clean run and an
+        // interrupted-then-resumed run must report identical values for both.
+        assertEquals(clean.manifest().sdkVersion(), resumed.manifest().sdkVersion());
+        assertEquals(clean.manifest().toolchainFingerprint(), resumed.manifest().toolchainFingerprint());
+
+        // Each run's own buildId must match a fresh recomputation from its own inputs — catches the
+        // runner drifting from BuildContext.forInputs rather than reusing the value it started with.
+        assertEquals(BuildContext.forInputs(cleanArgs).buildId(), clean.manifest().buildId());
+        assertEquals(BuildContext.forInputs(resumedArgs).buildId(), resumed.manifest().buildId());
     }
 
     /** AC 4: a changed input set gets a new buildId and runs fresh rather than resuming prior work. */

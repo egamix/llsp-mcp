@@ -6,8 +6,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.FileSystemException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -141,6 +143,60 @@ class IngestArgumentContractTest {
     }
 
     @Test
+    void extendedLengthUncPathIsRejectedAsNonLocal(@TempDir Path tmp) throws Exception {
+        // \\?\UNC\server\share is the Windows extended-length form of a genuine UNC network path —
+        // it starts with \\?\ but must not be waved through as a local device path.
+        Result r = run(
+                "ingest",
+                "--javadoc", "\\\\?\\UNC\\fileserver\\share\\docs",
+                "--samples", tmp.toString(),
+                "--guides", tmp.toString(),
+                "--model", tmp.toString(),
+                "--out", tmp.resolve("out").toString());
+        assertEquals(CliMain.EXIT_USAGE_ERROR, r.exit());
+        assertTrue(r.err().contains(CliErrorCode.NON_LOCAL_PATH.name()), () -> r.err());
+    }
+
+    @Test
+    void outputNestedInsideInputDirectoryIsRejected(@TempDir Path tmp) throws Exception {
+        Path javadoc = Files.createDirectories(tmp.resolve("javadoc"));
+        Result r = run(
+                "ingest",
+                "--javadoc", javadoc.toString(),
+                "--samples", Files.createDirectories(tmp.resolve("samples")).toString(),
+                "--guides", Files.createDirectories(tmp.resolve("guides")).toString(),
+                "--model", Files.createDirectories(tmp.resolve("model")).toString(),
+                "--out", javadoc.resolve("nested-out").toString());
+        assertEquals(CliMain.EXIT_USAGE_ERROR, r.exit());
+        assertTrue(r.err().contains(CliErrorCode.OUTPUT_NESTED_IN_INPUT.name()), () -> r.err());
+    }
+
+    @Test
+    void outputSymlinkedIntoInputDirectoryIsRejected(@TempDir Path tmp) throws Exception {
+        Path javadoc = Files.createDirectories(tmp.resolve("javadoc"));
+        Path realOut = javadoc.resolve("real-out");
+        Path outLink = tmp.resolve("out-link");
+        try {
+            Files.createSymbolicLink(outLink, realOut);
+        } catch (UnsupportedOperationException | FileSystemException e) {
+            // Creating symlinks requires a privilege this environment/user may not hold (e.g.
+            // Windows without Developer Mode or admin) — skip rather than fail the build on that.
+            Assumptions.abort("symlink creation not permitted in this environment: " + e.getMessage());
+            return;
+        }
+
+        Result r = run(
+                "ingest",
+                "--javadoc", javadoc.toString(),
+                "--samples", Files.createDirectories(tmp.resolve("samples")).toString(),
+                "--guides", Files.createDirectories(tmp.resolve("guides")).toString(),
+                "--model", Files.createDirectories(tmp.resolve("model")).toString(),
+                "--out", outLink.toString());
+        assertEquals(CliMain.EXIT_USAGE_ERROR, r.exit());
+        assertTrue(r.err().contains(CliErrorCode.OUTPUT_NESTED_IN_INPUT.name()), () -> r.err());
+    }
+
+    @Test
     void nonExistentInputDirectoryIsRejected(@TempDir Path tmp) throws Exception {
         Path missing = tmp.resolve("does-not-exist");
         Result r = run(
@@ -152,5 +208,64 @@ class IngestArgumentContractTest {
                 "--out", tmp.resolve("out").toString());
         assertEquals(CliMain.EXIT_USAGE_ERROR, r.exit());
         assertTrue(r.err().contains(CliErrorCode.NOT_A_DIRECTORY.name()), () -> r.err());
+    }
+
+    @Test
+    void duplicateOptionIsRejected(@TempDir Path tmp) throws Exception {
+        String[] base = validOfflineArgs(tmp);
+        String[] withDuplicate = new String[base.length + 2];
+        System.arraycopy(base, 0, withDuplicate, 0, base.length);
+        withDuplicate[base.length] = "--javadoc";
+        withDuplicate[base.length + 1] = tmp.toString();
+
+        Result r = run(withDuplicate);
+        assertEquals(CliMain.EXIT_USAGE_ERROR, r.exit());
+        assertTrue(r.err().contains(CliErrorCode.DUPLICATE_OPTION.name()), () -> r.err());
+        assertTrue(r.err().contains("--javadoc"), () -> r.err());
+    }
+
+    @Test
+    void missingOptionValueWhenOptionIsLastTokenIsRejected(@TempDir Path tmp) throws Exception {
+        // --out with no following value at all (option is the last token, not just followed by
+        // another option).
+        Result r = run(
+                "ingest",
+                "--javadoc", tmp.toString(),
+                "--samples", tmp.toString(),
+                "--guides", tmp.toString(),
+                "--model", tmp.toString(),
+                "--out");
+        assertEquals(CliMain.EXIT_USAGE_ERROR, r.exit());
+        assertTrue(r.err().contains(CliErrorCode.MISSING_OPTION_VALUE.name()), () -> r.err());
+        assertTrue(r.err().contains("--out"), () -> r.err());
+    }
+
+    @Test
+    void outputPathExistingAsFileIsRejected(@TempDir Path tmp) throws Exception {
+        Path out = Files.createFile(tmp.resolve("out"));
+        Result r = run(
+                "ingest",
+                "--javadoc", Files.createDirectories(tmp.resolve("javadoc")).toString(),
+                "--samples", Files.createDirectories(tmp.resolve("samples")).toString(),
+                "--guides", Files.createDirectories(tmp.resolve("guides")).toString(),
+                "--model", Files.createDirectories(tmp.resolve("model")).toString(),
+                "--out", out.toString());
+        assertEquals(CliMain.EXIT_USAGE_ERROR, r.exit());
+        assertTrue(r.err().contains(CliErrorCode.NOT_A_DIRECTORY.name()), () -> r.err());
+        assertTrue(r.err().contains("--out"), () -> r.err());
+    }
+
+    @Test
+    void trainingsOptionReachesUnimplementedSeamAndFailsCleanly(@TempDir Path tmp) throws Exception {
+        String[] base = validOfflineArgs(tmp);
+        Path trainings = Files.createDirectories(tmp.resolve("trainings"));
+        String[] withTrainings = new String[base.length + 2];
+        System.arraycopy(base, 0, withTrainings, 0, base.length);
+        withTrainings[base.length] = "--trainings";
+        withTrainings[base.length + 1] = trainings.toString();
+
+        Result r = run(withTrainings);
+        assertEquals(CliMain.EXIT_USAGE_ERROR, r.exit());
+        assertTrue(r.err().contains("AD-28"), () -> r.err());
     }
 }

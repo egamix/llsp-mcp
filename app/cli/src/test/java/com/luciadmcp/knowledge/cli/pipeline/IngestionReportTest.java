@@ -40,8 +40,7 @@ class IngestionReportTest {
         }
         // Relationship resolution is structurally present and zero while stages are stubs.
         assertTrue(json.contains("\"relationshipResolution\""), json);
-        assertTrue(json.contains("\"byType\": []"), json);
-        assertTrue(json.contains("\"byResolutionKind\": []"), json);
+        assertTrue(json.contains("\"cells\": []"), json);
     }
 
     /** Fail-fast on a recoverable failure writes a report: failing stage FAILED, tail NOT_RUN, aborted. */
