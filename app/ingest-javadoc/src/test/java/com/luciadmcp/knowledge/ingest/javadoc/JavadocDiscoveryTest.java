@@ -60,6 +60,18 @@ class JavadocDiscoveryTest {
         assertFalse(memberPaths.contains("index-all.html"));
     }
 
+    @Test
+    void useCrossReferencePagesAreExcluded() throws Exception {
+        // Modern "Uses of Class/Package X" pages carry body class class-use-page / package-use-page.
+        Map<String, PageType> modern = classifyModern();
+        assertEquals(PageType.EXCLUDED, modern.get("com/example/class-use/Widget.html"));
+        assertEquals(PageType.EXCLUDED, modern.get("package-use.html"));
+
+        // Legacy use pages have no body class; the "Uses of ..." heading is the signal.
+        Map<String, PageType> legacy = toMap(discovery.classify(legacyFixture()));
+        assertEquals(PageType.EXCLUDED, legacy.get("pkg/class-use/LegacyClass.html"));
+    }
+
     // --- AC 3: overview/package pages retained as narrative, not member records ----------------
 
     @Test

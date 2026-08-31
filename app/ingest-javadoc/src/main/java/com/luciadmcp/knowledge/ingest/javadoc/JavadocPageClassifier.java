@@ -35,6 +35,9 @@ final class JavadocPageClassifier {
     private static final Set<String> EXCLUDED_BODY_CLASSES = Set.of(
             "tree-page",
             "package-tree-page",
+            "class-use-page",      // "Uses of Class/Interface X" — cross-reference, not member content
+            "package-use-page",    // "Uses of Package X"
+            "doc-file-page",       // hand-authored doc-files/ pages carried alongside the API
             "help-page",
             "index-page",
             "single-index-page",
@@ -96,6 +99,9 @@ final class JavadocPageClassifier {
             }
             if (heading.startsWith("package ")) {
                 return PageType.PACKAGE;
+            }
+            if (heading.startsWith("uses of ")) { // "Uses of Class/Interface/Package ..." cross-ref pages
+                return PageType.EXCLUDED;
             }
             if (heading.contains("hierarchy")) { // "Hierarchy For Package ...", "Class Hierarchy"
                 return PageType.EXCLUDED;

@@ -155,6 +155,7 @@ claude-4-8-opus (dev-story workflow)
 - Classification is two-tier: modern Javadoc `body` class first (`*-declaration-page`, `*-page`), then a structural fallback on heading text + member blocks for legacy (JDK 8) pages that have no body class.
 - `SearchIndex` reads `*-search-index.js` as text and extracts the JSON array with regexes (AD-10 — never executed as JavaScript). Malformed/missing index is non-fatal: it degrades to a warning and the walk proceeds.
 - AD-9: no `Jsoup.connect` anywhere; `Jsoup.parse(File, charset)` reads local bytes only. AC 8 covered by `external-refs.html` fixture (references https css/js/img) classifying offline with no fetch.
+- **Validated against a real Javadoc tree** (local `com.luciad.shape` export, 432 pages, no search index — not committed, gitignored per the no-proprietary-content rule). First pass left 214 pages `UNKNOWN`: all `class-use/*.html` ("Uses of Class/Interface X") and `package-use.html` cross-reference pages, which the synthetic fixtures never exercised. Fixed the classifier to bucket these as `EXCLUDED` — modern via body classes `class-use-page`/`package-use-page` (also added `doc-file-page`), legacy via a `"Uses of …"` heading rule. Added synthetic fixtures + a test for both paths. Re-run: 0 UNKNOWN, 210 TYPE, 218 EXCLUDED, 4 PACKAGE — every page classified.
 - **Deviation from story "DO NOT TOUCH app/cli/":** wiring `implementation(libs.jsoup)` into `ingest-javadoc` puts jsoup on `cli`'s runtime classpath (cli depends on `ingest-javadoc` via `api`, and `implementation` deps are runtime-transitive). The pre-existing `NoNetworkClasspathTest` banned jsoup from the cli classpath and began failing. This is a conflict the story spec did not anticipate: `cli` is the composition root that runs `ingest`, so it must pull the ingest graph (and jsoup) onto its runtime classpath — a classpath-presence ban on jsoup is incompatible with needing the parser at all. Resolved (with user approval) by removing `jsoup` from `NoNetworkClasspathTest.BANNED_FRAGMENTS` and documenting that AD-9 for jsoup is enforced at the source level (no `Jsoup.connect`, this story's AC 8) rather than by classpath presence. All other network-lib bans (httpclient, okhttp, netty, selenium, …) are unchanged.
 
 ### File List
@@ -169,8 +170,9 @@ claude-4-8-opus (dev-story workflow)
 - **NEW** app/ingest-javadoc/src/main/java/com/luciadmcp/knowledge/ingest/javadoc/JavadocDiscovery.java
 - **NEW** app/ingest-javadoc/src/test/java/com/luciadmcp/knowledge/ingest/javadoc/JavadocDiscoveryTest.java
 - **NEW** app/ingest-javadoc/src/test/java/com/luciadmcp/knowledge/ingest/javadoc/SearchIndexTest.java
-- **NEW** app/ingest-javadoc/src/test/resources/javadoc-fixtures/modern/ (14 HTML pages + type-search-index.js + member-search-index.js)
-- **NEW** app/ingest-javadoc/src/test/resources/javadoc-fixtures/legacy/ (6 HTML pages)
+- **NEW** app/ingest-javadoc/src/test/resources/javadoc-fixtures/modern/ (16 HTML pages incl. class-use/Widget.html + package-use.html, + type-search-index.js + member-search-index.js)
+- **NEW** app/ingest-javadoc/src/test/resources/javadoc-fixtures/legacy/ (7 HTML pages incl. pkg/class-use/LegacyClass.html)
+- **UPDATE** .gitignore — ignore the local proprietary sample corpus (`/shape/`, `docs.zip`, `review_diff_*.patch`); `docs/` stays tracked
 - **UPDATE** app/cli/src/test/java/com/luciadmcp/knowledge/cli/NoNetworkClasspathTest.java (see deviation note)
 
 ## Change Log
@@ -178,3 +180,4 @@ claude-4-8-opus (dev-story workflow)
 | Date       | Change                                                                 |
 |------------|------------------------------------------------------------------------|
 | 2026-08-31 | Story 2.1 implemented: Javadoc page discovery + structural classification (JSoup wired, first parser in codebase). Relaxed cli `NoNetworkClasspathTest` jsoup ban with user approval. Status → review. |
+| 2026-08-31 | Validated against a real 432-page Javadoc export; added `class-use`/`package-use`/`doc-file` handling (modern body class + legacy heading) after they surfaced as UNKNOWN. Now 0 UNKNOWN on the real tree. |

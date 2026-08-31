@@ -20,3 +20,11 @@ target/
 *.iml
 .vscode/
 .DS_Store
+
+# --- Proprietary sample docs (local parser-test corpora only; never commit) ---
+# Real LuciadLightspeed Javadoc dropped in for manual parser testing. Repo rule:
+# no proprietary Luciad documentation/samples may be committed. Tests use synthetic
+# fixtures under app/*/src/test/resources instead. (docs/ is tracked project docs — not ignored.)
+/shape/
+docs.zip
+review_diff_*.patch
