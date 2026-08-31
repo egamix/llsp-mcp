@@ -91,15 +91,24 @@ public final class JavadocDiscovery {
             PageType type;
             try {
                 Document doc = Jsoup.parse(file.toFile(), StandardCharsets.UTF_8.name());
-                type = classifier.classify(doc);
+                if (LOG.isLoggable(Level.DEBUG)) {
+                    // Per-page breakdown is DEBUG so proprietary class names are not logged by default
+                    // (brief §logging). This is the full extent of the current "understanding": the
+                    // kind, the signal that decided it, the heading, and whether members are present.
+                    JavadocPageClassifier.Analysis a = classifier.analyze(doc);
+                    type = a.type();
+                    LOG.log(Level.DEBUG, "discovery: {0} -> {1}  [signal={2}, heading=\"{3}\", members={4}]",
+                            relativePath, type, a.signal(),
+                            a.heading() == null ? "" : a.heading(), a.hasMembers() ? "yes" : "no");
+                } else {
+                    type = classifier.classify(doc);
+                }
             } catch (IOException e) {
                 // A page we cannot read/parse is UNKNOWN, not a crash (AC 7); recorded for later policy.
                 warnings.add("failed to read/parse " + relativePath + ": " + e.getMessage());
                 LOG.log(Level.WARNING, "discovery: failed to read/parse {0}: {1}", relativePath, e.getMessage());
                 type = PageType.UNKNOWN;
             }
-            // Per-page detail is DEBUG so proprietary class names are not logged by default (brief §logging).
-            LOG.log(Level.DEBUG, "discovery: {0} -> {1}", relativePath, type);
             pages.add(new ClassifiedPage(relativePath, type));
             if (++done % PROGRESS_EVERY == 0 && done < total) {
                 LOG.log(Level.INFO, "discovery: classified {0}/{1} pages", done, total);

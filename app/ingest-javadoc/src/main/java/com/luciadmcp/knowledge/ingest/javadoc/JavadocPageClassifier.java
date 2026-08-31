@@ -18,7 +18,8 @@ import org.jsoup.nodes.Element;
  * </ol>
  *
  * <p>Anything that matches neither is {@link PageType#UNKNOWN} — recorded, never guessed (AD-4).
- * Classification refines in Story 2.2; here it only needs to bucket pages correctly.
+ * Classification refines in Story 2.2; here it only needs to bucket pages correctly. This stage does
+ * NOT extract members (names, kinds, signatures) — that is the canonical catalog work in Epic 3.
  */
 final class JavadocPageClassifier {
 
@@ -51,95 +52,121 @@ final class JavadocPageClassifier {
             "preview-list-page",
             "system-properties-page");
 
+    private static final String MEMBER_BLOCK_SELECTOR =
+            "section.class-description, table.memberSummary, .memberSummary, "
+                    + "ul.blockList > li.blockList, ul.memberSummary";
+
+    private static final String HEADING_SELECTOR = "h1.title, h2.title, main h1, main h2, h1, h2";
+
+    /**
+     * Diagnostic breakdown of how a page was classified — the full extent of what this stage
+     * "understands" about a page. Surfaced only via DEBUG logging; not persisted. Member extraction
+     * (the per-method/field breakdown) is a later story, so this carries only page-level signals.
+     *
+     * @param type     the resolved page bucket
+     * @param signal   which rule fired (e.g. {@code body-class:class-declaration-page}, {@code heading},
+     *                 {@code member-blocks}, {@code no-signal})
+     * @param heading  the page's primary heading in original case (e.g. {@code "Class TLcdModel"}), or null
+     * @param hasMembers whether member-summary/detail blocks are present on the page
+     */
+    record Analysis(PageType type, String signal, String heading, boolean hasMembers) {}
+
+    /** Buckets a page. Kept as the lean hot path; see {@link #analyze} for the diagnostic breakdown. */
     PageType classify(Document doc) {
-        PageType byBody = classifyByBodyClass(doc);
-        if (byBody != null) {
-            return byBody;
-        }
-        return classifyByStructure(doc);
+        return analyze(doc).type();
     }
 
-    /** Modern path: map the {@code <body>} class token to a page type. Returns null if none matches. */
-    private PageType classifyByBodyClass(Document doc) {
+    /** Classifies {@code doc} and reports the signals behind the decision (for DEBUG logging). */
+    Analysis analyze(Document doc) {
+        String heading = primaryHeading(doc);
+        boolean hasMembers = hasMemberBlocks(doc);
+
+        // Modern path: the <body> class token is authoritative.
         Element body = doc.body();
-        if (body == null) {
+        if (body != null) {
+            for (String raw : body.classNames()) {
+                String token = raw.toLowerCase(Locale.ROOT);
+                if (TYPE_BODY_CLASSES.contains(token)) {
+                    return new Analysis(PageType.TYPE, "body-class:" + token, heading, hasMembers);
+                }
+                if (EXCLUDED_BODY_CLASSES.contains(token)) {
+                    return new Analysis(PageType.EXCLUDED, "body-class:" + token, heading, hasMembers);
+                }
+                if (token.equals("package-declaration-page")) {
+                    return new Analysis(PageType.PACKAGE, "body-class:" + token, heading, hasMembers);
+                }
+                // Root package listing and module pages are narrative, not member-bearing.
+                if (token.equals("package-index-page") || token.equals("module-declaration-page")
+                        || token.equals("module-index-page")) {
+                    return new Analysis(PageType.OVERVIEW, "body-class:" + token, heading, hasMembers);
+                }
+            }
+        }
+
+        // Legacy / body-class-less path: decide from the primary heading, then member structure.
+        PageType byHeading = classifyByHeading(heading);
+        if (byHeading != null) {
+            return new Analysis(byHeading, "heading", heading, hasMembers);
+        }
+        if (hasMembers) {
+            // Atypical heading but clearly a member-bearing type page.
+            return new Analysis(PageType.TYPE, "member-blocks", heading, hasMembers);
+        }
+        return new Analysis(PageType.UNKNOWN, "no-signal", heading, hasMembers);
+    }
+
+    /** Maps a primary heading to a page type by its leading words, or null if none apply. */
+    private static PageType classifyByHeading(String headingOriginal) {
+        if (headingOriginal == null) {
             return null;
         }
-        for (String raw : body.classNames()) {
-            String token = raw.toLowerCase(Locale.ROOT);
-            if (TYPE_BODY_CLASSES.contains(token)) {
-                return PageType.TYPE;
-            }
-            if (EXCLUDED_BODY_CLASSES.contains(token)) {
-                return PageType.EXCLUDED;
-            }
-            if (token.equals("package-declaration-page")) {
-                return PageType.PACKAGE;
-            }
-            // Root package listing and module pages are narrative, not member-bearing.
-            if (token.equals("package-index-page") || token.equals("module-declaration-page")
-                    || token.equals("module-index-page")) {
-                return PageType.OVERVIEW;
-            }
+        String heading = headingOriginal.toLowerCase(Locale.ROOT);
+        if (startsWithAny(heading, "class ", "interface ", "enum ", "enum class ",
+                "annotation type ", "annotation interface ", "record ", "record class ")) {
+            return PageType.TYPE;
+        }
+        if (heading.startsWith("package ")) {
+            return PageType.PACKAGE;
+        }
+        if (heading.startsWith("uses of ")) { // "Uses of Class/Interface/Package ..." cross-ref pages
+            return PageType.EXCLUDED;
+        }
+        if (heading.contains("hierarchy")) { // "Hierarchy For Package ...", "Class Hierarchy"
+            return PageType.EXCLUDED;
+        }
+        if (heading.equals("api help") || heading.startsWith("help")) {
+            return PageType.EXCLUDED;
+        }
+        if (heading.startsWith("deprecated")) {
+            return PageType.EXCLUDED;
+        }
+        if (heading.startsWith("constant field values") || heading.startsWith("constant values")) {
+            return PageType.EXCLUDED;
+        }
+        if (heading.startsWith("serialized form")) {
+            return PageType.EXCLUDED;
+        }
+        if (heading.equals("index") || heading.startsWith("index ") || heading.startsWith("all ")) {
+            return PageType.EXCLUDED;
+        }
+        if (heading.startsWith("overview")) {
+            return PageType.OVERVIEW;
         }
         return null;
     }
 
-    /** Legacy / body-class-less path: decide from the primary heading and member structure. */
-    private PageType classifyByStructure(Document doc) {
-        boolean hasMembers = !doc.select(
-                "section.class-description, table.memberSummary, .memberSummary, "
-                        + "ul.blockList > li.blockList, ul.memberSummary").isEmpty();
-        String heading = primaryHeadingLower(doc);
-
-        if (heading != null) {
-            if (startsWithAny(heading, "class ", "interface ", "enum ", "enum class ",
-                    "annotation type ", "annotation interface ", "record ", "record class ")) {
-                return PageType.TYPE;
-            }
-            if (heading.startsWith("package ")) {
-                return PageType.PACKAGE;
-            }
-            if (heading.startsWith("uses of ")) { // "Uses of Class/Interface/Package ..." cross-ref pages
-                return PageType.EXCLUDED;
-            }
-            if (heading.contains("hierarchy")) { // "Hierarchy For Package ...", "Class Hierarchy"
-                return PageType.EXCLUDED;
-            }
-            if (heading.equals("api help") || heading.startsWith("help")) {
-                return PageType.EXCLUDED;
-            }
-            if (heading.startsWith("deprecated")) {
-                return PageType.EXCLUDED;
-            }
-            if (heading.startsWith("constant field values") || heading.startsWith("constant values")) {
-                return PageType.EXCLUDED;
-            }
-            if (heading.startsWith("serialized form")) {
-                return PageType.EXCLUDED;
-            }
-            if (heading.equals("index") || heading.startsWith("index ") || heading.startsWith("all ")) {
-                return PageType.EXCLUDED;
-            }
-            if (heading.startsWith("overview")) {
-                return PageType.OVERVIEW;
-            }
-        }
-
-        // A type page whose heading was atypical but which clearly carries member blocks.
-        if (hasMembers) {
-            return PageType.TYPE;
-        }
-        return PageType.UNKNOWN;
+    private static boolean hasMemberBlocks(Document doc) {
+        return !doc.select(MEMBER_BLOCK_SELECTOR).isEmpty();
     }
 
-    /** First heading's normalized text, or null. Legacy uses {@code h2.title}; modern uses {@code h1}. */
-    private static String primaryHeadingLower(Document doc) {
-        Element h = doc.selectFirst("h1.title, h2.title, main h1, main h2, h1, h2");
+    /** First heading's text in original case, or null. Legacy uses {@code h2.title}; modern uses {@code h1}. */
+    private static String primaryHeading(Document doc) {
+        Element h = doc.selectFirst(HEADING_SELECTOR);
         if (h == null) {
             return null;
         }
-        return h.text().trim().toLowerCase(Locale.ROOT);
+        String text = h.text().trim();
+        return text.isEmpty() ? null : text;
     }
 
     private static boolean startsWithAny(String value, String... prefixes) {
