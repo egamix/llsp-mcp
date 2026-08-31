@@ -4,7 +4,7 @@ baseline_commit: 4cdb5e79f6f0d4c36cf40b005641551eb5bb1d21
 
 # Story 2.1: Discover and classify Javadoc pages
 
-Status: ready-for-dev
+Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -27,40 +27,40 @@ so that nav/tree/help/index pages are excluded from member ingestion while overv
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Wire JSoup and JUnit into the `ingest-javadoc` module (AC: 1–8)
-  - [ ] In [app/ingest-javadoc/build.gradle.kts](app/ingest-javadoc/build.gradle.kts) add `implementation(libs.jsoup)`. This is the **first** module to apply the JSoup catalog alias — the alias already exists in [app/gradle/libs.versions.toml](app/gradle/libs.versions.toml) (`jsoup = "1.23.1"`, `libs.jsoup` → `org.jsoup:jsoup`). Do not add a version string; use the catalog alias.
-  - [ ] Add test deps mirroring the established pattern in [app/domain/build.gradle.kts](app/domain/build.gradle.kts): `testImplementation(libs.junit.jupiter)` and `testRuntimeOnly(libs.junit.platform.launcher)`.
-  - [ ] Do **not** add JavaParser here — AST parsing of examples is Epic 3, not this story. Do **not** add SQLite/Lucene/ONNX usage — those project edges already exist as `api(project(...))` but are unused by this story.
-  - [ ] Confirm the dependency-direction guard still passes: `ingest-javadoc` is allowed to depend on `org.jsoup` (it is NOT in `bannedExternalGroups`, which lists jsoup/javaparser/lucene/onnx/xerial as banned only for `domain`/`retrieval`/`mcp`). See [app/build.gradle.kts](app/build.gradle.kts).
-- [ ] Task 2: Define the classification model inside `ingest.javadoc` (AC: 2, 3, 4, 7)
-  - [ ] Add a `PageType` enum in `com.luciadmcp.knowledge.ingest.javadoc` with at least: `TYPE` (member-bearing: class/interface/enum/annotation-type), `PACKAGE` (narrative), `OVERVIEW` (narrative), `EXCLUDED` (nav/tree/help/index — not ingested as members or narrative), `UNKNOWN` (could not classify). Give it a helper such as `boolean isMemberBearing()` (true only for `TYPE`) and `boolean isNarrative()` (true for `PACKAGE`/`OVERVIEW`).
-  - [ ] Add a `ClassifiedPage` record: `relativePath` (String, `/`-separated) + `PageType`. Keep it minimal — **no** extracted fields, **no** canonical symbol, **no** anchors. Field extraction is Story 2.2; canonical symbols are Story 2.3.
-  - [ ] Do **NOT** create or extend any `domain` record type (e.g. `ApiElement`, or a new "narrative"/"page" record). The domain record field set is a **deferred Epic-2 approval gate** — the classification model lives entirely inside `ingest.javadoc` as an internal contract consumed by later stories. "Narrative record" in the AC = the `PACKAGE`/`OVERVIEW` classification, not a persisted domain type.
-- [ ] Task 3: Implement discovery — search-index-assisted with recursive `*.html` fallback (AC: 1, 6, 8)
-  - [ ] Add a discovery component (suggested `JavadocDiscovery`) that takes the Javadoc root `Path` and returns the ordered list of candidate `*.html` pages to classify.
-  - [ ] Always enumerate candidate pages by a recursive walk of `*.html` under the root, in **sorted relative-path order** with `/` separators. Reuse the exact idiom from [BuildContext.relativeKey](app/cli/src/main/java/com/luciadmcp/knowledge/cli/pipeline/BuildContext.java) (`base.relativize(file).toString().replace('\\','/')`) so paths are OS-independent — copy the idiom, do not depend on `cli` (AD-1 forbids `ingest-javadoc` → `cli`).
-  - [ ] When one or more `*-search-index.js` files exist at the root (`type-search-index.js`, `member-search-index.js`, `package-search-index.js`, `tag-search-index.js`), read them from local bytes and use them as an **assist** — to confirm which discovered pages are type/package pages. The search index must not *replace* the recursive walk: it lists types/members/packages only, never nav/help/tree pages, so the recursive walk remains the authoritative candidate set. This is what makes AC 1 hold — the classified page set is a function of the walk + structural classification, and is identical whether or not a search index is present.
-  - [ ] Parse `*-search-index.js` defensively: it is `var typeSearchIndex = [ {"p":"pkg","l":"Label"}, ... ]; updateSearchResults();` — extract the JSON array only; tolerate the `var name =` prefix and trailing `;`/function call. A missing or malformed search index is **not** an error (fallback path); log/collect and proceed with the recursive walk.
-- [ ] Task 4: Implement structure-based classification (AC: 2, 3, 4, 5, 7)
-  - [ ] Add a classifier (suggested `JavadocPageClassifier`) that parses each candidate page with `Jsoup.parse(File, charsetName)` (or parse of the already-read bytes) and assigns a `PageType` from **DOM structure**, never the filename.
-  - [ ] Structural signals (support both modern and legacy generators; refine in Story 2.2, but bucket correctly here):
+- [x] Task 1: Wire JSoup and JUnit into the `ingest-javadoc` module (AC: 1–8)
+  - [x] In [app/ingest-javadoc/build.gradle.kts](app/ingest-javadoc/build.gradle.kts) add `implementation(libs.jsoup)`. This is the **first** module to apply the JSoup catalog alias — the alias already exists in [app/gradle/libs.versions.toml](app/gradle/libs.versions.toml) (`jsoup = "1.23.1"`, `libs.jsoup` → `org.jsoup:jsoup`). Do not add a version string; use the catalog alias.
+  - [x] Add test deps mirroring the established pattern in [app/domain/build.gradle.kts](app/domain/build.gradle.kts): `testImplementation(libs.junit.jupiter)` and `testRuntimeOnly(libs.junit.platform.launcher)`.
+  - [x] Do **not** add JavaParser here — AST parsing of examples is Epic 3, not this story. Do **not** add SQLite/Lucene/ONNX usage — those project edges already exist as `api(project(...))` but are unused by this story.
+  - [x] Confirm the dependency-direction guard still passes: `ingest-javadoc` is allowed to depend on `org.jsoup` (it is NOT in `bannedExternalGroups`, which lists jsoup/javaparser/lucene/onnx/xerial as banned only for `domain`/`retrieval`/`mcp`). See [app/build.gradle.kts](app/build.gradle.kts).
+- [x] Task 2: Define the classification model inside `ingest.javadoc` (AC: 2, 3, 4, 7)
+  - [x] Add a `PageType` enum in `com.luciadmcp.knowledge.ingest.javadoc` with at least: `TYPE` (member-bearing: class/interface/enum/annotation-type), `PACKAGE` (narrative), `OVERVIEW` (narrative), `EXCLUDED` (nav/tree/help/index — not ingested as members or narrative), `UNKNOWN` (could not classify). Give it a helper such as `boolean isMemberBearing()` (true only for `TYPE`) and `boolean isNarrative()` (true for `PACKAGE`/`OVERVIEW`).
+  - [x] Add a `ClassifiedPage` record: `relativePath` (String, `/`-separated) + `PageType`. Keep it minimal — **no** extracted fields, **no** canonical symbol, **no** anchors. Field extraction is Story 2.2; canonical symbols are Story 2.3.
+  - [x] Do **NOT** create or extend any `domain` record type (e.g. `ApiElement`, or a new "narrative"/"page" record). The domain record field set is a **deferred Epic-2 approval gate** — the classification model lives entirely inside `ingest.javadoc` as an internal contract consumed by later stories. "Narrative record" in the AC = the `PACKAGE`/`OVERVIEW` classification, not a persisted domain type.
+- [x] Task 3: Implement discovery — search-index-assisted with recursive `*.html` fallback (AC: 1, 6, 8)
+  - [x] Add a discovery component (suggested `JavadocDiscovery`) that takes the Javadoc root `Path` and returns the ordered list of candidate `*.html` pages to classify.
+  - [x] Always enumerate candidate pages by a recursive walk of `*.html` under the root, in **sorted relative-path order** with `/` separators. Reuse the exact idiom from [BuildContext.relativeKey](app/cli/src/main/java/com/luciadmcp/knowledge/cli/pipeline/BuildContext.java) (`base.relativize(file).toString().replace('\\','/')`) so paths are OS-independent — copy the idiom, do not depend on `cli` (AD-1 forbids `ingest-javadoc` → `cli`).
+  - [x] When one or more `*-search-index.js` files exist at the root (`type-search-index.js`, `member-search-index.js`, `package-search-index.js`, `tag-search-index.js`), read them from local bytes and use them as an **assist** — to confirm which discovered pages are type/package pages. The search index must not *replace* the recursive walk: it lists types/members/packages only, never nav/help/tree pages, so the recursive walk remains the authoritative candidate set. This is what makes AC 1 hold — the classified page set is a function of the walk + structural classification, and is identical whether or not a search index is present.
+  - [x] Parse `*-search-index.js` defensively: it is `var typeSearchIndex = [ {"p":"pkg","l":"Label"}, ... ]; updateSearchResults();` — extract the JSON array only; tolerate the `var name =` prefix and trailing `;`/function call. A missing or malformed search index is **not** an error (fallback path); log/collect and proceed with the recursive walk.
+- [x] Task 4: Implement structure-based classification (AC: 2, 3, 4, 5, 7)
+  - [x] Add a classifier (suggested `JavadocPageClassifier`) that parses each candidate page with `Jsoup.parse(File, charsetName)` (or parse of the already-read bytes) and assigns a `PageType` from **DOM structure**, never the filename.
+  - [x] Structural signals (support both modern and legacy generators; refine in Story 2.2, but bucket correctly here):
     - Type page → `TYPE`: modern `body` class such as `class-declaration-page` and/or a `section.class-description` / member-summary tables; legacy `div.header` + `ul.blockList`/`li.blockList` with a type declaration heading.
     - Package page → `PACKAGE`: modern `package-declaration-page` body / package summary of classes; legacy `package-summary` structure (a table listing classes with no single-type declaration).
     - Overview page → `OVERVIEW`: root overview / package-listing structure (lists packages, not members).
     - Nav/tree/help/index → `EXCLUDED`: tree structure (`ul.horizontal`/tree lists), help layout, index-of-terms listing, all-classes/all-packages index, deprecated/constant/serialized-form summaries, generated nav/frame pages with no member content.
     - Anything else → `UNKNOWN` (AC 7): never throw; record and continue.
-  - [ ] Filename may be used only as a *tie-breaker/cross-check*, never as the primary decision (AC 5). If you use the search-index assist, it corroborates structure — a conflict resolves to the structural verdict.
-- [ ] Task 5: Expose a single entry point returning the deterministic classified set (AC: 1, 6, 7)
-  - [ ] Provide one public method (suggested `JavadocDiscovery.classify(Path root) -> DiscoveryResult`) returning the ordered `List<ClassifiedPage>` plus the `UNKNOWN`/malformed-index items surfaced (a small result holder, or the list + a separate accessor). Order by relative path.
-  - [ ] Keep the component **pure and side-effect-free** beyond reading local files: no writes, no pipeline wiring, no `System.exit`. It is a library consumed later by the CATALOG stage (Story 2.4) — do **not** wire it into [PipelineStage.CATALOG](app/cli/src/main/java/com/luciadmcp/knowledge/cli/pipeline/PipelineStage.java) or touch `IngestPipelineRunner` in this story.
-- [ ] Task 6: Synthetic fixtures + tests (AC: 1–8)
-  - [ ] Create synthetic Javadoc fixtures under `app/ingest-javadoc/src/test/resources/` — hand-authored HTML only. **No proprietary Luciad content** may be committed (repo rule). Build two fixtures over the **same logical page set**: one **with** `*-search-index.js`, one **without**. Include at least one of each page type: a type page, a package page, an overview page, and several excluded pages (tree/help/index/all-classes/deprecated), plus one deliberately malformed page for the `UNKNOWN` path.
-  - [ ] Test AC 1: classifying the with-index and without-index fixtures yields **equal** `List<ClassifiedPage>` (same paths, same types). This is the headline test.
-  - [ ] Test AC 2/3/4: nav/tree/help/index → `EXCLUDED`; overview/package → narrative (`OVERVIEW`/`PACKAGE`); type pages → `TYPE` (member-bearing).
-  - [ ] Test AC 5: a page whose filename disagrees with its structure is classified by structure (include one such page in the fixture).
-  - [ ] Test AC 6: two runs over the same fixture return identical, relative-path-ordered results; use `@TempDir` where a temp tree is needed, mirroring Epic-1 test style.
-  - [ ] Test AC 7: the malformed page is `UNKNOWN` and does not throw.
-  - [ ] Test AC 8: classification never opens a network connection. A lightweight assertion: parse a fixture page that references an external `http(s)` resource (stylesheet/script `src`) and confirm no fetch occurs (the component only reads the local file). Do **not** reuse `cli`'s egress guard (AD-1) — assert structurally that only local file reads happen.
+  - [x] Filename may be used only as a *tie-breaker/cross-check*, never as the primary decision (AC 5). If you use the search-index assist, it corroborates structure — a conflict resolves to the structural verdict.
+- [x] Task 5: Expose a single entry point returning the deterministic classified set (AC: 1, 6, 7)
+  - [x] Provide one public method (suggested `JavadocDiscovery.classify(Path root) -> DiscoveryResult`) returning the ordered `List<ClassifiedPage>` plus the `UNKNOWN`/malformed-index items surfaced (a small result holder, or the list + a separate accessor). Order by relative path.
+  - [x] Keep the component **pure and side-effect-free** beyond reading local files: no writes, no pipeline wiring, no `System.exit`. It is a library consumed later by the CATALOG stage (Story 2.4) — do **not** wire it into [PipelineStage.CATALOG](app/cli/src/main/java/com/luciadmcp/knowledge/cli/pipeline/PipelineStage.java) or touch `IngestPipelineRunner` in this story.
+- [x] Task 6: Synthetic fixtures + tests (AC: 1–8)
+  - [x] Create synthetic Javadoc fixtures under `app/ingest-javadoc/src/test/resources/` — hand-authored HTML only. **No proprietary Luciad content** may be committed (repo rule). Build two fixtures over the **same logical page set**: one **with** `*-search-index.js`, one **without**. Include at least one of each page type: a type page, a package page, an overview page, and several excluded pages (tree/help/index/all-classes/deprecated), plus one deliberately malformed page for the `UNKNOWN` path.
+  - [x] Test AC 1: classifying the with-index and without-index fixtures yields **equal** `List<ClassifiedPage>` (same paths, same types). This is the headline test.
+  - [x] Test AC 2/3/4: nav/tree/help/index → `EXCLUDED`; overview/package → narrative (`OVERVIEW`/`PACKAGE`); type pages → `TYPE` (member-bearing).
+  - [x] Test AC 5: a page whose filename disagrees with its structure is classified by structure (include one such page in the fixture).
+  - [x] Test AC 6: two runs over the same fixture return identical, relative-path-ordered results; use `@TempDir` where a temp tree is needed, mirroring Epic-1 test style.
+  - [x] Test AC 7: the malformed page is `UNKNOWN` and does not throw.
+  - [x] Test AC 8: classification never opens a network connection. A lightweight assertion: parse a fixture page that references an external `http(s)` resource (stylesheet/script `src`) and confirm no fetch occurs (the component only reads the local file). Do **not** reuse `cli`'s egress guard (AD-1) — assert structurally that only local file reads happen.
 
 ## Dev Notes
 
@@ -142,8 +142,39 @@ cd app && GRADLE_OPTS=-Djavax.net.ssl.trustStoreType=Windows-ROOT ./gradlew :ing
 
 ### Agent Model Used
 
+claude-4-8-opus (dev-story workflow)
+
 ### Debug Log References
+
+- `:ingest-javadoc:test checkDependencyDirection` — pass (12 discovery/classifier tests + 6 search-index tests).
+- `test checkDependencyDirection` (full) — pass. One regression surfaced and fixed (see Completion Notes).
 
 ### Completion Notes List
 
+- Discovery always runs the recursive `*.html` walk; the search index is a corroborating assist that only adds cross-check warnings and never changes the classified page set. This is the design that makes AC 1 hold by construction (page set is identical with/without an index).
+- Classification is two-tier: modern Javadoc `body` class first (`*-declaration-page`, `*-page`), then a structural fallback on heading text + member blocks for legacy (JDK 8) pages that have no body class.
+- `SearchIndex` reads `*-search-index.js` as text and extracts the JSON array with regexes (AD-10 — never executed as JavaScript). Malformed/missing index is non-fatal: it degrades to a warning and the walk proceeds.
+- AD-9: no `Jsoup.connect` anywhere; `Jsoup.parse(File, charset)` reads local bytes only. AC 8 covered by `external-refs.html` fixture (references https css/js/img) classifying offline with no fetch.
+- **Deviation from story "DO NOT TOUCH app/cli/":** wiring `implementation(libs.jsoup)` into `ingest-javadoc` puts jsoup on `cli`'s runtime classpath (cli depends on `ingest-javadoc` via `api`, and `implementation` deps are runtime-transitive). The pre-existing `NoNetworkClasspathTest` banned jsoup from the cli classpath and began failing. This is a conflict the story spec did not anticipate: `cli` is the composition root that runs `ingest`, so it must pull the ingest graph (and jsoup) onto its runtime classpath — a classpath-presence ban on jsoup is incompatible with needing the parser at all. Resolved (with user approval) by removing `jsoup` from `NoNetworkClasspathTest.BANNED_FRAGMENTS` and documenting that AD-9 for jsoup is enforced at the source level (no `Jsoup.connect`, this story's AC 8) rather than by classpath presence. All other network-lib bans (httpclient, okhttp, netty, selenium, …) are unchanged.
+
 ### File List
+
+- **UPDATE** app/ingest-javadoc/build.gradle.kts
+- **UPDATE** app/ingest-javadoc/src/main/java/com/luciadmcp/knowledge/ingest/javadoc/package-info.java
+- **NEW** app/ingest-javadoc/src/main/java/com/luciadmcp/knowledge/ingest/javadoc/PageType.java
+- **NEW** app/ingest-javadoc/src/main/java/com/luciadmcp/knowledge/ingest/javadoc/ClassifiedPage.java
+- **NEW** app/ingest-javadoc/src/main/java/com/luciadmcp/knowledge/ingest/javadoc/DiscoveryResult.java
+- **NEW** app/ingest-javadoc/src/main/java/com/luciadmcp/knowledge/ingest/javadoc/JavadocPageClassifier.java
+- **NEW** app/ingest-javadoc/src/main/java/com/luciadmcp/knowledge/ingest/javadoc/SearchIndex.java
+- **NEW** app/ingest-javadoc/src/main/java/com/luciadmcp/knowledge/ingest/javadoc/JavadocDiscovery.java
+- **NEW** app/ingest-javadoc/src/test/java/com/luciadmcp/knowledge/ingest/javadoc/JavadocDiscoveryTest.java
+- **NEW** app/ingest-javadoc/src/test/java/com/luciadmcp/knowledge/ingest/javadoc/SearchIndexTest.java
+- **NEW** app/ingest-javadoc/src/test/resources/javadoc-fixtures/modern/ (14 HTML pages + type-search-index.js + member-search-index.js)
+- **NEW** app/ingest-javadoc/src/test/resources/javadoc-fixtures/legacy/ (6 HTML pages)
+- **UPDATE** app/cli/src/test/java/com/luciadmcp/knowledge/cli/NoNetworkClasspathTest.java (see deviation note)
+
+## Change Log
+
+| Date       | Change                                                                 |
+|------------|------------------------------------------------------------------------|
+| 2026-08-31 | Story 2.1 implemented: Javadoc page discovery + structural classification (JSoup wired, first parser in codebase). Relaxed cli `NoNetworkClasspathTest` jsoup ban with user approval. Status → review. |

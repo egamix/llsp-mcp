@@ -58,7 +58,7 @@ development_status:
 
   # Epic 2: Javadoc Knowledge Extraction
   epic-2: in-progress
-  2-1-discover-and-classify-javadoc-pages: ready-for-dev
+  2-1-discover-and-classify-javadoc-pages: review
   2-2-parse-modern-and-legacy-javadoc-layouts-into-equivalent-fields: backlog
   2-3-build-canonical-symbol-records-with-overload-distinction: backlog
   2-4-persist-the-versioned-canonical-catalog: backlog

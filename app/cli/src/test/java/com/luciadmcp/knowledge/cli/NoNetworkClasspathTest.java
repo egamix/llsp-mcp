@@ -33,7 +33,13 @@ class NoNetworkClasspathTest {
             "vertx", "vert.x",
             "ktor-client",
             "selenium", "htmlunit", "webdriver", "playwright",
-            "jsoup", // network-capable HTML parser (Jsoup.connect) — must not be on the offline classpath
+            // NOTE: jsoup is intentionally NOT banned here. It is the sanctioned offline HTML parser
+            // for the Javadoc ingest graph (Story 2.1), and `cli` — the composition root that runs
+            // `ingest` — necessarily pulls `ingest-javadoc` (and thus jsoup) onto its runtime
+            // classpath. jsoup is network-capable via Jsoup.connect, but AD-9 for jsoup is enforced
+            // at the source level instead: `ingest-javadoc` parses from local bytes only and never
+            // calls Jsoup.connect (Story 2.1 AC 8). A classpath-presence ban is incompatible with
+            // needing the parser at all, so the guard for jsoup lives with its usage, not here.
             "crawler", "webmagic", "jaunt");
 
     @Test
