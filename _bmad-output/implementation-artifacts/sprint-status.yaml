@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-08-24
-last_updated: 2026-08-31
+last_updated: 2026-08-31  # epic-1 retrospective completed
 project: luciad-mcp
 project_key: NOKEY
 tracking_system: file-system
@@ -54,7 +54,7 @@ development_status:
   1-2-local-only-egress-free-cli-ingest-entrypoint: done
   1-3-stub-the-multi-stage-resumable-pipeline-with-a-configurable-failure-policy: done
   1-4-deterministic-ids-content-hashes-and-a-machine-readable-ingestion-report: done
-  epic-1-retrospective: optional
+  epic-1-retrospective: done
 
   # Epic 2: Javadoc Knowledge Extraction
   epic-2: in-progress
@@ -128,3 +128,25 @@ development_status:
   9-2-link-training-references-to-the-catalog: backlog
   9-3-apply-governance-supplied-technique-tags-to-training-records: backlog
   epic-9-retrospective: optional
+
+action_items:
+  - epic: 1
+    action: "Write assertions adversarially up front (no vacuously-passing tests; pin known-answer values for deterministic recipes) as a dev self-check before review"
+    owner: "dev"
+    status: open
+  - epic: 1
+    action: "Resolve or delete the untracked ScratchRealDocsTest.java (commit as synthetic-fixture test, or remove)"
+    owner: "dev"
+    status: open
+  - epic: 1
+    action: "Close blocker B5 (JDK pin 21 vs 25 vs org LTS) or record the decision explicitly; hard-pin the toolchain if 21 is confirmed"
+    owner: "owner"
+    status: open
+  - epic: 1
+    action: "Consolidate recurring environment workarounds (proxy PKIX GRADLE_OPTS, python vs python3) into a single build-setup doc"
+    owner: "dev"
+    status: open
+  - epic: 1
+    action: "Confirm the AD-22 identityFields registry approach before Epic 2 catalog work so recordHash/relationshipHash wire to real entities without reshaping"
+    owner: "dev"
+    status: open
