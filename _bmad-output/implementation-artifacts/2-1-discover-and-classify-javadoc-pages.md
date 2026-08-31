@@ -4,7 +4,7 @@ baseline_commit: 4cdb5e79f6f0d4c36cf40b005641551eb5bb1d21
 
 # Story 2.1: Discover and classify Javadoc pages
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -174,6 +174,8 @@ claude-4-8-opus (dev-story workflow)
 - **NEW** app/ingest-javadoc/src/test/resources/javadoc-fixtures/legacy/ (7 HTML pages incl. pkg/class-use/LegacyClass.html)
 - **UPDATE** .gitignore — ignore the local proprietary sample corpus (`/shape/`, `docs.zip`, `review_diff_*.patch`); `docs/` stays tracked
 - **UPDATE** app/cli/src/test/java/com/luciadmcp/knowledge/cli/NoNetworkClasspathTest.java (see deviation note)
+- **NEW** app/ingest-javadoc/src/test/java/com/luciadmcp/knowledge/ingest/javadoc/NoJsoupConnectSourceTest.java (code-review: AD-9/AC8 source-scan guard)
+- **NEW** app/ingest-javadoc/src/test/resources/javadoc-fixtures/modern/{package-tree,allpackages-index,constant-values,serialized-form}.html (code-review: AC2 coverage)
 
 ## Change Log
 
@@ -181,3 +183,37 @@ claude-4-8-opus (dev-story workflow)
 |------------|------------------------------------------------------------------------|
 | 2026-08-31 | Story 2.1 implemented: Javadoc page discovery + structural classification (JSoup wired, first parser in codebase). Relaxed cli `NoNetworkClasspathTest` jsoup ban with user approval. Status → review. |
 | 2026-08-31 | Validated against a real 432-page Javadoc export; added `class-use`/`package-use`/`doc-file` handling (modern body class + legacy heading) after they surfaced as UNKNOWN. Now 0 UNKNOWN on the real tree. |
+| 2026-08-31 | Code review (3 adversarial layers): applied 5 patches — Jsoup.connect source-guard test (AD-9/AC8), charset auto-detect (`Jsoup.parse(file, null)`), priority-ordered heading selection, AC2 fixture/assertion coverage, broadened `walkHtml` catch. 4 items deferred, 8 dismissed. Full suite green. Status review → done. |
+
+## Review Findings
+
+_Code review 2026-08-31 (baseline `4cdb5e7`..HEAD). Three adversarial layers: Blind Hunter, Edge Case Hunter, Acceptance Auditor. 1 decision-needed, 4 patch, 4 deferred, 8 dismissed._
+
+### Decision needed
+
+- [x] [Review][Decision] AD-9/jsoup enforcement gap — un-banning jsoup in `NoNetworkClasspathTest` (disclosed, user-approved) downgraded the classpath-presence guard to a source-level convention with **no automated check**, and the AC8 test (`externalResourceReferencesAreNotFetched`) is near-vacuous: it only asserts `external-refs.html` classifies as `TYPE`, which stays true even if a fetch occurred. **RESOLVED** (user chose to add the guard): new `NoJsoupConnectSourceTest` scans `ingest-javadoc` main source for the `Jsoup.connect(` invocation form and fails the build if present — restores automated AD-9-for-jsoup enforcement and gives AC8 a real regression guard. [app/ingest-javadoc/.../NoJsoupConnectSourceTest.java]
+
+### Patch
+
+- [x] [Review][Patch] Charset forced to UTF-8 disables Jsoup's declared/meta charset detection — **FIXED**: `Jsoup.parse(file, null)` now honors a BOM/meta charset (UTF-8 fallback). [app/ingest-javadoc/.../JavadocDiscovery.java:93]
+- [x] [Review][Patch] Heading selector matched document order, not selector priority — **FIXED**: `primaryHeading` now queries `HEADING_SELECTORS` one at a time in priority order, so a stray leading heading cannot outrank the title class. [app/ingest-javadoc/.../JavadocPageClassifier.java:59,163]
+- [x] [Review][Patch] AC2 test coverage gap — **FIXED**: added `package-tree`, `allpackages-index`, `constant-values`, `serialized-form` fixtures + assertions. [app/ingest-javadoc/.../JavadocDiscoveryTest.java:56]
+- [x] [Review][Patch] `Files.walk` lazy I/O error escaped uncaught — **FIXED**: `walkHtml` now also catches `UncheckedIOException` and rewraps with enumeration context. [app/ingest-javadoc/.../JavadocDiscovery.java:136]
+
+### Deferred
+
+- [x] [Review][Defer] Legacy heading matcher is English-only — localized (non-English) legacy Javadoc misclassifies to UNKNOWN. Deferred: Luciad corpus is English; revisit if non-English trees are ingested. [app/ingest-javadoc/.../JavadocPageClassifier.java:119]
+- [x] [Review][Defer] Search-index cross-check ignores `"u"` URL override and module dirs, no NFC/NFD normalization — produces spurious "type page not classified" warnings on modular/relocated/macOS-NFD trees (warning-only; never alters `pages()`, AC1 holds). Deferred: refine when validated against real modular corpora. [app/ingest-javadoc/.../SearchIndex.java:45; JavadocDiscovery.java:158]
+- [x] [Review][Defer] `hasMemberBlocks` selector misses the modern member container (JDK 17+ `.summary-table`) — DEBUG `members=` signal reads wrong on real modern pages (classification unaffected; body-class wins). Deferred: Story 2.2 extraction should not reuse this selector as-is. [app/ingest-javadoc/.../JavadocPageClassifier.java:55]
+- [x] [Review][Defer] `.gitignore` pattern-ignores `**/ScratchRealDocsTest.java` — the Epic-1 retro action item #2 (present in this diff) asked to commit-as-synthetic-fixture or delete the stray test, not hide it. Deferred: retro follow-up, process not code. [.gitignore]
+
+### Dismissed (8, noise/false-positive/by-design)
+
+- Root `app/build.gradle.kts` `testLogging` block — out of declared scope but benign dev aid.
+- `SearchIndex` `extractArray`/`OBJECT` regex "brittleness" — Javadoc index is a single flat array of identifier-labelled objects; no braces in values.
+- Symlinked dirs not followed — by-design determinism; following risks cycles/nondeterminism.
+- `Comparator.comparing(relativeKey)` recomputed per comparison — negligible (~ms) on 17k pages.
+- No size guard before parse (OOM) — no realistic Javadoc page OOMs.
+- `DiscoveryResult` null constructor NPE — `List.copyOf` already rejects null; sole caller passes non-null.
+- `.gitignore` `review_diff_*.patch` never matches the workflow's `.review-diff-*.patch` — throwaway artifact; speculative.
+- AC7 `broken.html` is structurally-unrecognized, not literally malformed; the `catch (IOException)`→UNKNOWN branch is untestable portably (Jsoup does not throw on bad markup).

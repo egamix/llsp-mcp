@@ -90,7 +90,9 @@ public final class JavadocDiscovery {
             String relativePath = relativeKey(base, file);
             PageType type;
             try {
-                Document doc = Jsoup.parse(file.toFile(), StandardCharsets.UTF_8.name());
+                // charset=null lets JSoup honor a BOM/meta charset (legacy trees may be ISO-8859-1),
+                // falling back to UTF-8 when none is declared. Still a local-bytes parse (AD-9).
+                Document doc = Jsoup.parse(file.toFile(), null);
                 if (LOG.isLoggable(Level.DEBUG)) {
                     // Per-page breakdown is DEBUG so proprietary class names are not logged by default
                     // (brief §logging). This is the full extent of the current "understanding": the
@@ -141,6 +143,11 @@ public final class JavadocDiscovery {
                     .toList();
         } catch (IOException e) {
             throw new UncheckedIOException("failed to enumerate Javadoc pages under " + base, e);
+        } catch (UncheckedIOException e) {
+            // Files.walk defers I/O errors (e.g. an unreadable subdirectory) to the lazy terminal
+            // op, surfacing them here as UncheckedIOException rather than IOException. Rewrap with
+            // the enumeration context so the failure reads consistently instead of escaping raw.
+            throw new UncheckedIOException("failed to enumerate Javadoc pages under " + base, e.getCause());
         }
     }
 

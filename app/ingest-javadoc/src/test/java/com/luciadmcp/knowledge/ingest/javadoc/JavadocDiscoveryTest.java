@@ -52,6 +52,11 @@ class JavadocDiscoveryTest {
         assertEquals(PageType.EXCLUDED, byPath.get("index-all.html"));
         assertEquals(PageType.EXCLUDED, byPath.get("allclasses-index.html"));
         assertEquals(PageType.EXCLUDED, byPath.get("deprecated-list.html"));
+        // Remaining AC2-enumerated nav/tree/index/summary pages.
+        assertEquals(PageType.EXCLUDED, byPath.get("package-tree.html"));
+        assertEquals(PageType.EXCLUDED, byPath.get("allpackages-index.html"));
+        assertEquals(PageType.EXCLUDED, byPath.get("constant-values.html"));
+        assertEquals(PageType.EXCLUDED, byPath.get("serialized-form.html"));
 
         DiscoveryResult result = discovery.classify(modernFixture());
         List<String> memberPaths = result.memberPages().stream().map(ClassifiedPage::relativePath).toList();

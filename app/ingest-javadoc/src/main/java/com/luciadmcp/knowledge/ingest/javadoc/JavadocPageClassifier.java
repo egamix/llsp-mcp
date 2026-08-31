@@ -56,7 +56,12 @@ final class JavadocPageClassifier {
             "section.class-description, table.memberSummary, .memberSummary, "
                     + "ul.blockList > li.blockList, ul.memberSummary";
 
-    private static final String HEADING_SELECTOR = "h1.title, h2.title, main h1, main h2, h1, h2";
+    // Heading selectors in PRIORITY order — queried one at a time, not as a grouped selector.
+    // A grouped "a, b" selectFirst returns the first match in *document* order, which on a legacy
+    // page with a stray leading heading would pick that over the real title. Trying each selector
+    // in turn keeps the specific title class (h1.title/h2.title) ahead of any bare h1/h2.
+    private static final String[] HEADING_SELECTORS = {
+            "h1.title", "h2.title", "main h1", "main h2", "h1", "h2"};
 
     /**
      * Diagnostic breakdown of how a page was classified — the full extent of what this stage
@@ -159,14 +164,23 @@ final class JavadocPageClassifier {
         return !doc.select(MEMBER_BLOCK_SELECTOR).isEmpty();
     }
 
-    /** First heading's text in original case, or null. Legacy uses {@code h2.title}; modern uses {@code h1}. */
+    /**
+     * The primary heading's text in original case, or null. Selectors are tried in priority order
+     * (title-class headings first, then {@code main} headings, then any {@code h1}/{@code h2}) so a
+     * stray leading heading cannot outrank the real title. Legacy uses {@code h2.title}; modern uses
+     * {@code h1}.
+     */
     private static String primaryHeading(Document doc) {
-        Element h = doc.selectFirst(HEADING_SELECTOR);
-        if (h == null) {
-            return null;
+        for (String selector : HEADING_SELECTORS) {
+            Element h = doc.selectFirst(selector);
+            if (h != null) {
+                String text = h.text().trim();
+                if (!text.isEmpty()) {
+                    return text;
+                }
+            }
         }
-        String text = h.text().trim();
-        return text.isEmpty() ? null : text;
+        return null;
     }
 
     private static boolean startsWithAny(String value, String... prefixes) {
