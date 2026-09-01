@@ -1,8 +1,10 @@
 package com.luciadmcp.knowledge.ingest.javadoc;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Mints canonical-symbol records from a Story-2.2 {@link ExtractedType} (Story 2.3, FR): one
@@ -23,9 +25,13 @@ import java.util.Optional;
  *   <li>method / constructor — {@code com.luciad.shape.ILcdShape#contains(ILcdPoint)} (erased param
  *       types joined by {@code ,} with no spaces; a no-arg element renders {@code name()})</li>
  *   <li>field / enum constant — {@code com.luciad.shape.ILcdShape#SIZE}</li>
- *   <li>degraded method/constructor (unparseable signature) — {@code com.luciad.shape.ILcdShape#name}
- *       (a best-effort name-only key, no parentheses) plus a recorded issue</li>
+ *   <li>degraded method/constructor (unparseable signature) —
+ *       {@code com.luciad.shape.ILcdShape#name?METHOD@3} (a best-effort key that folds in the kind
+ *       and source index so it can never collide with a field/enum key of the same name nor another
+ *       degraded overload) plus a recorded issue</li>
  * </ul>
+ * A final uniqueness pass guarantees no two records in a result share a {@code canonicalKey}; a
+ * collision (two genuinely-identical extracted elements) is recorded as an explicit issue (AD-4).
  * Overloads differ only in the {@code (...)} erased list, so distinct overloads get distinct keys
  * automatically (AC 1). The key is a pure function of (type FQN, kind, name, erased parameter types)
  * — independent of overload count, iteration order, or which page-era produced the input (AC 6,
@@ -75,6 +81,18 @@ public final class CanonicalSymbolMinter {
             records.add(mintMember(typeName, members.get(i), i, relativePath, issues));
         }
 
+        // --- Uniqueness invariant (AC 1 / AC 3): no two records may share a canonical key. Keys are
+        // unique by construction (overloads differ in their erased list; the degraded path folds in
+        // kind + source index), so a collision means two genuinely-identical elements were extracted
+        // from the page. Flag it explicitly rather than let it pass silently (AD-4).
+        Set<String> seenKeys = new HashSet<>();
+        for (SymbolRecord record : records) {
+            if (!seenKeys.add(record.canonicalKey())) {
+                issues.add(relativePath + ": duplicate canonical key '" + record.canonicalKey()
+                        + "' minted for more than one element");
+            }
+        }
+
         return new SymbolMintResult(records, issues);
     }
 
@@ -93,13 +111,22 @@ public final class CanonicalSymbolMinter {
         }
 
         // Methods and constructors: derive the erased parameter-type list for overload distinction.
-        Optional<List<String>> params = SignatureNormalizer.parameterTypes(member.signature());
+        SignatureNormalizer.Parsed parsed = SignatureNormalizer.parse(member.signature());
+        // Surface every degradation the normalizer flagged (unbalanced parens/generics, empty
+        // parameter slots, ...) as an explicit issue — never a silent drop (AD-4).
+        for (String problem : parsed.problems()) {
+            issues.add(relativePath + ": member '" + name + "' " + problem);
+        }
+        Optional<List<String>> params = parsed.parameterTypes();
         if (params.isEmpty()) {
-            // AD-4: never fabricate a parameter list. Record an issue and mint a best-effort
-            // name-only key (no parentheses) rather than dropping the member.
+            // AD-4: never fabricate a parameter list. Record an issue and mint a best-effort key.
             issues.add(relativePath + ": member '" + name
                     + "' has an unparseable signature; minted a name-only key");
-            String key = typeName.fqn() + "#" + name;
+            // The degraded key must never collide with a field/enum key of the same name (fqn#name)
+            // nor with another degraded overload of the same method name — fold in the kind and the
+            // member's source index so it is unique by construction. It is deliberately not a
+            // well-formed key: the trailing "?<kind>@<index>" marks it as an unresolved signature.
+            String key = typeName.fqn() + "#" + name + "?" + kind + "@" + index;
             return new SymbolRecord(key, kind, typeName.fqn(), name, List.of(),
                     memberVariants(typeName.simpleName(), name, name), relativePath, index);
         }

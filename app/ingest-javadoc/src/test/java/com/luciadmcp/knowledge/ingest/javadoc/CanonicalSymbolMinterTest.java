@@ -216,22 +216,66 @@ class CanonicalSymbolMinterTest {
     // --- AC 8: graceful degradation on an unparseable member signature -----------------------------
 
     @Test
-    void unparseableMemberSignatureRecordsIssueAndMintsNameOnlyKeyWithoutThrowing() {
+    void unparseableMemberSignatureRecordsIssueAndMintsBestEffortKeyWithoutThrowing() {
         ExtractedMember empty = method("brokenA", "");
         ExtractedMember garbage = method("brokenB", "void brokenB"); // no parentheses
         ExtractedType type = new ExtractedType(PATH, "d", "", Deprecation.NONE, List.of(empty, garbage));
 
         SymbolMintResult result = minter.mint(type);
 
-        // Name-only keys minted (no fabricated parameter list, no silent drop).
-        SymbolRecord a = keyed(result.records(), FQN + "#brokenA");
-        SymbolRecord b = keyed(result.records(), FQN + "#brokenB");
+        // Best-effort keys minted (no fabricated parameter list, no silent drop). Degraded keys fold
+        // in kind + source index so they can never collide.
+        SymbolRecord a = keyed(result.records(), FQN + "#brokenA?METHOD@0");
+        SymbolRecord b = keyed(result.records(), FQN + "#brokenB?METHOD@1");
         assertTrue(a.erasedParameterTypes().isEmpty());
         assertTrue(b.erasedParameterTypes().isEmpty());
         assertEquals(2, result.issues().size(), () -> "one issue per broken member: " + result.issues());
         assertTrue(result.issues().stream().allMatch(i -> i.contains("unparseable signature")));
         assertTrue(result.issues().stream().allMatch(i -> i.startsWith(PATH + ":")),
                 "issues carry the relative path (AD-4)");
+    }
+
+    // --- Review item 1: degraded keys never collide; a forced duplicate is flagged ----------------
+
+    @Test
+    void degradedMethodKeyDoesNotCollideWithFieldOfSameName() {
+        ExtractedMember field = new ExtractedMember(MemberKind.FIELD, "foo", "int foo", "d",
+                List.of(), "", List.of(), "", Deprecation.NONE);
+        ExtractedMember brokenMethod = method("foo", ""); // unparseable signature, same name
+        ExtractedType type = new ExtractedType(PATH, "d", "", Deprecation.NONE, List.of(field, brokenMethod));
+
+        List<SymbolRecord> records = minter.mint(type).records();
+        SymbolRecord fieldRec = keyed(records, FQN + "#foo");
+        SymbolRecord methodRec = keyed(records, FQN + "#foo?METHOD@1");
+        assertEquals(SymbolKind.FIELD, fieldRec.kind());
+        assertEquals(SymbolKind.METHOD, methodRec.kind());
+        assertKeysUnique(records);
+    }
+
+    @Test
+    void twoDegradedOverloadsBecomeDistinctRecords() {
+        ExtractedMember a = method("bar", "");     // unparseable overload #1
+        ExtractedMember b = method("bar", "  ");    // unparseable overload #2
+        ExtractedType type = new ExtractedType(PATH, "d", "", Deprecation.NONE, List.of(a, b));
+
+        List<SymbolRecord> records = minter.mint(type).records();
+        assertEquals(2, records.stream().filter(r -> r.simpleName().equals("bar")).count());
+        keyed(records, FQN + "#bar?METHOD@0");
+        keyed(records, FQN + "#bar?METHOD@1");
+        assertKeysUnique(records);
+    }
+
+    @Test
+    void forcedDuplicateElementIsRecordedAsAnIssue() {
+        // Two genuinely-identical members (name + signature) — a page anomaly. The uniqueness pass
+        // must flag it explicitly rather than let a shared canonical key pass silently (AD-4).
+        ExtractedMember dup1 = method("dup", "void dup(int x)");
+        ExtractedMember dup2 = method("dup", "void dup(int x)");
+        ExtractedType type = new ExtractedType(PATH, "d", "", Deprecation.NONE, List.of(dup1, dup2));
+
+        SymbolMintResult result = minter.mint(type);
+        assertTrue(result.issues().stream().anyMatch(i -> i.contains("duplicate canonical key")),
+                () -> "the uniqueness pass must flag a duplicate: " + result.issues());
     }
 
     @Test
@@ -269,6 +313,12 @@ class CanonicalSymbolMinterTest {
     private static ExtractedMember method(String name, String signature) {
         return new ExtractedMember(MemberKind.METHOD, name, signature, "desc",
                 List.of(), "", List.of(), "", Deprecation.NONE);
+    }
+
+    private static void assertKeysUnique(List<SymbolRecord> records) {
+        List<String> keys = records.stream().map(SymbolRecord::canonicalKey).toList();
+        assertEquals(keys.size(), new HashSet<>(keys).size(),
+                () -> "canonical keys must be unique: " + keys);
     }
 
     private static SymbolRecord keyed(List<SymbolRecord> records, String key) {

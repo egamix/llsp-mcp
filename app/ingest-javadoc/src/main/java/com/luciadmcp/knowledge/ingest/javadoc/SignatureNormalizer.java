@@ -2,7 +2,6 @@ package com.luciadmcp.knowledge.ingest.javadoc;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Optional;
 
 /**
@@ -13,85 +12,181 @@ import java.util.Optional;
  * JDK 8 legacy {@code <pre>} (plain spaces, simple types) and as a JDK 11/17 modern
  * {@code .member-signature} ({@code &nbsp;}, possibly fully-qualified param types, U+200B word
  * breaks) must yield the <b>same</b> erased list. The normalization is a deterministic, pure function
- * of the input string with no locale-dependent behavior beyond {@code Locale.ROOT}.
+ * of the input string with no locale-dependent behavior beyond {@code Locale.ROOT} casing (none is
+ * applied here — tokens are copied verbatim).
  *
  * <p>Normalization steps, in order:
  * <ol>
- *   <li>strip U+200B (zero-width space); replace U+00A0 (already collapsed to a normal space by
- *       JSoup {@code Element.text()}, handled here too for direct-string robustness) and collapse all
- *       whitespace runs to a single space;</li>
- *   <li>isolate the parenthesized parameter list (depth-matched from the first {@code (});</li>
+ *   <li>strip U+200B (zero-width space), map U+00A0 ({@code &nbsp;}) to a normal space, and collapse
+ *       all whitespace runs to a single space;</li>
+ *   <li>strip annotations everywhere — method-level and per-parameter — including their balanced
+ *       {@code (...)} argument groups, so an annotation's parentheses can never be mistaken for the
+ *       real parameter list;</li>
+ *   <li>isolate the parenthesized parameter list (depth-matched from the first remaining {@code (});</li>
  *   <li>erase generic type arguments ({@code List<String>} &rarr; {@code List}, balanced
  *       {@code <...>} removal);</li>
- *   <li>split the parameter list on top-level commas (commas inside remaining parentheses do not
- *       split);</li>
- *   <li>per parameter: drop leading annotations ({@code @Foo}) and the {@code final} modifier, drop
- *       the parameter <em>name</em>, normalize varargs {@code ...} and C-style trailing {@code []} to
- *       a single agreed array form ({@code ...} &rarr; {@code []}), and reduce a fully-qualified type
- *       to its last dotted segment ({@code java.lang.String} &rarr; {@code String}).</li>
+ *   <li>split the parameter list on top-level commas;</li>
+ *   <li>per parameter: drop the {@code final} modifier and the parameter <em>name</em>, normalize any
+ *       array/varargs dimensionality to a consistent bracket form ({@code T...} and {@code T[]} both
+ *       &rarr; {@code T[]}; {@code T[][]} / {@code T[]...} &rarr; {@code T[][]}), and reduce a
+ *       fully-qualified type to its last dotted segment ({@code java.lang.String} &rarr; {@code String}).</li>
  * </ol>
  *
- * <p>Array vs varargs: {@code T...} and {@code T[]} normalize to the same {@code T[]} form (Java does
- * not permit overloading them apart, so collapsing is correct).
+ * <p>Degradation is never silent (AD-4): an unbalanced parameter parenthesis, an unbalanced generic
+ * {@code <}, an empty parameter slot, or a parameter that reduces to no type name is reported as an
+ * explicit {@link Parsed#problems() problem} rather than being dropped without trace.
  */
 final class SignatureNormalizer {
+
+    private static final String ZERO_WIDTH_SPACE = "​";
+    private static final char NBSP = ' '; // non-breaking space (&nbsp;)
 
     private SignatureNormalizer() {
     }
 
     /**
-     * Parses {@code signature} into its erased parameter-type list.
+     * The outcome of normalizing one signature.
+     *
+     * @param parameterTypes the ordered erased simple type names (possibly empty for a no-arg
+     *                       element), or {@link Optional#empty()} if no parameter list could be
+     *                       recovered at all (blank signature, no parentheses, or unbalanced parens)
+     * @param problems       human-readable problem fragments (no path/member prefix) for anything that
+     *                       degraded — surfaced by the caller as issues rather than dropped silently
+     */
+    record Parsed(Optional<List<String>> parameterTypes, List<String> problems) {
+
+        Parsed {
+            problems = problems == null ? List.of() : List.copyOf(problems);
+        }
+    }
+
+    /**
+     * Convenience view returning only the erased parameter-type list (discarding problem details).
      *
      * @param signature the raw signature text (any era's rendering)
-     * @return the ordered erased simple type names (possibly empty for a no-arg element), or
-     *         {@link Optional#empty()} if no parameter list could be recovered (blank signature or no
-     *         parentheses) — the caller records an issue rather than fabricating a list (AD-4)
+     * @return the erased list, or empty if no parameter list could be recovered
      */
     static Optional<List<String>> parameterTypes(String signature) {
+        return parse(signature).parameterTypes();
+    }
+
+    /**
+     * Parses {@code signature} into its erased parameter-type list plus any degradation problems.
+     *
+     * @param signature the raw signature text (any era's rendering)
+     * @return the parse outcome (never null)
+     */
+    static Parsed parse(String signature) {
         if (signature == null) {
-            return Optional.empty();
+            return new Parsed(Optional.empty(), List.of());
         }
-        String cleaned = collapse(signature);
+        String cleaned = stripAnnotations(collapse(signature)).trim();
         if (cleaned.isEmpty()) {
-            return Optional.empty();
+            return new Parsed(Optional.empty(), List.of());
         }
 
-        String params = parameterList(cleaned);
-        if (params == null) {
-            return Optional.empty(); // no recoverable parenthesized parameter list
+        List<String> problems = new ArrayList<>();
+
+        ParamList list = parameterList(cleaned);
+        if (!list.found()) {
+            if (list.unbalanced()) {
+                problems.add("has an unbalanced parameter-list parenthesis in its signature");
+            }
+            return new Parsed(Optional.empty(), problems);
         }
+
         // Erase generic arguments before splitting so a comma inside <...> never splits a parameter
         // (e.g. Function<A,B> is one parameter, not two).
-        params = eraseGenerics(params).trim();
+        Erased erased = eraseGenerics(list.content());
+        if (erased.unbalanced()) {
+            problems.add("has an unbalanced generic '<' in its signature");
+        }
+        String params = erased.text().trim();
         if (params.isEmpty()) {
-            return Optional.of(List.of()); // genuine no-arg element
+            return new Parsed(Optional.of(List.of()), problems); // genuine no-arg element
         }
 
         List<String> types = new ArrayList<>();
         for (String raw : splitTopLevel(params)) {
-            String type = parameterType(raw);
-            if (!type.isEmpty()) {
-                types.add(type);
+            if (raw.trim().isEmpty()) {
+                problems.add("has an empty parameter slot in its signature");
+                continue;
             }
+            String type = parameterType(raw);
+            if (type.isEmpty()) {
+                problems.add("has a parameter that reduced to no type name in its signature");
+                continue;
+            }
+            types.add(type);
         }
-        return Optional.of(List.copyOf(types));
+        return new Parsed(Optional.of(List.copyOf(types)), problems);
     }
 
     /** Strips U+200B, maps U+00A0 to a space, and collapses whitespace runs to single spaces. */
     private static String collapse(String s) {
-        String noZeroWidth = s.replace("​", "").replace(' ', ' ');
-        return noZeroWidth.trim().replaceAll("\\s+", " ");
+        String normalized = s.replace(ZERO_WIDTH_SPACE, "").replace(NBSP, ' ');
+        return normalized.trim().replaceAll("\\s+", " ");
     }
 
     /**
-     * The substring inside the first top-level {@code (...)} pair, matched by parenthesis depth, or
-     * {@code null} if there is no balanced pair. Depth matching tolerates nested parentheses (e.g. an
-     * annotation argument such as {@code @Size(max=5)}).
+     * Removes every annotation — {@code @Name} and {@code @Name(args)} with balanced {@code (...)} —
+     * wherever it appears (method-level or per-parameter). Each removed annotation leaves a single
+     * space so adjacent tokens do not merge. This runs before the parameter list is located so a
+     * method- or parameter-level annotation's parentheses can never be mistaken for the parameter
+     * list (e.g. {@code @Size(max=5) void f(int x)}).
      */
-    private static String parameterList(String s) {
+    private static String stripAnnotations(String s) {
+        StringBuilder out = new StringBuilder(s.length());
+        int i = 0;
+        int n = s.length();
+        while (i < n) {
+            char c = s.charAt(i);
+            if (c != '@') {
+                out.append(c);
+                i++;
+                continue;
+            }
+            i++; // consume '@'
+            // Annotation type name: identifier characters and dots (a possibly-qualified name).
+            while (i < n && isNameChar(s.charAt(i))) {
+                i++;
+            }
+            // Optional balanced (...) argument group (allowing whitespace before the '(').
+            int j = i;
+            while (j < n && s.charAt(j) == ' ') {
+                j++;
+            }
+            if (j < n && s.charAt(j) == '(') {
+                int depth = 0;
+                int k = j;
+                for (; k < n; k++) {
+                    char cc = s.charAt(k);
+                    if (cc == '(') {
+                        depth++;
+                    } else if (cc == ')') {
+                        depth--;
+                        if (depth == 0) {
+                            k++;
+                            break;
+                        }
+                    }
+                }
+                i = k; // consume the argument group (to end if unbalanced)
+            }
+            out.append(' '); // keep a separator in place of the removed annotation
+        }
+        return out.toString();
+    }
+
+    private static boolean isNameChar(char c) {
+        return Character.isLetterOrDigit(c) || c == '_' || c == '$' || c == '.';
+    }
+
+    /** The first balanced {@code (...)} pair, matched by parenthesis depth. */
+    private static ParamList parameterList(String s) {
         int open = s.indexOf('(');
         if (open < 0) {
-            return null;
+            return new ParamList(false, "", false);
         }
         int depth = 0;
         for (int i = open; i < s.length(); i++) {
@@ -101,15 +196,15 @@ final class SignatureNormalizer {
             } else if (c == ')') {
                 depth--;
                 if (depth == 0) {
-                    return s.substring(open + 1, i);
+                    return new ParamList(true, s.substring(open + 1, i), false);
                 }
             }
         }
-        return null; // unbalanced
+        return new ParamList(false, "", true); // opened but never closed
     }
 
     /** Removes all balanced {@code <...>} generic-argument groups, at any nesting depth. */
-    private static String eraseGenerics(String s) {
+    private static Erased eraseGenerics(String s) {
         StringBuilder out = new StringBuilder(s.length());
         int depth = 0;
         for (int i = 0; i < s.length(); i++) {
@@ -124,7 +219,7 @@ final class SignatureNormalizer {
                 out.append(c);
             }
         }
-        return out.toString();
+        return new Erased(out.toString(), depth > 0);
     }
 
     /** Splits a parameter list on commas that are not nested inside parentheses. */
@@ -150,16 +245,17 @@ final class SignatureNormalizer {
     }
 
     /**
-     * Reduces one generics-erased parameter declaration to its erased simple type name. Drops leading
-     * annotations and {@code final}, drops the parameter name, normalizes varargs/array markers, and
-     * reduces a fully-qualified type to its last dotted segment.
+     * Reduces one generics-erased, annotation-free parameter declaration to its erased simple type
+     * name. Drops {@code final} and the parameter name, preserves array/varargs dimensionality as a
+     * consistent bracket form, and reduces a fully-qualified type to its last dotted segment. Returns
+     * {@code ""} if nothing type-like remains (caller records a problem, never fabricates a type).
      */
     private static String parameterType(String erasedParam) {
         String[] tokens = erasedParam.trim().split("\\s+");
         List<String> kept = new ArrayList<>();
         for (String t : tokens) {
-            if (t.isEmpty() || t.equals("final") || t.startsWith("@")) {
-                continue; // modifier / annotation
+            if (t.isEmpty() || t.equals("final")) {
+                continue; // modifier (annotations were already stripped globally)
             }
             kept.add(t);
         }
@@ -167,36 +263,59 @@ final class SignatureNormalizer {
             return "";
         }
 
-        String type;
+        String typeToken;
         String nameToken = "";
         if (kept.size() == 1) {
-            // Only a type is present (parameter name omitted).
-            type = kept.get(0);
+            typeToken = kept.get(0); // parameter name omitted
         } else {
-            // Last token is the parameter name; the token before it is the type.
-            type = kept.get(kept.size() - 2);
+            typeToken = kept.get(kept.size() - 2);
             nameToken = kept.get(kept.size() - 1);
         }
 
-        // C-style array on the parameter name (`int arr[]`) attaches the array to the type.
-        boolean cStyleArray = nameToken.endsWith("[]");
-        boolean varargs = type.endsWith("...");
-        boolean bracketArray = type.endsWith("[]");
+        // Array/varargs dimensionality can be written on the type (`int[]`, `int...`, `int[]...`) and,
+        // C-style, on the parameter name (`int a[][]`). Sum both so every dimension is preserved.
+        int[] typeDims = new int[1];
+        String base = stripArrayMarkers(typeToken, typeDims);
+        int[] nameDims = new int[1];
+        stripArrayMarkers(nameToken, nameDims);
+        int dims = typeDims[0] + nameDims[0];
 
-        String base = type;
-        if (varargs) {
-            base = base.substring(0, base.length() - 3);
-        } else if (bracketArray) {
-            base = base.substring(0, base.length() - 2);
-        }
-
-        // Reduce a fully-qualified type to its last dotted segment (Locale.ROOT-independent).
+        // Reduce a fully-qualified type to its last dotted segment.
         int lastDot = base.lastIndexOf('.');
         if (lastDot >= 0) {
             base = base.substring(lastDot + 1);
         }
+        if (base.isEmpty()) {
+            return "";
+        }
+        return base + "[]".repeat(dims);
+    }
 
-        boolean isArray = varargs || bracketArray || cStyleArray;
-        return isArray ? base + "[]" : base;
+    /**
+     * Strips every trailing array {@code []} and a single trailing varargs {@code ...} marker from a
+     * token, counting the total number of dimensions into {@code dimsOut[0]}, and returns the bare
+     * base token. {@code int[]...} counts as two dimensions.
+     */
+    private static String stripArrayMarkers(String token, int[] dimsOut) {
+        String t = token;
+        int dims = 0;
+        if (t.endsWith("...")) {
+            dims++;
+            t = t.substring(0, t.length() - 3);
+        }
+        while (t.endsWith("[]")) {
+            dims++;
+            t = t.substring(0, t.length() - 2);
+        }
+        dimsOut[0] = dims;
+        return t;
+    }
+
+    /** The located parameter list: whether a balanced pair was {@code found}, its {@code content}. */
+    private record ParamList(boolean found, String content, boolean unbalanced) {
+    }
+
+    /** Generic-erased text plus whether an unclosed {@code <} was seen (unbalanced generics). */
+    private record Erased(String text, boolean unbalanced) {
     }
 }

@@ -1,6 +1,7 @@
 package com.luciadmcp.knowledge.ingest.javadoc;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
@@ -60,6 +61,63 @@ class SignatureNormalizerTest {
         assertEquals(types("void x(int[] a)"), types("void x(int... a)"));
         // C-style array marker on the parameter name attaches to the type.
         assertEquals(List.of("int[]"), types("void y(int a[])"));
+    }
+
+    // --- Review item 2: multi-dimensional arrays preserve their dimensionality --------------------
+
+    @Test
+    void multiDimensionalArraysArePreserved() {
+        assertEquals(List.of("double[][]"), types("void g(double[][] grid)"));
+        assertEquals(List.of("int[][]"), types("void g(int a[][])"));       // C-style, 2 dims on name
+        assertEquals(List.of("int[][]"), types("void g(int[]... rows)"));   // varargs of int[] = 2 dims
+        // A 1-D and a 2-D array of the same base must stay distinguishable.
+        assertNotEquals(types("void g(double[] a)"), types("void g(double[][] a)"));
+    }
+
+    // --- Review item 3: annotations with parentheses are not mistaken for the parameter list ------
+
+    @Test
+    void methodLevelAnnotationWithArgsIsNotMistakenForParameterList() {
+        assertEquals(List.of("int"), types("@Size(max=5) void f(int x)"));
+    }
+
+    @Test
+    void perParameterAnnotationWithAndWithoutArgsIsStripped() {
+        assertEquals(List.of("String"), types("f(@NonNull String s)"));
+        assertEquals(List.of("String"), types("void f(@Size(max=5) String s)"));
+    }
+
+    // --- Review item 4: unbalanced generics / parens are flagged, not silently truncated ----------
+
+    @Test
+    void unbalancedGenericIsReportedAsAProblem() {
+        SignatureNormalizer.Parsed parsed = SignatureNormalizer.parse("void f(int x, Foo<Bar baz)");
+        assertTrue(parsed.parameterTypes().isPresent(), "the recoverable prefix is still returned");
+        assertTrue(parsed.problems().stream().anyMatch(p -> p.contains("generic")),
+                () -> "an unbalanced '<' must be flagged: " + parsed.problems());
+    }
+
+    @Test
+    void unbalancedParameterParenthesisIsReportedAsAProblem() {
+        SignatureNormalizer.Parsed parsed = SignatureNormalizer.parse("void f(int x");
+        assertTrue(parsed.parameterTypes().isEmpty(), "no balanced parameter list -> not recovered");
+        assertTrue(parsed.problems().stream().anyMatch(p -> p.contains("parenthesis")),
+                () -> "an unbalanced '(' must be flagged: " + parsed.problems());
+    }
+
+    @Test
+    void emptyParameterSlotIsReportedAsAProblem() {
+        SignatureNormalizer.Parsed parsed = SignatureNormalizer.parse("void f(int x, , String s)");
+        assertTrue(parsed.problems().stream().anyMatch(p -> p.contains("empty parameter slot")),
+                () -> "an empty parameter slot must be flagged: " + parsed.problems());
+    }
+
+    // --- Review item 5: a raw U+00A0 (not an HTML entity) collapses to a normal space --------------
+
+    @Test
+    void rawNonBreakingSpaceCollapsesToNormalSpace() {
+        // U+00A0 between tokens must behave exactly like a normal space (would otherwise glue tokens).
+        assertEquals(List.of("String"), types("void f(final" + NBSP + "String" + NBSP + "s)"));
     }
 
     // --- Modifiers, annotations, nested generics, FQN reduction -----------------------------------
