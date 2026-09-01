@@ -41,9 +41,15 @@ public final class IngestCommand {
         this((FailurePolicy policy) -> pipeline);
     }
 
-    /** Production default: the real resumable pipeline with the eight no-op stages. */
+    /**
+     * Production default: the real resumable pipeline with a real {@link
+     * com.luciadmcp.knowledge.cli.pipeline.CatalogStage} at the CATALOG position (Story 2.4) and the
+     * other seven stages still no-ops. The CATALOG stage needs the parsed inputs (javadoc root + SDK
+     * version), so the pipeline is built per invocation once {@code args} are known, then run.
+     */
     public IngestCommand() {
-        this((FailurePolicy policy) -> IngestPipelineRunner.withDefaultStages(policy));
+        this((FailurePolicy policy) ->
+                (IngestArguments args) -> IngestPipelineRunner.withCatalogStage(policy, args).run(args));
     }
 
     /**
