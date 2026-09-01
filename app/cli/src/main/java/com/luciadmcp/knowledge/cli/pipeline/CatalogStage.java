@@ -6,7 +6,6 @@ import com.luciadmcp.knowledge.ingest.javadoc.JavadocCatalogSource;
 import com.luciadmcp.knowledge.ingest.javadoc.SymbolKind;
 import com.luciadmcp.knowledge.ingest.javadoc.SymbolRecord;
 import java.nio.file.Path;
-import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
@@ -22,10 +21,13 @@ import java.util.function.Function;
  * the boundary) and reaches the store only through the {@code domain} {@link CatalogStore} port; the
  * concrete SQLite store is supplied by the wiring via a factory, so this class names no engine type.
  *
+ * <p><b>SDK version.</b> The stage scopes every record to {@link BuildContext#sdkVersion()}, which
+ * carries the explicit {@code --sdk-version} when supplied and a default label otherwise. The version
+ * is optional: an absent one no longer aborts the build (the version column and
+ * {@code (sdkVersion, canonicalKey)} uniqueness still apply, just under the default label).
+ *
  * <h2>Failure mapping</h2>
  * <ul>
- *   <li><b>Missing SDK version</b> &rarr; {@link FailureSeverity#BUILD_INVALIDATING}: version-scoped
- *       keys cannot be minted without it, so the build aborts with a clear error.</li>
  *   <li><b>Extraction / minting issues (2.2 / 2.3) and discovery warnings (2.1)</b> &rarr;
  *       {@link FailureSeverity#RECOVERABLE}, mapped onto the {@link FailurePolicy} by the runner:
  *       fail-fast aborts, collect-and-continue records and proceeds. Never a silent drop or a
@@ -37,39 +39,28 @@ import java.util.function.Function;
 public final class CatalogStage implements Stage {
 
     private final Path javadocRoot;
-    private final Optional<String> sdkVersion;
     private final JavadocCatalogSource source;
     private final Function<BuildContext, CatalogStore> storeFactory;
 
     /**
      * @param javadocRoot  the Javadoc tree root to ingest (validated to exist by {@code IngestCommand})
-     * @param sdkVersion   the explicit SDK-version build input, or empty (then the build aborts)
      * @param source       the Story-2.1&ndash;2.3 discover/extract/mint facade
      * @param storeFactory opens the build-scoped {@link CatalogStore} for a {@link BuildContext}
      */
     public CatalogStage(
             Path javadocRoot,
-            Optional<String> sdkVersion,
             JavadocCatalogSource source,
             Function<BuildContext, CatalogStore> storeFactory) {
         this.javadocRoot = javadocRoot;
-        this.sdkVersion = sdkVersion == null ? Optional.empty() : sdkVersion;
         this.source = source;
         this.storeFactory = storeFactory;
     }
 
     @Override
     public void execute(BuildContext context, Consumer<StageFailure> failures) {
-        if (sdkVersion.isEmpty() || sdkVersion.get().isBlank()) {
-            // Keys cannot be version-scoped without a version (AD-12): abort the build (matrix row
-            // "Missing/undeterminable sdkVersion").
-            failures.accept(StageFailure.of(
-                    PipelineStage.CATALOG,
-                    FailureSeverity.BUILD_INVALIDATING,
-                    "no SDK version supplied (--sdk-version); catalog keys cannot be version-scoped"));
-            return;
-        }
-        String version = sdkVersion.get();
+        // The version is optional; BuildContext already resolves an absent --sdk-version to a default
+        // label, so scoping (and catalogDbPath) stay consistent without a mandatory input (AD-12).
+        String version = context.sdkVersion();
 
         JavadocCatalogSource.Result result;
         try {

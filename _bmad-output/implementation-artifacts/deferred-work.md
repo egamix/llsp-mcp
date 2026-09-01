@@ -61,5 +61,5 @@
   summary: CatalogStage.anchorFor reconstructs the member anchor from simpleName+erased params instead of reading the real Javadoc id= attribute, so resolvability-to-source can silently diverge for varargs/generics/legacy layouts.
   evidence: The 2.2 ExtractedMember model carries no anchor, so 2.4 derives one; synthetic fixtures happen to match. Capturing the true id= requires extending the 2.2 extraction model (out of proportion to a patch). AC round-trip test passes but does not prove the derived anchor equals the real page anchor.
 - source_spec: `_bmad-output/implementation-artifacts/2-4-persist-the-versioned-canonical-catalog.md`
-  summary: A real `ingest` that aborts with BUILD_INVALIDATING (e.g. missing --sdk-version) still returns EXIT_OK because IngestCommand.run discards the PipelineResult.
-  evidence: Pre-existing exit-code behavior surfaced by wiring the real CATALOG stage into the default command; no Story 2.4 AC covers CLI exit codes. Exit-code mapping for pipeline aborts should be decided separately.
+  summary: A real `ingest` that aborts with BUILD_INVALIDATING (e.g. a store-open failure or an identity clash) still returns EXIT_OK because IngestCommand.run discards the PipelineResult.
+  evidence: Pre-existing exit-code behavior surfaced by wiring the real CATALOG stage into the default command; no Story 2.4 AC covers CLI exit codes. Exit-code mapping for pipeline aborts should be decided separately. (The missing --sdk-version case no longer aborts as of the 2026-09-01 softening.)

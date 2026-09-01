@@ -23,8 +23,9 @@ import org.junit.jupiter.api.io.TempDir;
 /**
  * The real CATALOG stage (Story 2.4): it runs discover&rarr;extract&rarr;mint, scopes records to the
  * SDK version, attaches the relative path + derived anchor, and submits logical tuples through the
- * {@link CatalogStore} port. It maps 2.1&ndash;2.3 issues onto recoverable failures and a missing SDK
- * version / store identity clash onto build-invalidating failures. Fixtures are synthetic HTML.
+ * {@link CatalogStore} port. It maps 2.1&ndash;2.3 issues onto recoverable failures and a store
+ * identity clash onto a build-invalidating failure. An absent {@code --sdk-version} does not abort:
+ * records are scoped under a default label. Fixtures are synthetic HTML.
  */
 class CatalogStageTest {
 
@@ -63,7 +64,11 @@ class CatalogStageTest {
     }
 
     private static BuildContext context(Path tmp) {
-        return new BuildContext("b-test", "digest-test", tmp.resolve("staging"), "2024.0");
+        return context(tmp, "2024.0");
+    }
+
+    private static BuildContext context(Path tmp, String sdkVersion) {
+        return new BuildContext("b-test", "digest-test", tmp.resolve("staging"), sdkVersion);
     }
 
     /** Headline: discover→extract→mint→submit, each record version-scoped with a resolvable anchor. */
@@ -74,7 +79,7 @@ class CatalogStageTest {
 
         RecordingStore store = new RecordingStore();
         CatalogStage stage = new CatalogStage(
-                javadoc, Optional.of("2024.0"), new JavadocCatalogSource(), fixedStore(store));
+                javadoc, new JavadocCatalogSource(), fixedStore(store));
 
         List<StageFailure> failures = new ArrayList<>();
         stage.execute(context(tmp), failures::add);
@@ -113,10 +118,10 @@ class CatalogStageTest {
         Function<BuildContext, CatalogStore> perRun = ctx -> new SqliteCatalogStore(dbPath);
         List<StageFailure> failures = new ArrayList<>();
 
-        new CatalogStage(v1, Optional.of("2024.0"), new JavadocCatalogSource(), perRun)
-                .execute(context(tmp), failures::add);
-        new CatalogStage(v2, Optional.of("2025.0"), new JavadocCatalogSource(), perRun)
-                .execute(context(tmp), failures::add);
+        new CatalogStage(v1, new JavadocCatalogSource(), perRun)
+                .execute(context(tmp, "2024.0"), failures::add);
+        new CatalogStage(v2, new JavadocCatalogSource(), perRun)
+                .execute(context(tmp, "2025.0"), failures::add);
 
         assertTrue(failures.isEmpty(), () -> "clean cross-version ingest should not fail: " + failures);
 
@@ -132,23 +137,38 @@ class CatalogStageTest {
         }
     }
 
-    /** Matrix row "Missing/undeterminable sdkVersion": a build-invalidating abort, nothing submitted. */
+    /**
+     * Matrix row "sdkVersion not supplied": no {@code --sdk-version} does NOT abort. The build proceeds
+     * and records are scoped under the default version label (version scoping is retained; only the
+     * mandatory-input friction was removed). Verified through the production wiring end-to-end.
+     */
     @Test
-    void missingSdkVersionIsBuildInvalidatingAndSubmitsNothing(@TempDir Path tmp) throws Exception {
+    void withoutSdkVersionBuildProceedsAndScopesUnderDefaultLabel(@TempDir Path tmp) throws Exception {
         Path javadoc = Files.createDirectories(tmp.resolve("javadoc"));
         writeType(javadoc, "com/example/Widget.html", CLEAN_PAGE);
+        IngestArguments args = new IngestArguments(
+                javadoc,
+                Files.createDirectories(tmp.resolve("samples")),
+                Files.createDirectories(tmp.resolve("guides")),
+                Files.createDirectories(tmp.resolve("model")),
+                tmp.resolve("out"),
+                Optional.empty(),
+                Optional.empty()); // no --sdk-version
 
-        RecordingStore store = new RecordingStore();
-        CatalogStage stage = new CatalogStage(
-                javadoc, Optional.empty(), new JavadocCatalogSource(), fixedStore(store));
+        PipelineResult result =
+                IngestPipelineRunner.withCatalogStage(FailurePolicy.FAIL_FAST, args).runToResult(args);
 
-        List<StageFailure> failures = new ArrayList<>();
-        stage.execute(context(tmp), failures::add);
+        assertFalse(result.aborted(), () -> "an absent version must not abort the build: " + result.failures());
+        String defaultLabel = IngestPipelineRunner.STUB_SDK_VERSION;
+        assertEquals(defaultLabel, result.manifest().sdkVersion(), "absent version resolves to the default label");
 
-        assertEquals(1, failures.size());
-        assertEquals(FailureSeverity.BUILD_INVALIDATING, failures.get(0).severity());
-        assertTrue(failures.get(0).message().contains("SDK version"));
-        assertTrue(store.submitted.isEmpty(), "no records may be submitted without a version");
+        Path dbPath = BuildContext.forInputs(args).catalogDbPath();
+        assertTrue(Files.isRegularFile(dbPath), () -> "the catalog db must exist at " + dbPath);
+        try (SqliteCatalogStore store = new SqliteCatalogStore(dbPath)) {
+            assertTrue(store.findByKey(defaultLabel, "com.example.Widget").isPresent(),
+                    "records are still version-scoped, under the default label");
+            assertEquals(2, store.allRecords().size());
+        }
     }
 
     /** Matrix row "Minting issue from 2.3": an extraction/mint issue maps to a recoverable failure. */
@@ -159,7 +179,7 @@ class CatalogStageTest {
 
         RecordingStore store = new RecordingStore();
         CatalogStage stage = new CatalogStage(
-                javadoc, Optional.of("2024.0"), new JavadocCatalogSource(), fixedStore(store));
+                javadoc, new JavadocCatalogSource(), fixedStore(store));
 
         List<StageFailure> failures = new ArrayList<>();
         stage.execute(context(tmp), failures::add);
@@ -183,7 +203,7 @@ class CatalogStageTest {
         RecordingStore store = new RecordingStore();
         store.forceClash = true; // every put reports a clash
         CatalogStage stage = new CatalogStage(
-                javadoc, Optional.of("2024.0"), new JavadocCatalogSource(), fixedStore(store));
+                javadoc, new JavadocCatalogSource(), fixedStore(store));
 
         List<StageFailure> failures = new ArrayList<>();
         stage.execute(context(tmp), failures::add);

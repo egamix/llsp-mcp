@@ -31,7 +31,7 @@ context:
 
 **Ask First:**
 - **SQLite schema (DDL) is a governance approval gate.** I will design one concrete, clearly-labeled *provisional* schema now — the same "design-provisionally-then-approve" split Story 2.3 used for the canonical-symbol grammar — and flag it for sign-off. Ownership tension to confirm: the architecture spine says Epic 3 owns the schema gate, but `epics.md` places catalog persistence in Epic 2 / Story 2.4.
-- **`sdkVersion` source.** Recommended: an **explicit build input** (new optional ingest argument) threaded through `BuildContext` — deterministic and testable. Alternative: parse it from the Javadoc tree (AD-12 wording; the runner's `STUB_SDK_VERSION` comment anticipates this). Confirm before wiring.
+- **`sdkVersion` source (RESOLVED).** An **optional** explicit build input (`--sdk-version`) threaded through `BuildContext`. When absent, the build does **not** abort — records are scoped under a default version label. Version scoping (column + `(sdkVersion, canonicalKey)` uniqueness) is retained as cheap, future-proof insurance; the mandatory-input friction was dropped per human decision (see Spec Change Log). Parsing from the Javadoc tree (AD-12 wording) remains a possible later enhancement.
 - **`identityFields` spec shape** (Epic-1 retro action item: "confirm the AD-22 `identityFields` registry approach before Epic 2 catalog work"). Recommended: a small `domain` registry naming the ordered identity fields per entity, applied to the 2.3 provisional key.
 
 **Never:**
@@ -49,7 +49,8 @@ context:
 | Duplicate computed ID within one build | two submitted tuples hash to the same record ID | idempotent upsert — one row, no duplicate | if it reflects a real identity clash, record an issue (AD-4) |
 | Interrupted then resumed build | `CATALOG` partially completed, rerun | identical rows/IDs as an uninterrupted run | resume via checkpoint; no duplicate rows |
 | Minting issue from 2.3 | `SymbolMintResult.issues` non-empty | mapped to `StageFailure` per `FailurePolicy` | fail-fast aborts; collect-and-continue records + proceeds |
-| Missing/undeterminable `sdkVersion` | version cannot be established | build aborts with a clear error | `BUILD_INVALIDATING` — keys cannot be scoped |
+| `sdkVersion` not supplied | no `--sdk-version` given | build proceeds; records are scoped under a default version label (no abort) | N/A — the version column + uniqueness still apply, just under the default label |
+| `sdkVersion` malformed | `--sdk-version` present but not a safe path segment (`..`, separators, blank) | rejected at parse time with a clear CLI error | `INVALID_OPTION_VALUE` |
 
 </frozen-after-approval>
 
@@ -90,11 +91,15 @@ context:
 - Given the same inputs run twice (one interrupted then resumed), when both builds finish, then the persisted rows and computed IDs are identical.
 - Given `catalog-sqlite`, when `checkDependencyDirection` runs, then it depends only on `domain` (+ `org.xerial`) and no ID is computed outside `catalog-sqlite`.
 
+## Spec Change Log
+
+- **Post-review, human renegotiation of frozen intent (2026-09-01).** Triggered by: reconsideration of whether a mandatory SDK version is warranted given APIs change little across versions. Amended: `sdkVersion` input made **optional with a default label** instead of a hard `BUILD_INVALIDATING` abort when absent; the frozen I/O matrix row and the `sdkVersion` Ask-First item updated to match. Known-bad state avoided: forcing every offline rebuild to know/supply a version, and a real `ingest` silently aborting (exit 0) when it was omitted. KEEP: version scoping itself — the `sdkVersion` column and `(sdkVersion, canonicalKey)` uniqueness are retained (cheap, future-proof, and the guard against cross-version wrong-answers); only the mandatory-input friction was removed.
+
 ## Design Notes
 
 - **Provisional-schema precedent:** mirror Story 2.3 — build a concrete, working schema labeled *provisional / pending governance sign-off*; capture identity inputs explicitly so a later approved DDL maps on without reshaping. Do not stamp Story 2.3's provisional key as the AD-18 wire join key.
 - **ID authority (AD-22):** the CATALOG stage submits `(entityType, ordered identity field values)`; `SqliteCatalogStore` is the only code that calls `ContentHashes.recordHash` and assigns the primary key. This closes the Epic-1 retro prerequisite.
-- **sdkVersion (recommended default pending Ask-First):** explicit optional ingest input → `BuildContext.sdkVersion`; fail `BUILD_INVALIDATING` if absent, since keys can't be scoped without it.
+- **sdkVersion:** optional explicit ingest input → `BuildContext.sdkVersion`; absent resolves to a default label (no abort). The `CATALOG` stage reads the version from `BuildContext` (consistent with `catalogDbPath()` and the manifest), not from a separately injected value.
 
 ## Verification
 

@@ -45,10 +45,10 @@ import java.util.Map;
 public final class IngestPipelineRunner implements IngestPipeline {
 
     /**
-     * Fallback SDK version used only when no {@code --sdk-version} is supplied (AD-12). Story 2.4
-     * threads an explicit version through {@link BuildContext}; the persisted {@link CatalogStage}
-     * path uses that real value and aborts the build when it is absent, so this sentinel now applies
-     * only to the no-op/unversioned path (e.g. an offline rebuild that never reaches persistence).
+     * Default SDK-version label used when no {@code --sdk-version} is supplied (AD-12). The version is
+     * optional: {@link BuildContext} resolves an absent input to this label, and the {@link CatalogStage}
+     * scopes records under it (the version column and {@code (sdkVersion, canonicalKey)} uniqueness still
+     * apply) — an absent version does not abort the build. An explicit {@code --sdk-version} overrides it.
      */
     static final String STUB_SDK_VERSION = "0.0.0-stub";
 
@@ -114,7 +114,6 @@ public final class IngestPipelineRunner implements IngestPipeline {
     public static IngestPipelineRunner withCatalogStage(FailurePolicy policy, IngestArguments args) {
         Stage catalog = new CatalogStage(
                 args.javadoc(),
-                args.sdkVersion(),
                 new JavadocCatalogSource(),
                 ctx -> new SqliteCatalogStore(ctx.catalogDbPath()));
         PipelineStage[] all = PipelineStage.values();

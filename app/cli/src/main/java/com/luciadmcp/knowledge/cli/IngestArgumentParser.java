@@ -116,8 +116,8 @@ public final class IngestArgumentParser {
 
     /**
      * Maps the optional {@code --sdk-version} value to an {@link Optional}. Absent means empty (the
-     * real {@code CATALOG} stage then aborts the build, since version-scoped keys cannot be minted
-     * without it). The value becomes a directory segment under the build's staging area, so a blank
+     * build then scopes records under a default version label; it does not abort). The value becomes a
+     * directory segment under the build's staging area, so a blank
      * value or one that is not a safe single path segment (separators, {@code .}/{@code ..},
      * filename-illegal characters) is rejected rather than treated as a version — this is the
      * argument-contract half of the AD-25 staging-escape guard enforced in {@link BuildContext}.

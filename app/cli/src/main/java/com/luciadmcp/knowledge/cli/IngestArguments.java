@@ -18,11 +18,10 @@ import java.util.Optional;
  * serving-image rebuild omits it. See {@link TrainingIngestSeam}.
  *
  * <p>{@code sdkVersion} is an optional explicit build input threaded through {@code BuildContext}
- * (AD-12): the catalog is version-scoped, so persistence needs it. When it is absent the real
- * {@code CATALOG} stage aborts the build ({@code BUILD_INVALIDATING}) — keys cannot be scoped without
- * a version. It is a value, not a filesystem path, so like {@code --failure-policy} it is not one of
- * the FR-1 paths; it rides here because it identifies the corpus being ingested, not a serve-time
- * setting (AD-16).
+ * (AD-12): the catalog is version-scoped. When it is absent the build does not abort — records are
+ * scoped under a default version label (the version column and uniqueness still apply). It is a value,
+ * not a filesystem path, so like {@code --failure-policy} it is not one of the FR-1 paths; it rides
+ * here because it identifies the corpus being ingested, not a serve-time setting (AD-16).
  *
  * @param javadoc    local Javadoc directory (input, must exist)
  * @param samples    local samples/workflows directory (input, must exist)
