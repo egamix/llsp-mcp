@@ -1,10 +1,27 @@
 ---
 baseline_commit: 896fc9b
+context:
+  - app/ingest-javadoc/src/main/java/com/luciadmcp/knowledge/ingest/javadoc/ExtractedType.java
+  - app/ingest-javadoc/src/main/java/com/luciadmcp/knowledge/ingest/javadoc/ExtractedMember.java
+  - app/ingest-javadoc/src/main/java/com/luciadmcp/knowledge/ingest/javadoc/MemberKind.java
+  - app/ingest-javadoc/src/main/java/com/luciadmcp/knowledge/ingest/javadoc/ExtractionResult.java
+  - app/ingest-javadoc/src/main/java/com/luciadmcp/knowledge/ingest/javadoc/Param.java
+  - app/ingest-javadoc/src/main/java/com/luciadmcp/knowledge/ingest/javadoc/ThrownException.java
+  - app/ingest-javadoc/src/main/java/com/luciadmcp/knowledge/ingest/javadoc/Deprecation.java
+  - app/ingest-javadoc/src/main/java/com/luciadmcp/knowledge/ingest/javadoc/DiscoveryResult.java
+  - app/ingest-javadoc/src/main/java/com/luciadmcp/knowledge/ingest/javadoc/JavadocFieldExtractor.java
+  - app/ingest-javadoc/src/main/java/com/luciadmcp/knowledge/ingest/javadoc/package-info.java
+  - app/ingest-javadoc/src/test/java/com/luciadmcp/knowledge/ingest/javadoc/JavadocFieldExtractorTest.java
+  - app/domain/src/main/java/com/luciadmcp/knowledge/domain/ApiElement.java
+  - app/domain/src/main/java/com/luciadmcp/knowledge/domain/MethodElement.java
+  - app/ingest-javadoc/src/test/resources/javadoc-fixtures/extract/jdk8/Widget.html
+  - app/ingest-javadoc/src/test/resources/javadoc-fixtures/extract/jdk11/Widget.html
+  - app/ingest-javadoc/src/test/resources/javadoc-fixtures/extract/jdk17/Widget.html
 ---
 
 # Story 2.3: Build canonical symbol records with overload distinction
 
-Status: ready-for-dev
+Status: in-progress
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -158,8 +175,54 @@ cd app && GRADLE_OPTS=-Djavax.net.ssl.trustStoreType=Windows-ROOT ./gradlew :ing
 
 ### Agent Model Used
 
+claude-opus (Claude Code)
+
 ### Debug Log References
+
+- Initial `SignatureNormalizer` split parameters on commas before erasing generics, so `Function<A,B>`
+  split into two params (`[Function, B]`). Fixed by erasing generics on the whole parameter-list
+  string before the top-level comma split.
 
 ### Completion Notes List
 
+- New `ingest.javadoc`-internal model: `SymbolKind`, `LookupVariants`, `SymbolRecord`,
+  `SymbolMintResult`, plus helpers `TypeName` (FQN-from-path) and `SignatureNormalizer` (erased
+  param list), and the `CanonicalSymbolMinter`. No `domain`/`cli` types touched (AD-1); `domain`
+  skeleton records untouched.
+- Decisions documented in code: dedicated `SymbolKind` (adds `TYPE`); nested-type separator is the
+  readable dotted form (`pkg.Outer.Inner`, innermost `simpleName`); array/varargs normalize to `[]`;
+  FQN→simple param reduction takes the last dotted segment; degradation contract = record an issue +
+  mint a best-effort name-only key (never fabricate, never drop, AD-4). Provisional key grammar
+  (`fqn`, `fqn#name(erased,params)`, `fqn#NAME`) explicitly labeled not-the-AD-18/Epic-3 wire key.
+- Fixtures: extended shared `extract/{jdk8,jdk11,jdk17}/Widget.html` with overloaded `contains(Point)`
+  / `contains(double,double)`, generic `map(Function<A,B>)`, varargs `merge(int...)`, array
+  `scale(double[])`. Modern eras render era-authentically (FQN param types, `&nbsp;`, U+200B word
+  breaks) so the AC-5 normalizer is genuinely exercised, not trivially satisfied.
+- Story 2.2's `JavadocFieldExtractorTest` updated: raw signatures now legitimately diverge across
+  eras (that divergence is exactly what 2.3 normalizes), so the cross-era equality assertion compares
+  every field except the raw signature (`withoutSignatures` helper), and the member-order/kind
+  assertion was updated to the 9 members. All other 2.2 assertions unchanged.
+- Verify: `./gradlew :ingest-javadoc:test checkDependencyDirection` — BUILD SUCCESSFUL. Per-class:
+  CanonicalSymbolMinterTest 14, SignatureNormalizerTest 8, JavadocFieldExtractorTest 12, all pass;
+  `NoJsoupConnectSourceTest` (scans all main sources, now covers the new class) passes;
+  `checkDependencyDirection` green for every module.
+
 ### File List
+
+New:
+- app/ingest-javadoc/src/main/java/com/luciadmcp/knowledge/ingest/javadoc/SymbolKind.java
+- app/ingest-javadoc/src/main/java/com/luciadmcp/knowledge/ingest/javadoc/LookupVariants.java
+- app/ingest-javadoc/src/main/java/com/luciadmcp/knowledge/ingest/javadoc/SymbolRecord.java
+- app/ingest-javadoc/src/main/java/com/luciadmcp/knowledge/ingest/javadoc/SymbolMintResult.java
+- app/ingest-javadoc/src/main/java/com/luciadmcp/knowledge/ingest/javadoc/TypeName.java
+- app/ingest-javadoc/src/main/java/com/luciadmcp/knowledge/ingest/javadoc/SignatureNormalizer.java
+- app/ingest-javadoc/src/main/java/com/luciadmcp/knowledge/ingest/javadoc/CanonicalSymbolMinter.java
+- app/ingest-javadoc/src/test/java/com/luciadmcp/knowledge/ingest/javadoc/CanonicalSymbolMinterTest.java
+- app/ingest-javadoc/src/test/java/com/luciadmcp/knowledge/ingest/javadoc/SignatureNormalizerTest.java
+
+Modified:
+- app/ingest-javadoc/src/main/java/com/luciadmcp/knowledge/ingest/javadoc/package-info.java
+- app/ingest-javadoc/src/test/java/com/luciadmcp/knowledge/ingest/javadoc/JavadocFieldExtractorTest.java
+- app/ingest-javadoc/src/test/resources/javadoc-fixtures/extract/jdk8/Widget.html
+- app/ingest-javadoc/src/test/resources/javadoc-fixtures/extract/jdk11/Widget.html
+- app/ingest-javadoc/src/test/resources/javadoc-fixtures/extract/jdk17/Widget.html
