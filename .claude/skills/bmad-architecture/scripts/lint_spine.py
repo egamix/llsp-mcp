@@ -18,7 +18,7 @@ It reads ARCHITECTURE-SPINE.md from a workspace and reports, as compact JSON on 
 Fenced code blocks are blanked (replaced with equal-count blank lines) before scanning, so
 mermaid and source trees don't trip false positives AND reported line numbers still line up
 with the real file. Reported lines are absolute file lines (frontmatter offset added). Exit
-code is always 0 — findings travel in the JSON; the caller (Review pass / rubric walker)
+code is always 0 — findings travel in the JSON; the caller (Reviewer Gate / rubric walker)
 decides what to do with them.
 """
 from __future__ import annotations

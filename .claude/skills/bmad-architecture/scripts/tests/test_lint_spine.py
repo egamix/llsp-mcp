@@ -245,7 +245,7 @@ def test_missing_spine_file_reports_error(tmp_path, capsys):
 
 def test_frontmatter_unfilled_token_caught():
     # an unfilled {scope}/{paradigm}/{date} in frontmatter is part of the contract and must lint
-    text = "---\nname: 'x'\nscope: '{what this spine covers}'\n---\n\n## Invariants\n"
+    text = "---\nname: 'x'\nscope: '{what this spine governs}'\n---\n\n## Invariants\n"
     result = lint_spine.lint(text)
     fm = [f for f in result["findings"] if f["category"] == "placeholder" and "frontmatter" in f["detail"]]
     assert fm and any("template token" in f["detail"] for f in fm)

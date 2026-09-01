@@ -49,7 +49,7 @@ favorite_techniques = []
 # facilitator chooses from, without editing the shipped CSV. Each entry mirrors
 # the library's shape (category, technique_name, description); a new category is
 # just a category value the CSV doesn't have. Entries append, so teams and users
-# can each grow the library. The facilitator treats these as top-level
+# can each grow the library. The facilitator treats these as first-class
 # alongside brain_methods across every flow — facilitator-chosen, browse,
 # category draws, and inventive.
 #

@@ -15,4 +15,4 @@ The library is large — never pull it whole into context. The only way in is th
 - `show "<name>"` — one technique's full method; call only the moment it is about to run.
 - `html --out <path>` — write the composer page to a file (the Browse option above).
 
-Treat `{workflow.additional_techniques}` as top-level entries (including new categories), preferring `{workflow.favorite_techniques}` where they fit. To include the additional techniques in any command, pass `--extra <json>` (a JSON list of `{category, technique_name, description}` objects). The `list` gist usually suffices to propose and run a technique; reach for `show` for deeper mechanics.
+Treat `{workflow.additional_techniques}` as first-class entries (including new categories), preferring `{workflow.favorite_techniques}` where they fit. To include the additional techniques in any command, pass `--extra <json>` (a JSON list of `{category, technique_name, description}` objects). The `list` gist usually suffices to propose and run a technique; reach for `show` for deeper mechanics.

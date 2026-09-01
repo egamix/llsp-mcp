@@ -59,7 +59,7 @@ validation-rules:
 
 - [ ] **Story Status Updated:** Story Status set to "review"
 - [ ] **Sprint Status Updated:** Sprint status updated to "review" (when sprint tracking is used)
-- [ ] **Quality checks passed:** All quality checks and validations completed successfully
+- [ ] **Quality Gates Passed:** All quality checks and validations completed successfully
 - [ ] **No HALT Conditions:** No blocking issues or incomplete work remaining
 - [ ] **User Communication Ready:** Implementation summary prepared for user review
 
@@ -70,7 +70,7 @@ Definition of Done: {{PASS/FAIL}}
 
 ✅ **Story Ready for Review:** {{story_key}}
 📊 **Completion Score:** {{completed_items}}/{{total_items}} items passed
-🔍 **Quality checks:** {{quality_gates_status}}
+🔍 **Quality Gates:** {{quality_gates_status}}
 📋 **Test Results:** {{test_results_summary}}
 📝 **Documentation:** {{documentation_status}}
 ```

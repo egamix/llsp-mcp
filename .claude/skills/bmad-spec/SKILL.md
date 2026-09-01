@@ -1,6 +1,6 @@
 ---
 name: bmad-spec
-description: Distill any intent input into the SPEC kernel + companions — the canonical, preservation-validated machine contract for downstream work. Use when the user says "create a spec", "distill this into a spec", "validate this spec", or "update the spec".
+description: Distill any intent input into the SPEC kernel + companions — the canonical, preservation-validated machine contract for downstream work. Use when the user says "create a spec", "distill this into a spec", "validate this spec", "update the spec", or "break this into stories".
 ---
 
 # BMad Spec
@@ -20,7 +20,7 @@ Multiple skills may call to update the same spec over time.
 
 1. Resolve customization: `uv run {project-root}/_bmad/scripts/resolve_customization.py --skill {skill-root} --key workflow`. On failure, read `{skill-root}/customize.toml` directly.
 2. Run `{workflow.activation_steps_prepend}`. Treat `{workflow.persistent_facts}` as foundational context (`file:` entries are loaded).
-3. Load `{project-root}/_bmad/core/config.yaml` (and `config.user.yaml` if present), root level and `bmm` section. Resolve `{user_name}`, `{communication_language}`, `{document_output_language}`, `{planning_artifacts}`, `{project_name}`, `{date}`.
+3. Resolve config: `uv run {project-root}/_bmad/scripts/resolve_config.py --project-root {project-root}` (merges `_bmad/config.toml`, `_bmad/config.user.toml`, and the `_bmad/custom/` overrides). From the merged JSON resolve `{user_name}`, `{communication_language}`, `{document_output_language}`, `{project_name}`, `{output_folder}` (under `core`), and `{date}`.
 4. Detect mode. **Headless** when any of: no TTY, programmatic caller (another skill or non-interactive runner), or the first message pre-supplies all inputs and asks for an artifact path back. **Interactive** otherwise. In interactive mode, greet by `{user_name}` in `{communication_language}`, stay in that language, and mention that `bmad-party-mode` and `bmad-advanced-elicitation` are available for deeper exploration on any field.
 
 Run `{workflow.activation_steps_append}`.
@@ -46,6 +46,7 @@ Inside the spec folder:
   SPEC.md                  ← uppercase, the kernel — DERIVED from .memlog.md, never hand-edited
   <companion-1>.md         ← optional, content-typed (e.g. glossary.md); spec-authored ones are derived too
   <companion-2>.md
+  stories.yaml             ← optional, written only by Story Breakdown — fixed name, never in companions:
   .memlog.md               ← canonical, append-only memory; what SPEC.md is distilled from
 ```
 
@@ -75,7 +76,7 @@ Write lean from the first pass: every sentence must earn its place. Decoration c
 
 Log each decision, capability, constraint, and accepted change to `.memlog.md` as it is made — that running record is what the render reads. Because the log is append-only, a later entry supersedes an earlier one on the same point while the history stays intact. When two currently-live sources or companions disagree on the same field, or an either/or never got resolved, surface it to the user rather than silently choosing — the resolution is itself a new memlog entry.
 
-If the input is genuinely too thin to distill (e.g. "an app for hikers" with no surrounding context), stop and suggest `bmad-prd` (or sibling authoring skill). This skill distills; it does not coach.
+If the input is genuinely too thin to distill (e.g. "an app for hikers" with no surrounding context), stop and suggest `bmad-prd` (or sibling ceremony skill). This skill distills; it does not coach.
 
 ## Load-bearing
 
@@ -92,12 +93,14 @@ Companions are either:
 - **Spec-authored** companions are written by bmad-spec and live as **siblings of SPEC.md** (e.g., `glossary.md`, `patron-archetypes.md`). bmad-spec owns them and may edit them on update operations.
 - **Adopted** companions are load-bearing artifacts written by an upstream skill that downstream still needs to read. bmad-spec references them into `companions:` by relative path but does NOT edit them (e.g., a `DESIGN.md` or `EXPERIENCE.md` from a UX run, an integration partner's API spec). The originating skill owns them.
 
-Two rules apply to companions:
+Two rules govern companions:
 
 1. **Name spec-authored companions for the content type they hold.** `glossary.md`, `<entity-class>.md` (e.g. `patron-archetypes.md`, `medication-routes.md`, `flight-modes.md`), `stack.md`, `conventions.md`, `brownfield.md`, `architecture-diagrams.md`, `state-machines.md`, `failure-modes.md`, `compliance-references.md`. The principle: "a reader should know what is inside before opening it." Adopted companions keep whatever name their originating skill gave them.
 2. **Diagrams always land in a companion**, regardless of size. SPEC.md kernel holds prose only. Mermaid blocks, ASCII diagrams, and image references all live in a companion (e.g. `architecture-diagrams.md`), with sibling image files referenced from there.
 
 Pre-existing project-wide docs (e.g. `project-context.md`) that downstream needs are listed as **adopted companions**, never duplicated into SPEC.md or a spec-authored companion.
+
+`stories.yaml`, when produced, is spec-authored but deliberately **not** a companion — see Story Breakdown below.
 
 ## Spec Law
 
@@ -109,7 +112,7 @@ Every spec must satisfy these eight rules. The operation aims for them; the self
 4. **Non-goals are explicit.** At least one. Absence means downstream skills fill the vacuum.
 5. **Success signal is concrete enough to test or demonstrate against.** "Users love it" doesn't qualify.
 6. **Capability IDs are stable and unique.** Never reused, never renumbered.
-7. **Preservation.** Every load-bearing source claim lands in SPEC.md or a companion. Wrapper boilerplate does not.
+7. **Preservation.** Every load-bearing source claim lands in SPEC.md or a companion. Wrapper ceremony does not.
 8. **Lean prose.** Every sentence carries load-bearing content. Cut decoration, hedges, backstory, throat-clearing. Applies to SPEC.md, companions, and `.memlog.md`.
 
 ## Self-Validate
@@ -118,7 +121,7 @@ After every create or update, sweep the resulting artifact in **two passes** bef
 
 **Pass 1 — Coherence.** Judge the spec against Spec Law rules 1–6 and 8. For anything that fails or feels weak, attempt to fix it without inventing content the input did not support. Calls made without direct confirmation become `assumptions[]`; gaps that could not be filled become `open_questions[]`.
 
-**Pass 2 — Preservation.** Walk the source claim by claim. Confirm each load-bearing claim landed in SPEC.md or a companion. Wrapper boilerplate drops are logged under "Wrapper-only content" so the drop is on the record, not silent.
+**Pass 2 — Preservation.** Walk the source claim by claim. Confirm each load-bearing claim landed in SPEC.md or a companion. Wrapper-ceremony drops are logged under "Wrapper-only content" so the drop is on the record, not silent.
 
 Record the verdict for each pass to `.memlog.md` (`append --type event`). In interactive mode, review it with the user. In headless mode, `.memlog.md` is one of the files returned, so the caller (or its downstream LLM) reads the verdict there.
 
@@ -126,9 +129,21 @@ Record the verdict for each pass to `.memlog.md` (`append --type event`). In int
 
 When the user points the skill at an existing spec folder (or its SPEC.md) with no change signal, offer to review assumptions or open questions, or determine what they want to do.
 
+## Story Breakdown (optional, interactive-only)
+
+Requires `SPEC.md` on disk — run the normal Operation first if it doesn't exist yet. Headless runs never do this, even when the invocation text asks for it: if mode detection (On Activation, step 4) resolved headless, skip this section entirely and proceed with the normal headless response. In interactive mode, offer it at most once per run when the input reads as multiple independently shippable slices; a decline ends the offer for this run, not forever. Also run it on direct request ("break this into stories") whenever `SPEC.md` exists. When a spec update runs and `stories.yaml` exists, check the story descriptions against the updated spec; if any no longer matches, say so and offer to re-run Story Breakdown. The update itself never rewrites `stories.yaml`.
+
+Either way, walk the capabilities and constraints with the user and propose a story per independently reviewable slice — this is a conversation, not a silent render. For each story, ask the user for `spec_checkpoint`, `done_checkpoint`, and any `invoke_dev_with` note rather than defaulting them silently; capturing that human judgment is what the fields are for. If the conversation surfaces load-bearing detail beyond dispatch notes (a constraint, a design decision), route it into SPEC.md or a companion — `invoke_dev_with` carries dispatch notes only (Spec Law rule 7 still applies).
+
+The output is `stories.yaml`, a sibling of `SPEC.md` inside the spec folder, discovered by that fixed name — same convention as `SPEC.md` and `.memlog.md`. Never list it in `companions:` and never point a frontmatter key at it: companions carry the what-to-build contract every consumer reads; `stories.yaml` is input for whichever tool dispatches the stories.
+
+Field definitions, the validity rules, and a worked example live in `assets/stories-schema.md`. Before writing or re-writing the file, check every entry against those rules; fix violations rather than presenting a file that fails them. Record the check's verdict to `.memlog.md` (`append --type event`), the same discipline as Self-Validate.
+
+Derive `stories.yaml` from `.memlog.md` exactly like any other spec-authored artifact: log each proposed story (`--type decision`) as the user agrees to it, then render. On a later run against the same spec folder, re-derive the same way, handling ids per the schema's update semantics.
+
 ## Output
 
-**Interactive** — share the spec folder path conversationally. Name the capability count, the companions produced, and the verdict in one or two sentences. If `assumptions[]` or `open_questions[]` are non-empty, list them (short — one line each) and invite the user to walk through them. Make clear that addressing them can update the source input (if it was a file), the spec, or both — whichever combination the user prefers. Do not dump JSON or present a wall of output.
+**Interactive** — share the spec folder path conversationally. Name the capability count, the companions produced, and the verdict in one or two sentences. Name the story count too if `stories.yaml` was written this run. If `assumptions[]` or `open_questions[]` are non-empty, list them (short — one line each) and invite the user to walk through them. Make clear that addressing them can update the source input (if it was a file), the spec, or both — whichever combination the user prefers. Do not dump JSON or present a wall of output.
 
 **Headless** — return JSON per `assets/headless-schemas.md`.
 
