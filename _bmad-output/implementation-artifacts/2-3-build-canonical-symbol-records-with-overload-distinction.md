@@ -21,7 +21,7 @@ context:
 
 # Story 2.3: Build canonical symbol records with overload distinction
 
-Status: in-progress
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -48,38 +48,38 @@ so that a query for one overload never silently returns another.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Define the canonical-symbol record model inside `ingest.javadoc` (AC: 2, 3, 4, 6)
-  - [ ] Add a `SymbolKind` enum (or reuse/extend the concept): `TYPE`, `METHOD`, `CONSTRUCTOR`, `FIELD`, `ENUM_CONSTANT`. It mirrors `MemberKind` plus a `TYPE` value for the type-level record. Prefer a small dedicated enum over overloading `MemberKind` so the type-level record isn't forced to carry a member kind — decide and document.
-  - [ ] Add a `LookupVariants` record (suggested): `simpleName`, `dottedMember`, `erasedGeneric`, `camelCase` — all `String`, non-null, validated in the compact canonical constructor exactly as `ClassifiedPage`/`ExtractedType` validate (reject/normalize null). These are the four AC-2 variants; keep them plain strings.
-  - [ ] Add a `SymbolRecord` record (suggested): the **provisional canonical key** (String), `SymbolKind`, the type FQN, the element simple name, the ordered erased parameter-type list (`List<String>`, empty for type/field/enum-constant), the `LookupVariants`, and a back-reference to the source (`relativePath`; and enough to tie back to the `ExtractedMember` — e.g. its index or name+signature). Do **NOT** add an SDK-version field (AD-12 scoping is Story 2.4), an HTML anchor field (Story 2.4), or any `domain` type. Validate invariants in the compact constructor (`List.copyOf`, reject null key/kind/fqn).
-  - [ ] Add a result holder `SymbolMintResult` (suggested) `{ List<SymbolRecord> records, List<String> issues }`, modeled exactly on Story 2.2's `ExtractionResult` and Story 2.1's `DiscoveryResult` — same immutability discipline (`List.copyOf`), same "issues are strings with the relative path baked in."
-  - [ ] Document in every record's Javadoc that the canonical key is **provisional and module-internal** (not the AD-18 wire/join key, not the Epic-3 approved grammar), the same way `ExtractedType` documents "no canonical symbol minted here."
-- [ ] Task 2: Derive the type FQN from `relativePath` (AC: 7)
-  - [ ] Add a small, pure helper (a static method or a tiny `TypeName` value): strip a trailing `.html`, split the `/`-separated `relativePath` into package segments + final type segment, join package with `.`, and handle a nested-type final segment (`Outer.Inner`) with one documented separator convention (keep `.` for readability, or `$` for binary form — decide, document, and test). Return package, simple name, FQN.
-  - [ ] Guard the malformed/degenerate cases: a `relativePath` with no `/` (default package), an empty or non-`.html` path — record an issue (AC 8) rather than throwing. `relativePath` is already validated non-blank by `ExtractedType`.
-  - [ ] `Locale.ROOT` for any casing; no `Date`, no locale-dependent transforms — the FQN is a deterministic function of the path (AC 6, 7).
-- [ ] Task 3: Normalize signatures into an erased parameter-type list (AC: 5, 6)
-  - [ ] Add a pure signature-normalizer that takes `ExtractedMember.signature` and returns an ordered `List<String>` of erased parameter type names. Steps (all deterministic): remove U+200B (zero-width) and collapse whitespace; drop leading modifiers/annotations and the return type; isolate the parenthesized parameter list; for each parameter, drop the parameter *name* and any generic arguments (`List<String>` → `List`), erase declared type parameters, normalize array/varargs (`T...`/`T[]`) to one agreed form; reduce each type to its simple name with `Locale.ROOT`.
-  - [ ] A no-arg method/constructor → empty list. A field/enum-constant → no signature parsing (empty list, name-unique).
-  - [ ] This is the crux of AC 1 and AC 5: author it so the JDK 8 `<pre>` and JDK 11/17 `.member-signature` renderings of the *same* method produce byte-equal lists. Test it directly with the divergent-rendering strings called out in the Story 2.2 re-review deferral (modifiers/annotations, FQN vs simple param types, U+200B).
-- [ ] Task 4: Mint canonical symbol records (AC: 1, 2, 3, 6, 8)
-  - [ ] Add a `CanonicalSymbolMinter` (suggested) with one public method taking an `ExtractedType` (and optionally its `relativePath`, already on the type) and returning a `SymbolMintResult`. Keep the class free of JSoup and `domain` and `cli` types — it operates purely on the 2.2 model.
-  - [ ] Emit one `TYPE` record for the type, then one record per `ExtractedMember` in `members` order. Compute the provisional canonical key as a pure function of (FQN, kind, name, erased param types) — suggested form `com.luciad.shape.ILcdShape#contains(ILcdPoint)` for methods/ctors, `com.luciad.shape.ILcdShape#SIZE` for fields/enum-constants, `com.luciad.shape.ILcdShape` for the type. Document the grammar as provisional. Overloads differ only in the `(...)` erased list, so they get distinct keys automatically (AC 1).
-  - [ ] Compute the four `LookupVariants` per AC 2. Keep the camel-case algorithm tiny and pinned by a known-answer test.
-  - [ ] Degradation (AC 8): a method/constructor whose signature yields no recoverable parameter list records an issue and follows the chosen name-only-key-or-skip contract; never fabricate a parameter list. No `cli` import; issues are module-local strings.
-- [ ] Task 5: Fixtures — reuse the Story 2.2 `extract/` tree, add overloads (AC: 1, 5)
-  - [ ] Reuse the existing shared-API-surface fixtures under `app/ingest-javadoc/src/test/resources/javadoc-fixtures/extract/{jdk8,jdk11,jdk17}/Widget.html` and `Direction.html`. Add **overloaded methods** (same name, different parameter-type lists — including one generic method like `map(Function<A,B>)` and one array/varargs pair) to the shared `Widget` surface across all three eras so AC 1 and AC 5 have a cross-era overload proof. **Synthetic only — no proprietary Luciad content** (repo rule).
-  - [ ] Ensure the three eras render the overloaded signatures in their era-authentic way (JDK 8 `<pre>` plain-space/simple-type; modern `.member-signature` with `&nbsp;` and, for at least one param, an FQN type + a U+200B word-break) so the AC-5 normalizer is genuinely exercised, not trivially satisfied.
-  - [ ] Do not fork the fixtures into a new tree; extend the `extract/` pages (Story 2.2's Task-4 discipline).
-- [ ] Task 6: Tests (AC: 1–8) — mirror `JavadocFieldExtractorTest`/`JavadocDiscoveryTest` style
-  - [ ] AC 1 headline: from a `Widget` `ExtractedType` with overloaded `contains(...)`, assert each overload is a distinct `SymbolRecord` with a distinct canonical key, and non-overloaded members are single records. Make it the explicit, readable proof.
-  - [ ] AC 5 cross-era: mint from the jdk8, jdk11, and jdk17 `Widget` `ExtractedType`s (obtained via `JavadocFieldExtractor`) and assert the overloads' canonical keys and erased param lists are **equal** across all three eras. Add a direct unit test of the signature normalizer with the divergent-rendering strings.
-  - [ ] AC 2: assert all four variants are present and correct per record; pin camel-case with known-answer values (`ILcdShape`→`ILS`, `getFooBar`→`gFB` or your documented rule).
-  - [ ] AC 3: assert record count == 1 (type) + N (members), kinds correct, fields/enum-constants have empty param lists and distinct records; assert no two records share a key unless they are the same element.
-  - [ ] AC 7: assert FQN derivation for a normal path, a default-package path, and a nested-type path; assert the documented nested separator.
-  - [ ] AC 6: assert two runs over the same `ExtractedType` return equal records in equal order; keys independent of overload count.
-  - [ ] AC 8: assert a member with an empty/garbage signature records an explicit issue and does not throw; assert (source/import scan, or simply the module still compiling clean against AD-1) that no `cli` type is referenced. Confirm `NoJsoupConnectSourceTest` still passes and covers the new class.
-  - [ ] JUnit 5 (Jupiter); prefer classpath-resource fixtures; `@TempDir` only if a temp tree is genuinely needed.
+- [x] Task 1: Define the canonical-symbol record model inside `ingest.javadoc` (AC: 2, 3, 4, 6)
+  - [x] Add a `SymbolKind` enum (or reuse/extend the concept): `TYPE`, `METHOD`, `CONSTRUCTOR`, `FIELD`, `ENUM_CONSTANT`. It mirrors `MemberKind` plus a `TYPE` value for the type-level record. Prefer a small dedicated enum over overloading `MemberKind` so the type-level record isn't forced to carry a member kind — decide and document.
+  - [x] Add a `LookupVariants` record (suggested): `simpleName`, `dottedMember`, `erasedGeneric`, `camelCase` — all `String`, non-null, validated in the compact canonical constructor exactly as `ClassifiedPage`/`ExtractedType` validate (reject/normalize null). These are the four AC-2 variants; keep them plain strings.
+  - [x] Add a `SymbolRecord` record (suggested): the **provisional canonical key** (String), `SymbolKind`, the type FQN, the element simple name, the ordered erased parameter-type list (`List<String>`, empty for type/field/enum-constant), the `LookupVariants`, and a back-reference to the source (`relativePath`; and enough to tie back to the `ExtractedMember` — e.g. its index or name+signature). Do **NOT** add an SDK-version field (AD-12 scoping is Story 2.4), an HTML anchor field (Story 2.4), or any `domain` type. Validate invariants in the compact constructor (`List.copyOf`, reject null key/kind/fqn).
+  - [x] Add a result holder `SymbolMintResult` (suggested) `{ List<SymbolRecord> records, List<String> issues }`, modeled exactly on Story 2.2's `ExtractionResult` and Story 2.1's `DiscoveryResult` — same immutability discipline (`List.copyOf`), same "issues are strings with the relative path baked in."
+  - [x] Document in every record's Javadoc that the canonical key is **provisional and module-internal** (not the AD-18 wire/join key, not the Epic-3 approved grammar), the same way `ExtractedType` documents "no canonical symbol minted here."
+- [x] Task 2: Derive the type FQN from `relativePath` (AC: 7)
+  - [x] Add a small, pure helper (a static method or a tiny `TypeName` value): strip a trailing `.html`, split the `/`-separated `relativePath` into package segments + final type segment, join package with `.`, and handle a nested-type final segment (`Outer.Inner`) with one documented separator convention (keep `.` for readability, or `$` for binary form — decide, document, and test). Return package, simple name, FQN.
+  - [x] Guard the malformed/degenerate cases: a `relativePath` with no `/` (default package), an empty or non-`.html` path — record an issue (AC 8) rather than throwing. `relativePath` is already validated non-blank by `ExtractedType`.
+  - [x] `Locale.ROOT` for any casing; no `Date`, no locale-dependent transforms — the FQN is a deterministic function of the path (AC 6, 7).
+- [x] Task 3: Normalize signatures into an erased parameter-type list (AC: 5, 6)
+  - [x] Add a pure signature-normalizer that takes `ExtractedMember.signature` and returns an ordered `List<String>` of erased parameter type names. Steps (all deterministic): remove U+200B (zero-width) and collapse whitespace; drop leading modifiers/annotations and the return type; isolate the parenthesized parameter list; for each parameter, drop the parameter *name* and any generic arguments (`List<String>` → `List`), erase declared type parameters, normalize array/varargs (`T...`/`T[]`) to one agreed form; reduce each type to its simple name with `Locale.ROOT`.
+  - [x] A no-arg method/constructor → empty list. A field/enum-constant → no signature parsing (empty list, name-unique).
+  - [x] This is the crux of AC 1 and AC 5: author it so the JDK 8 `<pre>` and JDK 11/17 `.member-signature` renderings of the *same* method produce byte-equal lists. Test it directly with the divergent-rendering strings called out in the Story 2.2 re-review deferral (modifiers/annotations, FQN vs simple param types, U+200B).
+- [x] Task 4: Mint canonical symbol records (AC: 1, 2, 3, 6, 8)
+  - [x] Add a `CanonicalSymbolMinter` (suggested) with one public method taking an `ExtractedType` (and optionally its `relativePath`, already on the type) and returning a `SymbolMintResult`. Keep the class free of JSoup and `domain` and `cli` types — it operates purely on the 2.2 model.
+  - [x] Emit one `TYPE` record for the type, then one record per `ExtractedMember` in `members` order. Compute the provisional canonical key as a pure function of (FQN, kind, name, erased param types) — suggested form `com.luciad.shape.ILcdShape#contains(ILcdPoint)` for methods/ctors, `com.luciad.shape.ILcdShape#SIZE` for fields/enum-constants, `com.luciad.shape.ILcdShape` for the type. Document the grammar as provisional. Overloads differ only in the `(...)` erased list, so they get distinct keys automatically (AC 1).
+  - [x] Compute the four `LookupVariants` per AC 2. Keep the camel-case algorithm tiny and pinned by a known-answer test.
+  - [x] Degradation (AC 8): a method/constructor whose signature yields no recoverable parameter list records an issue and follows the chosen name-only-key-or-skip contract; never fabricate a parameter list. No `cli` import; issues are module-local strings.
+- [x] Task 5: Fixtures — reuse the Story 2.2 `extract/` tree, add overloads (AC: 1, 5)
+  - [x] Reuse the existing shared-API-surface fixtures under `app/ingest-javadoc/src/test/resources/javadoc-fixtures/extract/{jdk8,jdk11,jdk17}/Widget.html` and `Direction.html`. Add **overloaded methods** (same name, different parameter-type lists — including one generic method like `map(Function<A,B>)` and one array/varargs pair) to the shared `Widget` surface across all three eras so AC 1 and AC 5 have a cross-era overload proof. **Synthetic only — no proprietary Luciad content** (repo rule).
+  - [x] Ensure the three eras render the overloaded signatures in their era-authentic way (JDK 8 `<pre>` plain-space/simple-type; modern `.member-signature` with `&nbsp;` and, for at least one param, an FQN type + a U+200B word-break) so the AC-5 normalizer is genuinely exercised, not trivially satisfied.
+  - [x] Do not fork the fixtures into a new tree; extend the `extract/` pages (Story 2.2's Task-4 discipline).
+- [x] Task 6: Tests (AC: 1–8) — mirror `JavadocFieldExtractorTest`/`JavadocDiscoveryTest` style
+  - [x] AC 1 headline: from a `Widget` `ExtractedType` with overloaded `contains(...)`, assert each overload is a distinct `SymbolRecord` with a distinct canonical key, and non-overloaded members are single records. Make it the explicit, readable proof.
+  - [x] AC 5 cross-era: mint from the jdk8, jdk11, and jdk17 `Widget` `ExtractedType`s (obtained via `JavadocFieldExtractor`) and assert the overloads' canonical keys and erased param lists are **equal** across all three eras. Add a direct unit test of the signature normalizer with the divergent-rendering strings.
+  - [x] AC 2: assert all four variants are present and correct per record; pin camel-case with known-answer values (`ILcdShape`→`ILS`, `getFooBar`→`gFB` or your documented rule).
+  - [x] AC 3: assert record count == 1 (type) + N (members), kinds correct, fields/enum-constants have empty param lists and distinct records; assert no two records share a key unless they are the same element.
+  - [x] AC 7: assert FQN derivation for a normal path, a default-package path, and a nested-type path; assert the documented nested separator.
+  - [x] AC 6: assert two runs over the same `ExtractedType` return equal records in equal order; keys independent of overload count.
+  - [x] AC 8: assert a member with an empty/garbage signature records an explicit issue and does not throw; assert (source/import scan, or simply the module still compiling clean against AD-1) that no `cli` type is referenced. Confirm `NoJsoupConnectSourceTest` still passes and covers the new class.
+  - [x] JUnit 5 (Jupiter); prefer classpath-resource fixtures; `@TempDir` only if a temp tree is genuinely needed.
 
 ## Dev Notes
 
@@ -226,3 +226,45 @@ Modified:
 - app/ingest-javadoc/src/test/resources/javadoc-fixtures/extract/jdk8/Widget.html
 - app/ingest-javadoc/src/test/resources/javadoc-fixtures/extract/jdk11/Widget.html
 - app/ingest-javadoc/src/test/resources/javadoc-fixtures/extract/jdk17/Widget.html
+
+## Suggested Review Order
+
+**Minting design (entry point)**
+
+- Start here: one record per type + one per member, in document order, plus the uniqueness pass.
+  [`CanonicalSymbolMinter.java:49`](../../app/ingest-javadoc/src/main/java/com/luciadmcp/knowledge/ingest/javadoc/CanonicalSymbolMinter.java#L49)
+
+**Overload identity & degradation (the core guarantee)**
+
+- Well-formed key = `fqn#name(erasedParams)` — overloads differ only in the param list, so keys differ.
+  [`CanonicalSymbolMinter.java:136`](../../app/ingest-javadoc/src/main/java/com/luciadmcp/knowledge/ingest/javadoc/CanonicalSymbolMinter.java#L136)
+
+- Degraded key folds in kind + source index so an unparseable overload can't collide (review fix #1).
+  [`CanonicalSymbolMinter.java:129`](../../app/ingest-javadoc/src/main/java/com/luciadmcp/knowledge/ingest/javadoc/CanonicalSymbolMinter.java#L129)
+
+- Final uniqueness pass records an explicit issue on any duplicate key — never a silent merge (AD-4).
+  [`CanonicalSymbolMinter.java:90`](../../app/ingest-javadoc/src/main/java/com/luciadmcp/knowledge/ingest/javadoc/CanonicalSymbolMinter.java#L90)
+
+**Signature normalization (era-independence)**
+
+- Erased param list is parsed here; annotations stripped, generics erased, dims preserved, problems surfaced.
+  [`SignatureNormalizer.java:79`](../../app/ingest-javadoc/src/main/java/com/luciadmcp/knowledge/ingest/javadoc/SignatureNormalizer.java#L79)
+
+- Whitespace/NBSP/ZWSP normalization — why JDK 8 `<pre>` and modern `.member-signature` reduce equal.
+  [`SignatureNormalizer.java:42`](../../app/ingest-javadoc/src/main/java/com/luciadmcp/knowledge/ingest/javadoc/SignatureNormalizer.java#L42)
+
+**FQN derivation & record model**
+
+- FQN derived purely from `relativePath`; malformed paths return empty for the caller to flag (AC 7/8).
+  [`TypeName.java:24`](../../app/ingest-javadoc/src/main/java/com/luciadmcp/knowledge/ingest/javadoc/TypeName.java#L24)
+
+- The provisional, module-internal key contract — explicitly not the AD-18 wire key or Epic-3 grammar.
+  [`SymbolRecord.java:11`](../../app/ingest-javadoc/src/main/java/com/luciadmcp/knowledge/ingest/javadoc/SymbolRecord.java#L11)
+
+**Tests (proofs)**
+
+- AC-1 headline: overloads become distinct records with distinct keys.
+  [`CanonicalSymbolMinterTest.java:36`](../../app/ingest-javadoc/src/test/java/com/luciadmcp/knowledge/ingest/javadoc/CanonicalSymbolMinterTest.java#L36)
+
+- AC-5 cross-era: jdk8/jdk11/jdk17 mint equal keys and erased lists.
+  [`CanonicalSymbolMinterTest.java:132`](../../app/ingest-javadoc/src/test/java/com/luciadmcp/knowledge/ingest/javadoc/CanonicalSymbolMinterTest.java#L132)
