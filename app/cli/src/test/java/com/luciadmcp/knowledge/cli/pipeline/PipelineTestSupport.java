@@ -24,12 +24,18 @@ final class PipelineTestSupport {
 
     /** Six-path arguments under {@code base}: five existing input dirs plus an {@code out} dir. */
     static IngestArguments argsIn(Path base) throws IOException {
+        return argsIn(base, Optional.empty());
+    }
+
+    /** As {@link #argsIn(Path)}, but carrying an explicit SDK version (AD-12). */
+    static IngestArguments argsIn(Path base, Optional<String> sdkVersion) throws IOException {
         Path javadoc = Files.createDirectories(base.resolve("javadoc"));
         Path samples = Files.createDirectories(base.resolve("samples"));
         Path guides = Files.createDirectories(base.resolve("guides"));
         Path model = Files.createDirectories(base.resolve("model"));
         Path out = base.resolve("out");
-        return new IngestArguments(javadoc, samples, guides, model, out, Optional.empty());
+        return new IngestArguments(
+                javadoc, samples, guides, model, out, Optional.empty(), sdkVersion);
     }
 
     /**

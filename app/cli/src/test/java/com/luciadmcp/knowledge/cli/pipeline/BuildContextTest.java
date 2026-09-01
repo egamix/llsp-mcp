@@ -47,10 +47,37 @@ class BuildContextTest {
         IngestArguments without = PipelineTestSupport.argsIn(tmp);
         IngestArguments with = new IngestArguments(
                 without.javadoc(), without.samples(), without.guides(), without.model(), without.out(),
-                Optional.of(tmp.resolve("trainings")));
+                Optional.of(tmp.resolve("trainings")), Optional.empty());
         assertNotEquals(
                 BuildContext.forInputs(without).sealedInputDigest(),
                 BuildContext.forInputs(with).sealedInputDigest());
+    }
+
+    /** The SDK version is part of the sealed identity; absent must not collide with an explicit stub. */
+    @Test
+    void sdkVersionIsPartOfIdentity(@TempDir Path tmp) throws Exception {
+        IngestArguments absent = PipelineTestSupport.argsIn(tmp);
+        IngestArguments v1 = withVersion(absent, "2024.0");
+        IngestArguments v2 = withVersion(absent, "2025.0");
+
+        assertNotEquals(BuildContext.forInputs(v1).sealedInputDigest(),
+                BuildContext.forInputs(v2).sealedInputDigest(),
+                "two builds differing only in SDK version must get different digests");
+        assertNotEquals(BuildContext.forInputs(v1).buildId(), BuildContext.forInputs(v2).buildId());
+
+        // Absent version resolves the field to the stub sentinel, but must NOT hash the same as an
+        // explicit "0.0.0-stub" — otherwise a real unversioned build and an explicit-stub build would
+        // falsely resume each other.
+        IngestArguments explicitStub = withVersion(absent, IngestPipelineRunner.STUB_SDK_VERSION);
+        assertNotEquals(BuildContext.forInputs(absent).sealedInputDigest(),
+                BuildContext.forInputs(explicitStub).sealedInputDigest(),
+                "an absent version must not hash the same as an explicit stub version");
+    }
+
+    private static IngestArguments withVersion(IngestArguments base, String sdkVersion) {
+        return new IngestArguments(
+                base.javadoc(), base.samples(), base.guides(), base.model(), base.out(),
+                base.trainings(), Optional.of(sdkVersion));
     }
 
     /** The staging dir is build-scoped under {out}/.staging/{buildId}, not the final layout. */

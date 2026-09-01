@@ -2,6 +2,7 @@ package com.luciadmcp.knowledge.cli.pipeline;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -227,6 +228,18 @@ class IngestPipelineRunnerTest {
                         .runToResult(argsB);
         assertEquals(List.of(PipelineStage.values()), logB, "changed inputs must run every stage fresh");
         assertEquals(EnumSet.allOf(PipelineStage.class), resultB.completedStages());
+    }
+
+    /** The manifest carries the explicit SDK version threaded through BuildContext, not the stub. */
+    @Test
+    void manifestCarriesExplicitSdkVersion(@TempDir Path tmp) throws Exception {
+        IngestArguments args = PipelineTestSupport.argsIn(tmp, Optional.of("2024.5"));
+        PipelineResult result =
+                new IngestPipelineRunner(PipelineTestSupport.recordingStages(new ArrayList<>()), FailurePolicy.FAIL_FAST)
+                        .runToResult(args);
+        assertEquals("2024.5", result.manifest().sdkVersion(),
+                "the manifest must carry the supplied SDK version, not the stub fallback");
+        assertNotEquals(IngestPipelineRunner.STUB_SDK_VERSION, result.manifest().sdkVersion());
     }
 
     /** The runner rejects a stage list that is not exactly one stage per PipelineStage. */

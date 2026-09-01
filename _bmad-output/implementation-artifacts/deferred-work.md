@@ -50,3 +50,16 @@
 - Legacy member whose `<h4>` is not a direct child of `li.blockList` is excluded by `memberBlocks` with no issue recorded (AD-4 silent drop, unlike the modern nameless-member path which does record an issue). [`JavadocFieldExtractor.java:142-147`] — reason: real JDK 8 always emits `<h4>` as a direct child of the member `li.blockList`, so low real-world likelihood; revisit if a wrapped-heading tree appears.
 - A `<dd>` with no preceding `<dt>`, or under an empty/unrecognized `<dt>` label, is silently discarded with no issue (only the missing-value direction — a `<dt>` with no `<dd>` — is reported as "truncated"). [`JavadocFieldExtractor.java:241-262`] — reason: malformed-markup edge, low likelihood; AD-4 completeness improvement rather than a real-tree defect.
 - `SIGNATURE` group selector `selectFirst(".member-signature, .memberSignature, pre")` returns the document-order first match, so a member missing its signature block whose description contains a `<pre>` code sample captures that `<pre>` as the signature. [`JavadocFieldExtractor.java:50,157`] — reason: uncommon shape; fix (query specific classes first, fall back to `pre` only if none) is easy but low value until a real tree shows it.
+
+- source_spec: `_bmad-output/implementation-artifacts/2-4-persist-the-versioned-canonical-catalog.md`
+  summary: Catalog persistence does a SELECT-then-INSERT per record under autocommit with no surrounding transaction or SQLite pragmas; a full pass-one catalog will be slow.
+  evidence: SqliteCatalogStore.put commits one row at a time (an fsync per row on default SQLite); no PRAGMA journal_mode/synchronous/busy_timeout and no batching. Real efficiency gap, not required by Story 2.4's AC.
+- source_spec: `_bmad-output/implementation-artifacts/2-4-persist-the-versioned-canonical-catalog.md`
+  summary: Provisional SQLite catalog file has no schema-version marker (PRAGMA user_version) or producing-build metadata, so a future approved-schema swap cannot detect/migrate an existing provisional file.
+  evidence: The records table carries no user_version and no buildId/schema-version row; blocked on the schema governance approval gate anyway. Add the marker when the approved Epic-3 DDL lands.
+- source_spec: `_bmad-output/implementation-artifacts/2-4-persist-the-versioned-canonical-catalog.md`
+  summary: CatalogStage.anchorFor reconstructs the member anchor from simpleName+erased params instead of reading the real Javadoc id= attribute, so resolvability-to-source can silently diverge for varargs/generics/legacy layouts.
+  evidence: The 2.2 ExtractedMember model carries no anchor, so 2.4 derives one; synthetic fixtures happen to match. Capturing the true id= requires extending the 2.2 extraction model (out of proportion to a patch). AC round-trip test passes but does not prove the derived anchor equals the real page anchor.
+- source_spec: `_bmad-output/implementation-artifacts/2-4-persist-the-versioned-canonical-catalog.md`
+  summary: A real `ingest` that aborts with BUILD_INVALIDATING (e.g. missing --sdk-version) still returns EXIT_OK because IngestCommand.run discards the PipelineResult.
+  evidence: Pre-existing exit-code behavior surfaced by wiring the real CATALOG stage into the default command; no Story 2.4 AC covers CLI exit codes. Exit-code mapping for pipeline aborts should be decided separately.

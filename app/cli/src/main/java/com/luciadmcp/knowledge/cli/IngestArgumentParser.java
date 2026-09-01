@@ -1,5 +1,6 @@
 package com.luciadmcp.knowledge.cli;
 
+import com.luciadmcp.knowledge.cli.pipeline.BuildContext;
 import com.luciadmcp.knowledge.cli.pipeline.FailurePolicy;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
@@ -33,6 +34,7 @@ public final class IngestArgumentParser {
     static final String OPT_OUT = "--out";
     static final String OPT_TRAININGS = "--trainings";
     static final String OPT_FAILURE_POLICY = "--failure-policy";
+    static final String OPT_SDK_VERSION = "--sdk-version";
 
     static final String POLICY_FAIL_FAST = "fail-fast";
     static final String POLICY_COLLECT_AND_CONTINUE = "collect-and-continue";
@@ -60,7 +62,7 @@ public final class IngestArgumentParser {
                             CliErrorCode.UNKNOWN_OPTION,
                             "unknown option; ingest accepts only "
                                     + "--javadoc, --samples, --guides, --model, --out, --trainings, "
-                                    + "--failure-policy",
+                                    + "--failure-policy, --sdk-version",
                             token));
                 }
                 throw new CliException(CliError.of(
@@ -82,8 +84,9 @@ public final class IngestArgumentParser {
                 throw new CliException(CliError.of(
                         CliErrorCode.MISSING_OPTION_VALUE, "option requires a directory value", token));
             }
-            // --failure-policy carries an enum-like value, not a filesystem path; skip path checks.
-            if (!token.equals(OPT_FAILURE_POLICY)) {
+            // --failure-policy and --sdk-version carry scalar values, not filesystem paths; skip
+            // the path-form checks for them.
+            if (!token.equals(OPT_FAILURE_POLICY) && !token.equals(OPT_SDK_VERSION)) {
                 requireLocalPath(token, value);
             }
             values.put(token, value);
@@ -96,18 +99,41 @@ public final class IngestArgumentParser {
         Path model = required(values, OPT_MODEL);
         Path out = required(values, OPT_OUT);
         Optional<Path> trainings = Optional.ofNullable(values.get(OPT_TRAININGS)).map(Path::of);
+        Optional<String> sdkVersion = parseSdkVersion(values.get(OPT_SDK_VERSION));
         FailurePolicy policy = parsePolicy(values.get(OPT_FAILURE_POLICY));
 
         return new IngestInvocation(
-                new IngestArguments(javadoc, samples, guides, model, out, trainings), policy);
+                new IngestArguments(javadoc, samples, guides, model, out, trainings, sdkVersion), policy);
     }
 
     private static boolean isKnownOption(String token) {
         return switch (token) {
             case OPT_JAVADOC, OPT_SAMPLES, OPT_GUIDES, OPT_MODEL, OPT_OUT, OPT_TRAININGS,
-                    OPT_FAILURE_POLICY -> true;
+                    OPT_FAILURE_POLICY, OPT_SDK_VERSION -> true;
             default -> false;
         };
+    }
+
+    /**
+     * Maps the optional {@code --sdk-version} value to an {@link Optional}. Absent means empty (the
+     * real {@code CATALOG} stage then aborts the build, since version-scoped keys cannot be minted
+     * without it). The value becomes a directory segment under the build's staging area, so a blank
+     * value or one that is not a safe single path segment (separators, {@code .}/{@code ..},
+     * filename-illegal characters) is rejected rather than treated as a version — this is the
+     * argument-contract half of the AD-25 staging-escape guard enforced in {@link BuildContext}.
+     */
+    private static Optional<String> parseSdkVersion(String value) {
+        if (value == null) {
+            return Optional.empty();
+        }
+        if (!BuildContext.isSafeSdkVersionSegment(value)) {
+            throw new CliException(CliError.of(
+                    CliErrorCode.INVALID_OPTION_VALUE,
+                    "value for " + OPT_SDK_VERSION + " must be a safe version identifier "
+                            + "(no path separators, not '.'/'..', filename-legal characters only)",
+                    value));
+        }
+        return Optional.of(value);
     }
 
     /**

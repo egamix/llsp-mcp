@@ -1,9 +1,11 @@
 package com.luciadmcp.knowledge.cli.pipeline;
 
+import com.luciadmcp.knowledge.catalog.sqlite.SqliteCatalogStore;
 import com.luciadmcp.knowledge.cli.IngestArguments;
 import com.luciadmcp.knowledge.cli.IngestPipeline;
 import com.luciadmcp.knowledge.domain.ContentHashes;
 import com.luciadmcp.knowledge.domain.IndexManifest;
+import com.luciadmcp.knowledge.ingest.javadoc.JavadocCatalogSource;
 import java.io.UncheckedIOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -43,8 +45,10 @@ import java.util.Map;
 public final class IngestPipelineRunner implements IngestPipeline {
 
     /**
-     * Placeholder SDK version for the stub manifest. The real value is read from the Javadoc during
-     * catalog extraction (Epic 2, AD-12); it is unknown while the stages are stubs.
+     * Fallback SDK version used only when no {@code --sdk-version} is supplied (AD-12). Story 2.4
+     * threads an explicit version through {@link BuildContext}; the persisted {@link CatalogStage}
+     * path uses that real value and aborts the build when it is absent, so this sentinel now applies
+     * only to the no-op/unversioned path (e.g. an offline rebuild that never reaches persistence).
      */
     static final String STUB_SDK_VERSION = "0.0.0-stub";
 
@@ -98,6 +102,29 @@ public final class IngestPipelineRunner implements IngestPipeline {
         return withDefaultStages(FailurePolicy.DEFAULT);
     }
 
+    /**
+     * Production wiring for Story 2.4: a real {@link CatalogStage} at the {@link PipelineStage#CATALOG}
+     * position, with the other seven stages still no-ops (real relationships/index/embedding work is
+     * Epic 2.5+/3+). The stage reaches the catalog only through the {@code domain} port; the concrete
+     * SQLite store is opened per build from {@link BuildContext#catalogDbPath()}.
+     *
+     * @param policy the failure policy governing recoverable failures
+     * @param args   the validated ingest inputs (javadoc root + optional SDK version)
+     */
+    public static IngestPipelineRunner withCatalogStage(FailurePolicy policy, IngestArguments args) {
+        Stage catalog = new CatalogStage(
+                args.javadoc(),
+                args.sdkVersion(),
+                new JavadocCatalogSource(),
+                ctx -> new SqliteCatalogStore(ctx.catalogDbPath()));
+        PipelineStage[] all = PipelineStage.values();
+        List<Stage> stages = new ArrayList<>(all.length);
+        for (PipelineStage stage : all) {
+            stages.add(stage == PipelineStage.CATALOG ? catalog : Stage.noOp());
+        }
+        return new IngestPipelineRunner(stages, policy);
+    }
+
     @Override
     public void run(IngestArguments args) {
         runToResult(args);
@@ -120,8 +147,11 @@ public final class IngestPipelineRunner implements IngestPipeline {
                 STUB_NORMALIZER_VERSION,
                 STUB_RELATIONSHIP_RULES_VERSION,
                 STUB_EMBEDDING_CONFIG_ID);
+        // Story 2.4: the manifest now carries the build's real SDK version threaded through
+        // BuildContext (AD-12). STUB_SDK_VERSION survives only as BuildContext.forInputs' fallback
+        // when no --sdk-version is supplied — the persisted path uses the real value.
         IndexManifest manifest =
-                new IndexManifest(context.buildId(), STUB_SDK_VERSION, toolchainFingerprint);
+                new IndexManifest(context.buildId(), context.sdkVersion(), toolchainFingerprint);
 
         List<StageFailure> collected = new ArrayList<>();
         PipelineStage[] all = PipelineStage.values();

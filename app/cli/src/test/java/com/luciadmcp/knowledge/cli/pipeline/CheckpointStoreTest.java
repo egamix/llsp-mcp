@@ -21,7 +21,8 @@ import org.junit.jupiter.api.io.TempDir;
 class CheckpointStoreTest {
 
     private static BuildContext contextAt(Path stagingDir, String digest) {
-        return new BuildContext("b-" + digest.substring(0, Math.min(8, digest.length())), digest, stagingDir);
+        return new BuildContext(
+                "b-" + digest.substring(0, Math.min(8, digest.length())), digest, stagingDir, "2024.0");
     }
 
     /** AC 1: marked stages persist and are reloaded by a fresh store over the same context. */
