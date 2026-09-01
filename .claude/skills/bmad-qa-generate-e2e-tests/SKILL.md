@@ -20,7 +20,7 @@ description: 'Generate end to end automated tests for existing features. Use whe
 
 ### Step 1: Resolve the Workflow Block
 
-Run: `python3 {project-root}/_bmad/scripts/resolve_customization.py --skill {skill-root} --key workflow`
+Run: `uv run {project-root}/_bmad/scripts/resolve_customization.py --skill {skill-root} --key workflow`
 
 **If the script fails**, resolve the `workflow` block yourself by reading these three files in base → team → user order and applying the same structural merge rules as the resolver:
 
@@ -157,7 +157,7 @@ If the project needs:
 
 - Risk-based test strategy
 - Test design planning
-- Quality checks and NFR assessment
+- Quality gates and NFR assessment
 - Comprehensive coverage analysis
 - Advanced testing patterns and utilities
 
@@ -171,6 +171,6 @@ Save summary to: `{default_output_file}`
 
 ## On Complete
 
-Run: `python3 {project-root}/_bmad/scripts/resolve_customization.py --skill {skill-root} --key workflow.on_complete`
+Run: `uv run {project-root}/_bmad/scripts/resolve_customization.py --skill {skill-root} --key workflow.on_complete`
 
 If the resolved `workflow.on_complete` is non-empty, follow it as the final terminal instruction before exiting.

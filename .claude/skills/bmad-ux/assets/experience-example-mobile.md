@@ -8,7 +8,7 @@ updated: 2025-09-02
 
 # Quill — Experience Spine
 
-> Illustrative example. Single-surface mobile (iOS + Android parity). Consumer posture, calm by default. Paired with `design-example-mobile.md` (Quill DESIGN.md). Demonstrates: microcopy as a discipline, Inspiration & Anti-patterns earning its place, Responsive & Platform omitted (single-surface).
+> Illustrative example. Single-surface mobile (iOS + Android parity). Consumer posture, calm by default. Paired with `design-example-mobile.md` (Quill DESIGN.md). Demonstrates: microcopy as gating discipline, Inspiration & Anti-patterns earning its place, Responsive & Platform omitted (single-surface).
 
 ## Foundation
 

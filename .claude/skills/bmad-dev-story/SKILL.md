@@ -1,6 +1,6 @@
 ---
 name: bmad-dev-story
-description: 'Execute story implementation following a context filled story spec file. Use when the user says "dev this story [story file]" or "implement the next story in the sprint plan"'
+description: "Deprecated: `bmad-build` is now the official implementation method. Only use this when explicitly invoked by name."
 ---
 
 # Dev Story Workflow
@@ -27,7 +27,7 @@ description: 'Execute story implementation following a context filled story spec
 
 ### Step 1: Resolve the Workflow Block
 
-Run: `python3 {project-root}/_bmad/scripts/resolve_customization.py --skill {skill-root} --key workflow`
+Run: `uv run {project-root}/_bmad/scripts/resolve_customization.py --skill {skill-root} --key workflow`
 
 **If the script fails**, resolve the `workflow` block yourself by reading these three files in base → team → user order and applying the same structural merge rules as the resolver:
 
@@ -59,6 +59,8 @@ Load config from `{project-root}/_bmad/bmm/config.yaml` and resolve:
 ### Step 5: Greet the User
 
 Greet `{user_name}`, speaking in `{communication_language}`.
+
+<output>Deprecated: `bmad-build` is now the official implementation method. Only use this when explicitly invoked by name.</output>
 
 ### Step 6: Execute Append Steps
 
@@ -337,7 +339,7 @@ Activation is complete. If `activation_steps_prepend` or `activation_steps_appen
     <critical>NEVER implement anything not mapped to a specific task/subtask in the story file</critical>
     <critical>NEVER proceed to next task until current task/subtask is complete AND tests pass</critical>
     <critical>Execute continuously without pausing until all tasks/subtasks are complete or explicit HALT condition</critical>
-    <critical>Do NOT propose to pause for review until Step 9 completion checks are satisfied</critical>
+    <critical>Do NOT propose to pause for review until Step 9 completion gates are satisfied</critical>
   </step>
 
   <step n="6" goal="Author comprehensive tests">
@@ -360,7 +362,7 @@ Activation is complete. If `activation_steps_prepend` or `activation_steps_appen
   <step n="8" goal="Validate and mark task complete ONLY when fully done">
     <critical>NEVER mark a task complete unless ALL conditions are met - NO LYING OR CHEATING</critical>
 
-    <!-- VALIDATION CHECKS -->
+    <!-- VALIDATION GATES -->
     <action>Verify ALL tests for this task/subtask ACTUALLY EXIST and PASS 100%</action>
     <action>Confirm implementation matches EXACTLY what the task/subtask specifies - no extra features</action>
     <action>Validate that ALL acceptance criteria related to this task are satisfied</action>
@@ -382,7 +384,7 @@ Activation is complete. If `activation_steps_prepend` or `activation_steps_appen
     </check>
 
     <!-- ONLY MARK COMPLETE IF ALL VALIDATION PASS -->
-    <check if="ALL validation checks pass AND tests ACTUALLY exist and pass">
+    <check if="ALL validation gates pass AND tests ACTUALLY exist and pass">
       <action>ONLY THEN mark the task (and subtasks) checkbox with [x]</action>
       <action>Update File List section with ALL new, modified, or deleted files (paths relative to repo root)</action>
       <action>Add completion notes to Dev Agent Record summarizing what was ACTUALLY implemented and tested</action>
@@ -452,7 +454,7 @@ Activation is complete. If `activation_steps_prepend` or `activation_steps_appen
       </output>
     </check>
 
-    <!-- Final validation checks -->
+    <!-- Final validation gates -->
     <action if="any task is incomplete">HALT - Complete remaining tasks before marking ready for review</action>
     <action if="regression failures exist">HALT - Fix regression issues before completing</action>
     <action if="File List is incomplete">HALT - Update File List with all changed files</action>
@@ -494,7 +496,7 @@ Activation is complete. If `activation_steps_prepend` or `activation_steps_appen
       <action>Suggest checking {sprint_status} to see project progress</action>
     </check>
     <action>Remain flexible - allow user to choose their own path or ask for other assistance</action>
-  <action>Run: `python3 {project-root}/_bmad/scripts/resolve_customization.py --skill {skill-root} --key workflow.on_complete` — if the resolved value is non-empty, follow it as the final terminal instruction before exiting.</action>
+  <action>Run: `uv run {project-root}/_bmad/scripts/resolve_customization.py --skill {skill-root} --key workflow.on_complete` — if the resolved value is non-empty, follow it as the final terminal instruction before exiting.</action>
   </step>
 
 </workflow>

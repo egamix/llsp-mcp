@@ -142,7 +142,7 @@ Review the Architecture document for technical requirements that impact epic and
 
 ### 6. Extract UX Design Requirements (if UX document exists)
 
-**IMPORTANT**: The UX Design Specification is a primary input document, not supplementary material. Requirements from the UX spec must be extracted with the same rigor as PRD functional requirements.
+**IMPORTANT**: The UX Design Specification is a first-class input document, not supplementary material. Requirements from the UX spec must be extracted with the same rigor as PRD functional requirements.
 
 Read the FULL UX design contract and extract ALL actionable work items. For a bmad-ux spine pair, read both `DESIGN.md` and `EXPERIENCE.md`:
 

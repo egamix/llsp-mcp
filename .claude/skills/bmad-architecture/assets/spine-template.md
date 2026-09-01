@@ -4,11 +4,11 @@ type: architecture-spine
 purpose: build-substrate    # build-substrate (default) · discussion · report · deck
 altitude: feature           # initiative (keeps features) · feature (keeps epics) · epic (keeps stories)
 paradigm: '{named design pattern, e.g. hexagonal, layered, pipes-and-filters, actor}'
-scope: '{what this spine covers}'
+scope: '{what this spine governs}'
 status: draft               # draft · final
 created: '{date}'
 updated: '{date}'
-binds: []                   # capability / unit IDs covered (from the driving spec; at epic altitude, also the inherited parent AD ids)
+binds: []                   # capability / unit IDs governed (from the driving spec; at epic altitude, also the inherited parent AD ids)
 sources: []
 companions: []
 ---
@@ -68,9 +68,9 @@ companions: []
 
 ## Capability → Architecture Map
 
-<!-- Present when a spec drove this run. Bridges the spec's capabilities to where they live + what defines them; the consistency auditor's checklist. Cut otherwise. -->
+<!-- Present when a spec drove this run. Bridges the spec's capabilities to where they live + what governs them; the consistency auditor's checklist. Cut otherwise. -->
 
-| Capability / Area | Lives in | Defined by |
+| Capability / Area | Lives in | Governed by |
 | --- | --- | --- |
 | {CAP-id / area} | {component / module} | {AD-id, convention, paradigm} |
 
