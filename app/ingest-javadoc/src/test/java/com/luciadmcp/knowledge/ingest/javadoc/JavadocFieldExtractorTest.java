@@ -39,9 +39,24 @@ class JavadocFieldExtractorTest {
         assertTrue(jdk11.issues().isEmpty(), () -> "jdk11 issues: " + jdk11.issues());
         assertTrue(jdk17.issues().isEmpty(), () -> "jdk17 issues: " + jdk17.issues());
 
-        // The whole extracted record is equal across all three generator eras.
-        assertEquals(jdk8.type(), jdk11.type(), "JDK 8 legacy vs JDK 11–16 modern must match");
-        assertEquals(jdk11.type(), jdk17.type(), "JDK 11–16 modern vs JDK 17+ modern must match");
+        // The whole extracted record is equal across all three generator eras — except the raw
+        // signature string, which legitimately differs across eras (simple vs fully-qualified param
+        // types, U+200B word breaks). Making that raw text era-independent is Story 2.3's canonical
+        // minter, proven in CanonicalSymbolMinterTest; here we compare every other field.
+        assertEquals(withoutSignatures(jdk8.type()), withoutSignatures(jdk11.type()),
+                "JDK 8 legacy vs JDK 11–16 modern must match (signature excluded)");
+        assertEquals(withoutSignatures(jdk11.type()), withoutSignatures(jdk17.type()),
+                "JDK 11–16 modern vs JDK 17+ modern must match (signature excluded)");
+    }
+
+    /** A copy of {@code type} with every member signature blanked, for era comparison. */
+    private static ExtractedType withoutSignatures(ExtractedType type) {
+        List<ExtractedMember> members = type.members().stream()
+                .map(m -> new ExtractedMember(m.kind(), m.name(), "", m.description(), m.params(),
+                        m.returns(), m.throwsTypes(), m.since(), m.deprecation()))
+                .toList();
+        return new ExtractedType(type.relativePath(), type.description(), type.since(),
+                type.deprecation(), members);
     }
 
     // --- AC 3 + type-level fields: only TYPE pages are mined; type description/since/deprecated ------
@@ -60,10 +75,14 @@ class JavadocFieldExtractorTest {
     void membersAreExtractedInSourceOrderWithCorrectKinds() throws Exception {
         List<ExtractedMember> members = extractor.extract(fixture("jdk8/Widget.html"), PATH).type().members();
 
-        assertEquals(4, members.size());
-        assertEquals(List.of("Widget", "doThing", "oldThing", "MAX"),
+        assertEquals(9, members.size());
+        assertEquals(
+                List.of("Widget", "doThing", "oldThing", "contains", "contains", "map", "merge", "scale", "MAX"),
                 members.stream().map(ExtractedMember::name).toList());
-        assertEquals(List.of(MemberKind.CONSTRUCTOR, MemberKind.METHOD, MemberKind.METHOD, MemberKind.FIELD),
+        assertEquals(
+                List.of(MemberKind.CONSTRUCTOR, MemberKind.METHOD, MemberKind.METHOD, MemberKind.METHOD,
+                        MemberKind.METHOD, MemberKind.METHOD, MemberKind.METHOD, MemberKind.METHOD,
+                        MemberKind.FIELD),
                 members.stream().map(ExtractedMember::kind).toList());
     }
 

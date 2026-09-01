@@ -16,7 +16,18 @@
  * generators. Broken/incomplete markup degrades into explicit issues on the
  * {@link com.luciadmcp.knowledge.ingest.javadoc.ExtractionResult} rather than crashing.
  *
- * <p>Canonical symbols (Story 2.3) and catalog persistence (Story 2.4) build on this. This package
- * mints no {@code domain} records and performs no network I/O (AD-9).
+ * <p>Story 2.3 adds {@link com.luciadmcp.knowledge.ingest.javadoc.CanonicalSymbolMinter}, which turns
+ * an {@link com.luciadmcp.knowledge.ingest.javadoc.ExtractedType} into a deterministic list of
+ * {@link com.luciadmcp.knowledge.ingest.javadoc.SymbolRecord}s — one per API element (the type plus
+ * each member), overloads never merged — each carrying the four normalized
+ * {@link com.luciadmcp.knowledge.ingest.javadoc.LookupVariants} and a <b>provisional, module-internal</b>
+ * canonical key. That key is deliberately <em>not</em> the {@code domain} AD-18 wire/join key and not
+ * the {@code [NEEDS APPROVAL]} Epic-3 serialization grammar; it captures the identity inputs (type
+ * FQN from the page path, kind, name, era-normalized erased parameter types) so a later post-approval
+ * story can map onto the {@code domain} symbol. Signatures it cannot parse degrade into explicit
+ * issues on {@link com.luciadmcp.knowledge.ingest.javadoc.SymbolMintResult} (AD-4).
+ *
+ * <p>Catalog persistence (Story 2.4) builds on this. This package mints no {@code domain} records and
+ * performs no network I/O (AD-9).
  */
 package com.luciadmcp.knowledge.ingest.javadoc;
