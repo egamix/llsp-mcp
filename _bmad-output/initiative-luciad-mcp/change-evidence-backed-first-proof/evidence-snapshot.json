@@ -1,0 +1,68 @@
+{
+  "as_of_date": "2026-10-02",
+  "timezone": "Asia/Singapore",
+  "purpose": "Source snapshot for Correct Course proposal review; compare before applying edits.",
+  "approval": "pending",
+  "story_2_5_status": {
+    "story": "in-review",
+    "sprint_tracker": "in-progress",
+    "resolution": "Pending existing review process; no status changed."
+  },
+  "sources": [
+    {
+      "path": "AGENTS.md",
+      "sha256": "5c0eb4f464f0516dcb0f527c59c4e052ed8b8c8150dba3c05b38d760c8f26f75",
+      "bytes": 2333
+    },
+    {
+      "path": "_bmad-output/planning-artifacts/sprint-change-proposal-2026-10-02-all-proposals-consolidated.md",
+      "sha256": "fe1384551af2e1a5307e1c399b0f5c1b270fe0927b1a6bc34626dc9361407949",
+      "bytes": 13474
+    },
+    {
+      "path": "_bmad-output/planning-artifacts/sprint-change-proposal-2026-09-22-consolidated-evidence-engineering.md",
+      "sha256": "ce6f3edb4f979b0c22df87ae18e02ebe2ca2c0094118f53faaac037965fd2a28",
+      "bytes": 8520
+    },
+    {
+      "path": "_bmad-output/planning-artifacts/prds/prd-luciad-mcp-2026-08-20/prd.md",
+      "sha256": "43729c56689af7f2bdd0570a1113c88068bdaa2b00fae8b1e294a36cf5739691",
+      "bytes": 52052
+    },
+    {
+      "path": "_bmad-output/planning-artifacts/architecture/architecture-luciad-mcp-2026-08-20/ARCHITECTURE-SPINE.md",
+      "sha256": "83388fe9adde073d39b32675b7cab9471b697e509482bff3c2588f7038e038b5",
+      "bytes": 45757
+    },
+    {
+      "path": "_bmad-output/planning-artifacts/epics.md",
+      "sha256": "3c3ca98a5243adaf0f841d2103f44b91fac8b4bd94b04bc193759087f065b95e",
+      "bytes": 77877
+    },
+    {
+      "path": "_bmad-output/implementation-artifacts/sprint-status.yaml",
+      "sha256": "f4c167e375427048affea51e0863e4d0f3b975526ce7d07f27d212bb6a0bf87a",
+      "bytes": 6348
+    },
+    {
+      "path": "_bmad-output/implementation-artifacts/2-5-construct-the-typed-relationship-graph-in-two-passes.md",
+      "sha256": "0550cf41f7fb4950a258fa98531840ccfcaecc6249c712f174685682032fda5f",
+      "bytes": 16440
+    },
+    {
+      "path": "_bmad-output/implementation-artifacts/deferred-work.md",
+      "sha256": "2422c9b6e0684a08b781a63f00740b5ed24b95319d9dd5722d6ae88f32a955ce",
+      "bytes": 14583
+    },
+    {
+      "path": "docs/luciad-knowledge-mcp-implementation-brief.md",
+      "sha256": "dc302d3946e88488f34be7c07b9a7490e3a665161139ee4c8c3d93caad41ea82",
+      "bytes": 47091
+    },
+    {
+      "path": "_bmad-output/planning-artifacts/briefs/brief-luciad-mcp-2026-08-24/brief.md",
+      "sha256": "de231da1bc29bb01bca656a4a689500c49f87176086b5a4fc330e24e97ff3c49",
+      "bytes": 15724
+    }
+  ]
+}
