@@ -13,6 +13,8 @@ companions:
   - evidence-snapshot.json
 approval: approved
 approved_at: 2026-10-02
+planning_applied_at: 2026-10-02
+implementation_application: not-applied
 ---
 
 # Sprint Change Proposal: Evidence-Backed Luciad First Proof
@@ -182,7 +184,7 @@ Open gates carried forward, not silently resolved:
 - **2.5:** reconcile story/tracker discrepancy and complete review before applying the scope change to active delivery.
 - **2.8:** review exact schemas, wire formats, finite batch/traversal budgets and conditional fingerprint fields before broader implementation.
 
-## 7. Workflow record
+## 7. Workflow record (approval-time history)
 
 - User authorized Correct Course with the latest proposal, then authorized the Luciad MCP initiative and combined review.
 - Created `initiative-luciad-mcp` and set the personal `core.active_initiative` setting. Existing artifacts were not moved.
@@ -192,3 +194,11 @@ Open gates carried forward, not silently resolved:
 - Current workflow position: Step 6, approved and routed for major-scope planning reconciliation. The proposal is finalized; the underlying planning artifacts remain unchanged pending coordinated application by the named owners.
 - User approval: Approved on 2026-10-02 for the complete proposal, including the narrowed first-proof scope, six-tool contract, explicit deferrals, contract/evaluation gates and major-scope handoff.
 - Handoff: Product owner/PM and Architect reconcile the planning set; `bmad-ticket` applies backlog changes; Developer proceeds only after the approved contract gates and story sequencing are in place.
+
+## 8. Coordinated planning application — 2026-10-02
+
+The user subsequently authorized reading AGENTS.md/the approved proposal and applying coordinated planning changes only, while preserving completed-story history and the approved/not-applied boundary. The PRD, Architecture Spine, epic inventory/coverage/future stories, sprint tracker, deferred register and both brief authority notices are now reconciled prospectively. The source snapshot matched all 11 recorded hashes before application; its original approval-time evidence remains unchanged.
+
+This records **planning applied; source implementation not applied**. No story status was advanced. Completed story sections and detailed story files remain unchanged. Story 2.5 still says in-review while the tracker says in-progress; its review/status reconciliation remains an active-delivery gate. The obsolete epic Story 2.5 summary is explicitly historical pending the reviewer-controlled E02 correction; the live overview records the correct 13 + 1 + 3 producer split without changing the frozen story.
+
+Technical schema/wire/identity approvals in 2.8, B1–B6, measured proof and production release acceptance remain open. No ticket-tree migration or source-code implementation has been performed. See [application traceability](application-traceability.md) for item-level dispositions, integrity checks and the remaining gate.

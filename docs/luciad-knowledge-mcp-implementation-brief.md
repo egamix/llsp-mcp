@@ -1,5 +1,12 @@
 # LuciadLightspeed Knowledge MCP
 
+> **Approved amendment — 2026-10-02 (planning only):** The approved Evidence-Backed Luciad First Proof change governs first-proof scope, interfaces, identity/evidence contracts and delivery order where it conflicts with this historical baseline. Earlier approved shared internal-host deployment remains binding. Historical text is retained for provenance, not as an instruction to reintroduce deferred work.
+>
+> The entire baseline below, including headlines, badges, counts, diagrams, workflow and kickoff instructions, is historical. The live proof has six tools (`search_knowledge`, `resolve_symbol`, `get_record`, `get_relationships`, `check_symbols`, `index_status`), exact/BM25 retrieval, selected approved content, contract freeze and controlled evaluation. The 17 SDK/example/workflow relationship types have separate producers (13 Javadoc, one workflow, three example); knowledge dependencies are separately frozen. Full guides, training/Docling, broad tags and vectors are deferred. Compile/test remains external. Source implementation is not applied; Story 2.5 review, technical contract approvals and release gates remain open.
+
+> [Approved authority](../_bmad-output/initiative-luciad-mcp/change-evidence-backed-first-proof/change-evidence-backed-first-proof.md). See the reconciled PRD, Architecture Spine and epics for current acceptance.
+
+
 ## Implementation Brief and BMAD Handoff
 
 **Status:** Final revised handoff; ready for BMAD planning and implementation  

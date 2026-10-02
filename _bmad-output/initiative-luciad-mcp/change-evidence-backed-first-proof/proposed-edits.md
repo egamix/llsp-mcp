@@ -1,6 +1,6 @@
 # Proposed edits — Evidence-Backed Luciad First Proof
 
-Status: approved, not applied. This companion is part of [the Sprint Change Proposal](change-evidence-backed-first-proof.md).
+Status: approved; prospective planning applied 2026-10-02; source implementation not applied. E02 reviewer-controlled Story 2.5 summary/status reconciliation remains gated. See [application traceability](application-traceability.md). This companion is part of [the Sprint Change Proposal](change-evidence-backed-first-proof.md).
 
 `OLD` identifies current text or the current scope; quoted excerpts are literal excerpts, not whole-section reproductions. `NEW` supplies the replacement rule or acceptance text. Grouped edits must be propagated to the corresponding inventory, coverage map, diagram, glossary and scope statements. Preserve historical amendment notes and completed-story records, clearly distinguishing them from the new delivery scope.
 

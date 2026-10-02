@@ -63,3 +63,52 @@
 - source_spec: `_bmad-output/implementation-artifacts/2-4-persist-the-versioned-canonical-catalog.md`
   summary: A real `ingest` that aborts with BUILD_INVALIDATING (e.g. a store-open failure or an identity clash) still returns EXIT_OK because IngestCommand.run discards the PipelineResult.
   evidence: Pre-existing exit-code behavior surfaced by wiring the real CATALOG stage into the default command; no Story 2.4 AC covers CLI exit codes. Exit-code mapping for pipeline aborts should be decided separately. (The missing --sdk-version case no longer aborts as of the 2026-09-01 softening.)
+
+## Approved course correction — planning applied 2026-10-02; findings not fixed
+
+Authority: [Evidence-Backed Luciad First Proof](../initiative-luciad-mcp/change-evidence-backed-first-proof/change-evidence-backed-first-proof.md). All preceding review findings remain historical and unresolved unless independently closed by implementation evidence. This section changes prospective ownership, not completed-story acceptance. Story 2.5 review remains open.
+
+| Existing finding | New owner/gate |
+|---|---|
+| Build identity includes path strings; delimiter/case/symlink issues | 2.8 portable source/identity contract; distinguish diagnostic absolute paths from hashed logical source identity. |
+| No identityFields registry; hash nullability/meaning issues | 2.8 identity recipes and schema validation. |
+| Report lacks schema version/invariants | 2.8 report contract; 6.5 diagnostic failure behavior. |
+| Provisional catalog lacks schema/build marker | 2.8 approved metadata and rebuild/migration policy; 6.2 rejection. |
+| Reconstructed member anchors | 2.8 provenance contract and necessary forward extraction work; never rewrite 2.4's completion. |
+| Build-invalidating ingest still reports success | 6.5 non-success outcome plus 6.1 activation guard. |
+| Checkpoint torn writes / competing writers | 6.1/6.2 transition tests and lifecycle coordination. |
+| Catalog per-record autocommit / large-input buffering | Evaluate under B1; bounded batches remain required, but do not invent a performance result. |
+
+### Scope excluded from scheduling
+
+| Scope / retained IDs | Replacement / owner | Reactivation gate |
+|---|---|---|
+| `4-3-local-onnx-vector-search-with-explicit-failure-semantics` | Vector benefit requires evaluation after lexical baseline. | Diagnosed task gap + controlled benefit + preserved safety + owner approval; training also needs provenance/governance/version decisions. |
+| `4-4-fuse-lexical-and-vector-results-under-exact-priority` | Vector fusion deferred; required bounded lexical enrichment transfers to 4.6, not completion of this story. | Diagnosed task gap + controlled benefit + preserved safety + owner approval; training also needs provenance/governance/version decisions. |
+| `4-5-enforce-a-consistent-embedding-fingerprint` | Vector-specific fingerprints deferred; general identity/compatibility remains 2.8/6.2. | Diagnosed task gap + controlled benefit + preserved safety + owner approval; training also needs provenance/governance/version decisions. |
+| `5-3b-guide-tools` | Guide aliases deferred; selected-guide capability belongs to 5.1/5.3. | Diagnosed task gap + controlled benefit + preserved safety + owner approval; training also needs provenance/governance/version decisions. |
+| `5-3c-training-tools` | Training corpus and specialized tools deferred; no placeholder tools. | Diagnosed task gap + controlled benefit + preserved safety + owner approval; training also needs provenance/governance/version decisions. |
+| `5-3d-concept-technique-search-tool` | Broad tags/concept tool deferred; symbol-less common search remains 4.2/4.6/5.1/5.3. | Diagnosed task gap + controlled benefit + preserved safety + owner approval; training also needs provenance/governance/version decisions. |
+| `8-4-separate-ingest-time-only-image-for-training-material-ingestion` | Training image deferred; lexical serving needs neither model nor Docling. | Diagnosed task gap + controlled benefit + preserved safety + owner approval; training also needs provenance/governance/version decisions. |
+| `9-1-ingest-training-decks-via-docling` | Training ingestion deferred pending benefit, provenance/governance/version decisions. | Diagnosed task gap + controlled benefit + preserved safety + owner approval; training also needs provenance/governance/version decisions. |
+| `9-2-link-training-references-to-the-catalog` | Training links deferred with corpus. | Diagnosed task gap + controlled benefit + preserved safety + owner approval; training also needs provenance/governance/version decisions. |
+| `9-3-apply-governance-supplied-technique-tags-to-training-records` | Broad training tags deferred with corpus/vocabulary. | Diagnosed task gap + controlled benefit + preserved safety + owner approval; training also needs provenance/governance/version decisions. |
+| `epic-9` | Entire training epic excluded until its evaluation/provenance/governance/version gates clear. | Diagnosed task gap + controlled benefit + preserved safety + owner approval; training also needs provenance/governance/version decisions. |
+| Full guide corpus (FR-35/36 extension) | 3.5 selected sections retained | Measured task gap/benefit and owner approval. |
+| Broad technique vocabulary (FR-42) | 3.3 approval metadata and common symbol-less search | Measured need; explicit vocabulary/governance approval; no first-proof prerequisite. |
+| Specialized aliases and cross-version migration tools | Six-tool surface; isolated version defaults | Controlled benefit and separate schema/compatibility approval. |
+| Multi-SDK/plugin framework; external-agent installer | Luciad-first manual operator setup | Diagnosed need, controlled benefit, owner approval. |
+| Conversation mining; autonomous promotion/self-repair | 10.4 quarantined candidates and human-governed corrections | Separate approved scope decision; no automatic promotion. |
+| Extra databases/graph platforms/runtimes/semantic-web infrastructure | Existing SQLite/Lucene/domain ports | Demonstrated benefit without weakening determinism, provenance, exactness or simplicity. |
+
+Execution statuses remain backlog; `sprint-status.yaml` uses additive `deferred_scope`, never an unsupported deferred execution value. Do not mark moved capabilities done. Story 4.6 owns lexical enrichment transferred from 4.4; 5.1/5.3 own selected-guide access transferred from 5.3b. General compatibility is 2.8/6.2, not deferred with vectors. Invalid-ingest/report outcomes move early to 6.5; 8.3 retains final CLI documentation.
+
+### Open gate ownership
+
+- Product/technical owners: B1 reference hardware/corpus and NFR evidence; no performance result claimed for buffering/autocommit findings.
+- Product/corpus/technical owners: B2 provisional retrieval target and B6 predeclared 10.1 task outcome protocol/held-out access controls before curation/trials.
+- Security/legal: B3 corpus/index distribution; model licensing remains with deferred vectors.
+- Product owner: B4 named governance roles and practice approvals. Technical owner: B5 formal Java 21 pin decision remains open.
+- Story 2.5 reviewer: reconcile in-review story vs in-progress tracker; scope is the frozen 13 structural types and two inverse pairs, not the obsolete 17-type epic summary.
+- Story 2.8: identity/schema/lexical/tool/finite-limit/report/fingerprint/recipe-cycle/recovery contracts and separate sign-offs. No planning amendment fixes code or grants schema approval.
+- Release owner: complete 6.3/6.4, 8.1–8.3 and existing lifecycle/packaging/NFR/legal/release gates after product proof.
