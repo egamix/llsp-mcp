@@ -62,7 +62,7 @@ development_status:
   2-2-parse-modern-and-legacy-javadoc-layouts-into-equivalent-fields: done
   2-3-build-canonical-symbol-records-with-overload-distinction: done
   2-4-persist-the-versioned-canonical-catalog: done
-  2-5-construct-the-typed-relationship-graph-in-two-passes: in-progress
+  2-5-construct-the-typed-relationship-graph-in-two-passes: done
   2-6-keep-unresolved-references-explicit-scope-traversal-to-the-documented-sdk: backlog
   2-7-bounded-cycle-safe-relationship-traversal: backlog
   2-8-contract-and-verification-freeze: backlog
@@ -228,7 +228,7 @@ planning_application:
   scope: "Prospective planning only; no implementation applied"
   source: "../initiative-luciad-mcp/change-evidence-backed-first-proof/change-evidence-backed-first-proof.md"
   active_delivery_gate: "Story 2.5 review completion and story/tracker reconciliation; not cleared by planning"
-  story_2_5_observation: "Detailed story in-review; tracker in-progress; both preserved"
+  story_2_5_observation: "Story 2.5 review complete; marked done. Known gaps in deferred-work.md"
   contract_gate: "Story 2.8 technical schema/identity/interface sign-offs remain open"
   evaluation_gate: "10.1/B2/B6 before corpus curation or tuning; held-out protection"
   proof_sequence: "2.5 review -> 2.6/2.7 -> 2.8 -> 4.1/4.2/4.6 + 6.1/6.2/6.5 + 5.7 -> handlers/content/guidance -> 10.2/10.3/10.4"

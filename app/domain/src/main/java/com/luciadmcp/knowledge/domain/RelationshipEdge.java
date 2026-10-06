@@ -18,4 +18,19 @@ public record RelationshipEdge(
         String targetSymbol,
         RelationshipType type,
         String sdkVersion) {
+
+    public RelationshipEdge {
+        if (sourceSymbol == null || sourceSymbol.isBlank()) {
+            throw new IllegalArgumentException("sourceSymbol must not be blank");
+        }
+        if (targetSymbol == null || targetSymbol.isBlank()) {
+            throw new IllegalArgumentException("targetSymbol must not be blank");
+        }
+        if (type == null) {
+            throw new IllegalArgumentException("type must not be null");
+        }
+        if (sdkVersion == null || sdkVersion.isBlank()) {
+            throw new IllegalArgumentException("sdkVersion must not be blank");
+        }
+    }
 }

@@ -1,6 +1,7 @@
 package com.luciadmcp.knowledge.cli.pipeline;
 
 import com.luciadmcp.knowledge.catalog.sqlite.SqliteCatalogStore;
+import com.luciadmcp.knowledge.catalog.sqlite.SqliteRelationshipStore;
 import com.luciadmcp.knowledge.cli.IngestArguments;
 import com.luciadmcp.knowledge.cli.IngestPipeline;
 import com.luciadmcp.knowledge.domain.ContentHashes;
@@ -103,23 +104,36 @@ public final class IngestPipelineRunner implements IngestPipeline {
     }
 
     /**
-     * Production wiring for Story 2.4: a real {@link CatalogStage} at the {@link PipelineStage#CATALOG}
-     * position, with the other seven stages still no-ops (real relationships/index/embedding work is
-     * Epic 2.5+/3+). The stage reaches the catalog only through the {@code domain} port; the concrete
-     * SQLite store is opened per build from {@link BuildContext#catalogDbPath()}.
+     * Production wiring for Stories 2.4&ndash;2.5: a real {@link CatalogStage} at the
+     * {@link PipelineStage#CATALOG} position and a real {@link RelationshipsStage} at the
+     * {@link PipelineStage#RELATIONSHIPS} position, with the other six stages still no-ops (real
+     * index/embedding work is Epic 3+). Both stages reach the stores only through {@code domain} ports;
+     * the concrete SQLite stores are opened per build from the shared
+     * {@link BuildContext#catalogDbPath()} — the catalog writes {@code records}, the relationship graph
+     * writes {@code edges} into the same build-scoped file.
      *
      * @param policy the failure policy governing recoverable failures
      * @param args   the validated ingest inputs (javadoc root + optional SDK version)
      */
     public static IngestPipelineRunner withCatalogStage(FailurePolicy policy, IngestArguments args) {
+        JavadocCatalogSource source = new JavadocCatalogSource();
         Stage catalog = new CatalogStage(
                 args.javadoc(),
-                new JavadocCatalogSource(),
+                source,
                 ctx -> new SqliteCatalogStore(ctx.catalogDbPath()));
+        Stage relationships = new RelationshipsStage(
+                args.javadoc(),
+                source,
+                ctx -> new SqliteCatalogStore(ctx.catalogDbPath()),
+                ctx -> new SqliteRelationshipStore(ctx.catalogDbPath()));
         PipelineStage[] all = PipelineStage.values();
         List<Stage> stages = new ArrayList<>(all.length);
         for (PipelineStage stage : all) {
-            stages.add(stage == PipelineStage.CATALOG ? catalog : Stage.noOp());
+            stages.add(switch (stage) {
+                case CATALOG -> catalog;
+                case RELATIONSHIPS -> relationships;
+                default -> Stage.noOp();
+            });
         }
         return new IngestPipelineRunner(stages, policy);
     }
