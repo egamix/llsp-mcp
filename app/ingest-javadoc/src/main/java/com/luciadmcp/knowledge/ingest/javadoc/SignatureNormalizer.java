@@ -71,6 +71,60 @@ final class SignatureNormalizer {
     }
 
     /**
+     * The erased simple <em>leading type</em> of a signature: a method's return type or a field's
+     * declared type (Story 2.5). This is the token immediately before the element name — the last
+     * token before the parameter list for a method (e.g. {@code boolean contains(Point p)} &rarr;
+     * {@code boolean}), or the second-to-last token of a field declaration (e.g. {@code int MAX}
+     * &rarr; {@code int}). Generics are erased, a fully-qualified type is reduced to its last dotted
+     * segment, and array/varargs dimensionality is preserved as {@code []} — the same normalization
+     * {@link #parameterType(String)} applies.
+     *
+     * <p>Returns {@link Optional#empty()} when no leading type can be recovered: a blank signature, a
+     * constructor (only the type name precedes the parameter list), or a declaration with a single
+     * token. The caller decides whether the recovered name denotes a documented type (a primitive or
+     * {@code void} names none and yields no edge).
+     *
+     * @param signature the raw signature text (any era's rendering)
+     * @return the erased simple leading-type name, or empty if none is recoverable
+     */
+    static Optional<String> leadingType(String signature) {
+        if (signature == null) {
+            return Optional.empty();
+        }
+        String cleaned = stripAnnotations(collapse(signature)).trim();
+        if (cleaned.isEmpty()) {
+            return Optional.empty();
+        }
+        // Everything before the parameter list for a method/constructor; the whole for a field.
+        int open = cleaned.indexOf('(');
+        String head = open >= 0 ? cleaned.substring(0, open) : cleaned;
+        head = eraseGenerics(head).text().trim();
+        if (head.isEmpty()) {
+            return Optional.empty();
+        }
+        String[] tokens = head.split("\\s+");
+        if (tokens.length < 2) {
+            // Only the element name is present (a constructor, or a bare declaration): no leading type.
+            return Optional.empty();
+        }
+        String typeToken = tokens[tokens.length - 2];
+        String nameToken = tokens[tokens.length - 1];
+        int[] typeDims = new int[1];
+        String base = stripArrayMarkers(typeToken, typeDims);
+        int[] nameDims = new int[1];
+        stripArrayMarkers(nameToken, nameDims); // C-style array on the name: `int foo[]`
+        int dims = typeDims[0] + nameDims[0];
+        int lastDot = base.lastIndexOf('.');
+        if (lastDot >= 0) {
+            base = base.substring(lastDot + 1);
+        }
+        if (base.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(base + "[]".repeat(dims));
+    }
+
+    /**
      * Parses {@code signature} into its erased parameter-type list plus any degradation problems.
      *
      * @param signature the raw signature text (any era's rendering)

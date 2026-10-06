@@ -38,7 +38,7 @@ public final class JavadocCatalogSource {
 
             List<String> issues = new ArrayList<>(extracted.issues());
             issues.addAll(minted.issues());
-            pages.add(new PageResult(relativePath, minted.records(), issues));
+            pages.add(new PageResult(relativePath, minted.records(), issues, extracted.type()));
         }
         return new Result(discovered.warnings(), pages);
     }
@@ -46,11 +46,19 @@ public final class JavadocCatalogSource {
     /**
      * The minted records and non-fatal issues for one type page.
      *
+     * <p>Story 2.5 additionally exposes the page's {@link ExtractedType}, so pass two (the {@code cli}
+     * RELATIONSHIPS stage) can read the type's relationship-source references (superclass / interfaces /
+     * see-also and each member's return/field type, overrides, specified-by, see-also) without touching
+     * a JSoup type (AD-1). The minted {@link #records} supply the source-element canonical keys; the
+     * {@code type}'s members line up with the member records by {@link SymbolRecord#memberIndex()}.
+     *
      * @param relativePath the page's {@code /}-separated path relative to the Javadoc root
      * @param records      the minted canonical-symbol records (type first, then members)
      * @param issues       extraction + minting issues, each carrying the page's relative path (AD-4)
+     * @param type         the extracted type, carrying the relationship-source references for pass two
      */
-    public record PageResult(String relativePath, List<SymbolRecord> records, List<String> issues) {
+    public record PageResult(
+            String relativePath, List<SymbolRecord> records, List<String> issues, ExtractedType type) {
 
         public PageResult {
             if (relativePath == null || relativePath.isBlank()) {

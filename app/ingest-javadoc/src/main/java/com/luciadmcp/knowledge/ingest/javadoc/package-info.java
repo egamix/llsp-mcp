@@ -27,7 +27,17 @@
  * story can map onto the {@code domain} symbol. Signatures it cannot parse degrade into explicit
  * issues on {@link com.luciadmcp.knowledge.ingest.javadoc.SymbolMintResult} (AD-4).
  *
- * <p>Catalog persistence (Story 2.4) builds on this. This package mints no {@code domain} records and
- * performs no network I/O (AD-9).
+ * <p>Catalog persistence (Story 2.4) builds on this. Story 2.5 extends
+ * {@link com.luciadmcp.knowledge.ingest.javadoc.JavadocFieldExtractor} to also capture the
+ * relationship-source references — a type's superclass / super-interfaces / implemented-interfaces /
+ * see-also, and each member's return/field type, overrides, specified-by, and see-also — as
+ * {@link com.luciadmcp.knowledge.ingest.javadoc.TypeRef}s carrying their link hrefs where the page
+ * rendered one. These ride on {@link com.luciadmcp.knowledge.ingest.javadoc.ExtractedType} /
+ * {@link com.luciadmcp.knowledge.ingest.javadoc.ExtractedMember} and are exposed per page by
+ * {@link com.luciadmcp.knowledge.ingest.javadoc.JavadocCatalogSource} so the jsoup-free {@code cli}
+ * RELATIONSHIPS stage can resolve them against the completed catalog in pass two. Resolution and
+ * canonical-symbol minting never happen here (AD-4).
+ *
+ * <p>This package mints no {@code domain} records and performs no network I/O (AD-9).
  */
 package com.luciadmcp.knowledge.ingest.javadoc;

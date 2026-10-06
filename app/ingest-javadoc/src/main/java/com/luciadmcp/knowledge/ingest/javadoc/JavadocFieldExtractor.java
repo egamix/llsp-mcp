@@ -5,9 +5,12 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
+import org.jsoup.nodes.Node;
+import org.jsoup.nodes.TextNode;
 
 /**
  * Extracts the documented fields of a {@link PageType#TYPE} page into a layout-agnostic
@@ -105,6 +108,8 @@ public final class JavadocFieldExtractor {
         String typeDescription = "";
         String typeSince = "";
         Deprecation typeDeprecation = Deprecation.NONE;
+        TypeHeader header = TypeHeader.EMPTY;
+        List<TypeRef> typeSeeAlso = List.of();
         if (scope != null) {
             Element descBlock = firstNonDeprecationBlock(scope);
             typeDescription = descBlock == null ? "" : norm(descBlock);
@@ -113,6 +118,9 @@ public final class JavadocFieldExtractor {
             }
             typeSince = notesValue(scope, "since");
             typeDeprecation = findDeprecation(scope);
+            // Story 2.5 relationship-source references (resolved in pass two, never here — AD-4).
+            header = parseTypeHeader(scope, relativePath);
+            typeSeeAlso = seeAlsoRefs(scope, relativePath);
         } else {
             issues.add(relativePath + ": no type-description section found");
         }
@@ -126,8 +134,9 @@ public final class JavadocFieldExtractor {
             }
         }
 
-        ExtractedType type =
-                new ExtractedType(relativePath, typeDescription, typeSince, typeDeprecation, members);
+        ExtractedType type = new ExtractedType(
+                relativePath, typeDescription, typeSince, typeDeprecation, members,
+                header.superclass(), header.superInterfaces(), header.implementedInterfaces(), typeSeeAlso);
         return new ExtractionResult(type, issues);
     }
 
@@ -173,8 +182,50 @@ public final class JavadocFieldExtractor {
 
         Notes notes = parseNotes(block, relativePath, name, issues);
 
+        // Story 2.5 relationship-source references (resolved in pass two, never here — AD-4). The
+        // return/field type is the erased leading type of the signature, carrying its link href when
+        // the signature rendered the type as a link; overrides/specified-by/see-also come from notes.
+        TypeRef returnType = kind == MemberKind.METHOD ? leadingTypeRef(sig, signature, relativePath) : null;
+        TypeRef fieldType =
+                (kind == MemberKind.FIELD || kind == MemberKind.ENUM_CONSTANT)
+                        ? leadingTypeRef(sig, signature, relativePath)
+                        : null;
+
         return new ExtractedMember(kind, name, signature, description,
-                notes.params, notes.returns, notes.throwsTypes, notes.since, deprecation);
+                notes.params, notes.returns, notes.throwsTypes, notes.since, deprecation,
+                returnType, fieldType, notes.overrides, notes.specifiedBy, List.copyOf(notes.seeAlso));
+    }
+
+    /**
+     * The erased leading-type reference of a member: the return type (method) or declared type
+     * (field/enum constant). The name is {@link SignatureNormalizer#leadingType(String) the erased
+     * simple type}; the href, when present, is the first link in the signature element (Javadoc links
+     * the return/field type first, before the element name). Returns {@code null} when no leading type
+     * is recoverable (a constructor, {@code void}, or a bare declaration) — pass two additionally
+     * ignores primitives, which name no documented type.
+     */
+    private static TypeRef leadingTypeRef(Element sig, String signature, String relativePath) {
+        Optional<String> type = SignatureNormalizer.leadingType(signature);
+        if (type.isEmpty() || isPrimitiveOrVoid(type.get())) {
+            return null; // a constructor, void, or a primitive names no documented type reference
+        }
+        Element firstLink = sig == null ? null : sig.selectFirst("a[href]");
+        if (firstLink != null) {
+            return makeRef(type.get(), firstLink.attr("href"), relativePath);
+        }
+        return TypeRef.ofName(type.get());
+    }
+
+    /** Language primitives and {@code void} — never documented types, so never a type reference. */
+    private static boolean isPrimitiveOrVoid(String name) {
+        String base = name;
+        while (base.endsWith("[]")) {
+            base = base.substring(0, base.length() - 2);
+        }
+        return switch (base) {
+            case "void", "boolean", "byte", "char", "short", "int", "long", "float", "double" -> true;
+            default -> false;
+        };
     }
 
     /**
@@ -272,7 +323,7 @@ public final class JavadocFieldExtractor {
                 currentLabel = normalizeLabel(el.text());
                 ddsForCurrent = 0;
             } else if (tag.equals("dd") && currentLabel != null) {
-                dispatchNote(currentLabel, el, notes);
+                dispatchNote(currentLabel, el, notes, relativePath);
                 ddsForCurrent++;
             }
         }
@@ -301,7 +352,7 @@ public final class JavadocFieldExtractor {
         return null;
     }
 
-    private static void dispatchNote(String label, Element dd, Notes notes) {
+    private static void dispatchNote(String label, Element dd, Notes notes, String relativePath) {
         switch (label) {
             // Only positional value parameters. "type parameters" (a generic method's <T>) is a
             // separate concept and must not land in the positional param list — ignored this story.
@@ -310,7 +361,13 @@ public final class JavadocFieldExtractor {
             case "throws", "exceptions" ->
                     notes.throwsTypes.add(splitNameProse(dd, ThrownException::new));
             case "since" -> notes.since = norm(dd);
-            default -> { /* Type Parameters:, See Also:, Overrides: — out of scope for this story */ }
+            // Story 2.5 relationship-source references. Overrides/Specified By target a specific
+            // supertype method — its member link is the first anchor in the dd; both are member-precise
+            // and resolve in pass two via the link href. See Also gathers every link in the dd.
+            case "overrides" -> notes.overrides = firstLinkRef(dd, relativePath);
+            case "specified by" -> notes.specifiedBy = firstLinkRef(dd, relativePath);
+            case "see also" -> notes.seeAlso.addAll(allLinkRefs(dd, relativePath));
+            default -> { /* Type Parameters: and other notes — out of scope for this story */ }
         }
     }
 
@@ -443,7 +500,239 @@ public final class JavadocFieldExtractor {
     private static final class Notes {
         final List<Param> params = new ArrayList<>();
         final List<ThrownException> throwsTypes = new ArrayList<>();
+        final List<TypeRef> seeAlso = new ArrayList<>();
         String returns = "";
         String since = "";
+        TypeRef overrides;
+        TypeRef specifiedBy;
+    }
+
+    // --- Story 2.5 relationship-source reference extraction ----------------------------------------
+
+    /** The type header's superclass / super-interfaces / implemented-interfaces references. */
+    private record TypeHeader(
+            TypeRef superclass, List<TypeRef> superInterfaces, List<TypeRef> implementedInterfaces) {
+        static final TypeHeader EMPTY = new TypeHeader(null, List.of(), List.of());
+    }
+
+    /**
+     * Parses the type declaration header within {@code scope} into its direct relationship-source
+     * references. Modern layouts render the header in {@code .type-signature}; legacy JDK 8 renders it
+     * as a {@code <pre>} in the description (not inside a {@code .block}). The {@code extends} clause is
+     * a class's superclass or an interface's super-interfaces (decided by the {@code interface}
+     * keyword); the {@code implements} clause is a class/enum's interfaces. Link hrefs are captured
+     * where present; an undocumented header (no signature element) yields {@link TypeHeader#EMPTY}.
+     */
+    private static TypeHeader parseTypeHeader(Element scope, String relativePath) {
+        Element sig = scope.selectFirst(".type-signature, .typeSignature");
+        if (sig == null) {
+            for (Element pre : scope.select("pre")) {
+                if (pre.closest(BLOCK) == null) { // not a prose code sample
+                    sig = pre;
+                    break;
+                }
+            }
+        }
+        if (sig == null) {
+            return TypeHeader.EMPTY;
+        }
+        String text = eraseAngles(norm(sig));
+        Map<String, TypeRef> links = signatureLinks(sig, relativePath);
+
+        List<TypeRef> extendsRefs = refsFor(namesAfterKeyword(text, "extends", "implements", "permits"), links);
+        List<TypeRef> implementsRefs = refsFor(namesAfterKeyword(text, "implements", "permits"), links);
+
+        if (isInterfaceSignature(text)) {
+            // An interface's `extends` clause lists its super-interfaces; it has no `implements`.
+            return new TypeHeader(null, extendsRefs, List.of());
+        }
+        TypeRef superclass = extendsRefs.isEmpty() ? null : extendsRefs.get(0);
+        return new TypeHeader(superclass, List.of(), implementsRefs);
+    }
+
+    /** Whether the declaration keyword is an interface (covers {@code @interface}), by word boundary. */
+    private static boolean isInterfaceSignature(String signatureText) {
+        return signatureText.matches("(?s).*\\binterface\\b.*");
+    }
+
+    /** Link text &rarr; reference, for every {@code <a href>} in a signature element. */
+    private static Map<String, TypeRef> signatureLinks(Element sig, String relativePath) {
+        Map<String, TypeRef> links = new HashMap<>();
+        for (Element a : sig.select("a[href]")) {
+            String key = a.text().trim();
+            if (!key.isEmpty()) {
+                links.putIfAbsent(key, makeRef(key, a.attr("href"), relativePath));
+            }
+        }
+        return links;
+    }
+
+    /** Builds a reference per name, attaching the matching link href (by name) when the header had one. */
+    private static List<TypeRef> refsFor(List<String> names, Map<String, TypeRef> links) {
+        List<TypeRef> refs = new ArrayList<>();
+        for (String name : names) {
+            String simple = lastDotSegment(name);
+            TypeRef linked = links.get(name);
+            if (linked == null) {
+                linked = links.get(simple);
+            }
+            refs.add(linked != null ? new TypeRef(name, linked.relativePath(), linked.anchor())
+                    : TypeRef.ofName(name));
+        }
+        return refs;
+    }
+
+    /**
+     * The comma-separated type names following {@code keyword} (as a standalone word) up to the first
+     * {@code stopWords} keyword or the end. Returns an empty list if the keyword is absent.
+     */
+    private static List<String> namesAfterKeyword(String text, String keyword, String... stopWords) {
+        java.util.regex.Matcher m =
+                java.util.regex.Pattern.compile("\\b" + keyword + "\\b").matcher(text);
+        if (!m.find()) {
+            return List.of();
+        }
+        String rest = text.substring(m.end());
+        int cut = rest.length();
+        for (String stop : stopWords) {
+            java.util.regex.Matcher s =
+                    java.util.regex.Pattern.compile("\\b" + stop + "\\b").matcher(rest);
+            if (s.find() && s.start() < cut) {
+                cut = s.start();
+            }
+        }
+        rest = rest.substring(0, cut);
+        List<String> names = new ArrayList<>();
+        for (String part : rest.split(",")) {
+            String name = part.trim();
+            if (!name.isEmpty()) {
+                // Defensive: a clause segment should be a single token post generic-erase; keep the
+                // last whitespace-delimited token so stray modifiers cannot leak in.
+                int sp = name.lastIndexOf(' ');
+                if (sp >= 0) {
+                    name = name.substring(sp + 1).trim();
+                }
+                if (!name.isEmpty()) {
+                    names.add(name);
+                }
+            }
+        }
+        return names;
+    }
+
+    /** The type-level {@code See Also} references gathered from the notes list in {@code scope}. */
+    private static List<TypeRef> seeAlsoRefs(Element scope, String relativePath) {
+        Element dl = notesList(scope);
+        if (dl == null) {
+            return List.of();
+        }
+        List<TypeRef> refs = new ArrayList<>();
+        String currentLabel = null;
+        for (Element el : dl.children()) {
+            String tag = el.tagName();
+            if (tag.equals("dt")) {
+                currentLabel = normalizeLabel(el.text());
+            } else if (tag.equals("dd") && "see also".equals(currentLabel)) {
+                refs.addAll(allLinkRefs(el, relativePath));
+            }
+        }
+        return refs;
+    }
+
+    /** The reference for the first {@code <a href>} in {@code dd}, or {@code null} if none. */
+    private static TypeRef firstLinkRef(Element dd, String relativePath) {
+        Element a = dd.selectFirst("a[href]");
+        return a == null ? null : makeRef(a.text().trim(), a.attr("href"), relativePath);
+    }
+
+    /** References for every {@code <a href>} in {@code dd}, in document order. */
+    private static List<TypeRef> allLinkRefs(Element dd, String relativePath) {
+        List<TypeRef> refs = new ArrayList<>();
+        for (Element a : dd.select("a[href]")) {
+            refs.add(makeRef(a.text().trim(), a.attr("href"), relativePath));
+        }
+        return refs;
+    }
+
+    /**
+     * Builds a reference from a documented name and its (possibly absent) href, resolving the href to
+     * a root-relative path against the referring {@code pageRelativePath} so it matches the path the
+     * catalog persists. An absent or external ({@code scheme://}) href yields a name-only reference; a
+     * pure {@code #fragment} targets the referring page itself.
+     */
+    private static TypeRef makeRef(String name, String href, String pageRelativePath) {
+        if (href == null || href.isBlank()) {
+            return TypeRef.ofName(name);
+        }
+        if (href.contains("://") || href.startsWith("//") || href.startsWith("mailto:")) {
+            return TypeRef.ofName(name); // outside the ingested tree — resolve (or fail) by name
+        }
+        int hash = href.indexOf('#');
+        String pathPart = hash >= 0 ? href.substring(0, hash) : href;
+        String anchor = hash >= 0 ? href.substring(hash + 1) : "";
+        String targetPath = pathPart.isEmpty()
+                ? pageRelativePath
+                : resolveRelative(parentDir(pageRelativePath), pathPart);
+        return new TypeRef(name, targetPath, anchor);
+    }
+
+    /** The parent directory of a {@code /}-separated relative path, or {@code ""} for a top-level path. */
+    private static String parentDir(String relativePath) {
+        int slash = relativePath.lastIndexOf('/');
+        return slash < 0 ? "" : relativePath.substring(0, slash);
+    }
+
+    /**
+     * Resolves a {@code /}-separated relative path against {@code baseDir}, collapsing {@code .} and
+     * {@code ..} segments — the offline, deterministic equivalent of resolving a page-relative href to
+     * a root-relative path.
+     */
+    private static String resolveRelative(String baseDir, String rel) {
+        List<String> segments = new ArrayList<>();
+        if (!baseDir.isEmpty()) {
+            for (String s : baseDir.split("/")) {
+                if (!s.isEmpty()) {
+                    segments.add(s);
+                }
+            }
+        }
+        for (String s : rel.split("/")) {
+            if (s.isEmpty() || s.equals(".")) {
+                continue;
+            }
+            if (s.equals("..")) {
+                if (!segments.isEmpty()) {
+                    segments.remove(segments.size() - 1);
+                }
+            } else {
+                segments.add(s);
+            }
+        }
+        return String.join("/", segments);
+    }
+
+    /** The last dotted segment of a possibly-qualified name ({@code com.example.Base} &rarr; {@code Base}). */
+    private static String lastDotSegment(String name) {
+        int dot = name.lastIndexOf('.');
+        return dot >= 0 ? name.substring(dot + 1) : name;
+    }
+
+    /** Removes balanced {@code <...>} generic-argument groups from text at any nesting depth. */
+    private static String eraseAngles(String s) {
+        StringBuilder out = new StringBuilder(s.length());
+        int depth = 0;
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            if (c == '<') {
+                depth++;
+            } else if (c == '>') {
+                if (depth > 0) {
+                    depth--;
+                }
+            } else if (depth == 0) {
+                out.append(c);
+            }
+        }
+        return out.toString();
     }
 }
