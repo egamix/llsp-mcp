@@ -1,0 +1,2584 @@
+diff --git a/app/catalog-sqlite/src/main/java/com/luciadmcp/knowledge/catalog/sqlite/package-info.java b/app/catalog-sqlite/src/main/java/com/luciadmcp/knowledge/catalog/sqlite/package-info.java
+index 30caf14..d4b32fb 100644
+--- a/app/catalog-sqlite/src/main/java/com/luciadmcp/knowledge/catalog/sqlite/package-info.java
++++ b/app/catalog-sqlite/src/main/java/com/luciadmcp/knowledge/catalog/sqlite/package-info.java
+@@ -5,7 +5,13 @@
+  *
+  * <p>The concrete SQLite catalog schema here is a clearly-labeled <b>provisional</b> DDL pending the
+  * {@code [NEEDS APPROVAL]} governance sign-off (ARCHITECTURE-SPINE Deferred); it captures identity
+- * inputs explicitly so a later approved schema maps on without reshaping. Relationship/adjacency
+- * storage and the recursive-CTE traversal remain Story 2.5+ / Epic 3.
++ * inputs explicitly so a later approved schema maps on without reshaping.
++ *
++ * <p>Story 2.5 adds {@code SqliteRelationshipStore}, implementing the {@code RelationshipStore} domain
++ * port over the same build-scoped file: a provisional {@code edges} table (adjacency by
++ * {@code source_id}/{@code target_id} into the {@code records} table) whose {@code edge_id} is the sole
++ * AD-22 edge-identity authority, computed via {@code ContentHashes.relationshipHash}. It is likewise a
++ * clearly-labeled provisional schema; the approved adjacency + recursive-CTE traversal representation
++ * remains a {@code [NEEDS APPROVAL]} gate (Epic 3).
+  */
+ package com.luciadmcp.knowledge.catalog.sqlite;
+diff --git a/app/cli/src/main/java/com/luciadmcp/knowledge/cli/pipeline/IngestPipelineRunner.java b/app/cli/src/main/java/com/luciadmcp/knowledge/cli/pipeline/IngestPipelineRunner.java
+index 0be5f2d..9c67f8b 100644
+--- a/app/cli/src/main/java/com/luciadmcp/knowledge/cli/pipeline/IngestPipelineRunner.java
++++ b/app/cli/src/main/java/com/luciadmcp/knowledge/cli/pipeline/IngestPipelineRunner.java
+@@ -1,6 +1,7 @@
+ package com.luciadmcp.knowledge.cli.pipeline;
+ 
+ import com.luciadmcp.knowledge.catalog.sqlite.SqliteCatalogStore;
++import com.luciadmcp.knowledge.catalog.sqlite.SqliteRelationshipStore;
+ import com.luciadmcp.knowledge.cli.IngestArguments;
+ import com.luciadmcp.knowledge.cli.IngestPipeline;
+ import com.luciadmcp.knowledge.domain.ContentHashes;
+@@ -103,23 +104,36 @@ public final class IngestPipelineRunner implements IngestPipeline {
+     }
+ 
+     /**
+-     * Production wiring for Story 2.4: a real {@link CatalogStage} at the {@link PipelineStage#CATALOG}
+-     * position, with the other seven stages still no-ops (real relationships/index/embedding work is
+-     * Epic 2.5+/3+). The stage reaches the catalog only through the {@code domain} port; the concrete
+-     * SQLite store is opened per build from {@link BuildContext#catalogDbPath()}.
++     * Production wiring for Stories 2.4&ndash;2.5: a real {@link CatalogStage} at the
++     * {@link PipelineStage#CATALOG} position and a real {@link RelationshipsStage} at the
++     * {@link PipelineStage#RELATIONSHIPS} position, with the other six stages still no-ops (real
++     * index/embedding work is Epic 3+). Both stages reach the stores only through {@code domain} ports;
++     * the concrete SQLite stores are opened per build from the shared
++     * {@link BuildContext#catalogDbPath()} — the catalog writes {@code records}, the relationship graph
++     * writes {@code edges} into the same build-scoped file.
+      *
+      * @param policy the failure policy governing recoverable failures
+      * @param args   the validated ingest inputs (javadoc root + optional SDK version)
+      */
+     public static IngestPipelineRunner withCatalogStage(FailurePolicy policy, IngestArguments args) {
++        JavadocCatalogSource source = new JavadocCatalogSource();
+         Stage catalog = new CatalogStage(
+                 args.javadoc(),
+-                new JavadocCatalogSource(),
++                source,
+                 ctx -> new SqliteCatalogStore(ctx.catalogDbPath()));
++        Stage relationships = new RelationshipsStage(
++                args.javadoc(),
++                source,
++                ctx -> new SqliteCatalogStore(ctx.catalogDbPath()),
++                ctx -> new SqliteRelationshipStore(ctx.catalogDbPath()));
+         PipelineStage[] all = PipelineStage.values();
+         List<Stage> stages = new ArrayList<>(all.length);
+         for (PipelineStage stage : all) {
+-            stages.add(stage == PipelineStage.CATALOG ? catalog : Stage.noOp());
++            stages.add(switch (stage) {
++                case CATALOG -> catalog;
++                case RELATIONSHIPS -> relationships;
++                default -> Stage.noOp();
++            });
+         }
+         return new IngestPipelineRunner(stages, policy);
+     }
+diff --git a/app/domain/src/main/java/com/luciadmcp/knowledge/domain/RelationshipEdge.java b/app/domain/src/main/java/com/luciadmcp/knowledge/domain/RelationshipEdge.java
+index 7b59249..ee5190b 100644
+--- a/app/domain/src/main/java/com/luciadmcp/knowledge/domain/RelationshipEdge.java
++++ b/app/domain/src/main/java/com/luciadmcp/knowledge/domain/RelationshipEdge.java
+@@ -18,4 +18,19 @@ public record RelationshipEdge(
+         String targetSymbol,
+         RelationshipType type,
+         String sdkVersion) {
++
++    public RelationshipEdge {
++        if (sourceSymbol == null || sourceSymbol.isBlank()) {
++            throw new IllegalArgumentException("sourceSymbol must not be blank");
++        }
++        if (targetSymbol == null || targetSymbol.isBlank()) {
++            throw new IllegalArgumentException("targetSymbol must not be blank");
++        }
++        if (type == null) {
++            throw new IllegalArgumentException("type must not be null");
++        }
++        if (sdkVersion == null || sdkVersion.isBlank()) {
++            throw new IllegalArgumentException("sdkVersion must not be blank");
++        }
++    }
+ }
+diff --git a/app/ingest-javadoc/src/main/java/com/luciadmcp/knowledge/ingest/javadoc/ExtractedMember.java b/app/ingest-javadoc/src/main/java/com/luciadmcp/knowledge/ingest/javadoc/ExtractedMember.java
+index 18779e5..e9ce71a 100644
+--- a/app/ingest-javadoc/src/main/java/com/luciadmcp/knowledge/ingest/javadoc/ExtractedMember.java
++++ b/app/ingest-javadoc/src/main/java/com/luciadmcp/knowledge/ingest/javadoc/ExtractedMember.java
+@@ -15,6 +15,14 @@ import java.util.List;
+  * produce an equal {@code ExtractedMember} (AC 1). {@code params} and {@code throwsTypes} preserve
+  * source order (parameters are positional).
+  *
++ * <p>Story 2.5 adds the member-level relationship-source references: the {@link #returnType}
++ * ({@code RETURN_TYPE}), {@link #fieldType} ({@code FIELD_TYPE}), {@link #overrides}
++ * ({@code OVERRIDES}), {@link #specifiedBy} ({@code SPECIFIED_BY}), and {@link #seeAlso}
++ * ({@code SEE_ALSO}) — href-bearing where the page linked them. {@code params}/{@code throwsTypes}
++ * already carry the data for {@code PARAMETER_TYPE}/{@code CONSTRUCTOR_PARAMETER_TYPE} (via the minted
++ * erased parameter types) and {@code THROWS_TYPE}. Pass two resolves these against the completed
++ * catalog; nothing is resolved here (AD-4).
++ *
+  * @param kind        method / constructor / field, from DOM structure
+  * @param name        the member's simple name as written on the page
+  * @param signature   the raw signature text (may be empty if the page omitted it)
+@@ -24,6 +32,13 @@ import java.util.List;
+  * @param throwsTypes ordered {@code @throws} entries (empty if none)
+  * @param since       the {@code @since} value (empty if none)
+  * @param deprecation the {@code @deprecated} state ({@link Deprecation#NONE} if not deprecated)
++ * @param returnType  the method's return-type reference, or {@code null} (constructor, {@code void},
++ *                    or a primitive that names no documented type)
++ * @param fieldType   the field/enum-constant type reference, or {@code null} (not a field, or a
++ *                    primitive)
++ * @param overrides   the overridden supertype method reference ({@code Overrides:} note), or {@code null}
++ * @param specifiedBy the interface method reference ({@code Specified by:} note), or {@code null}
++ * @param seeAlso     the member-level {@code See Also} references (empty if none)
+  */
+ public record ExtractedMember(
+         MemberKind kind,
+@@ -34,7 +49,12 @@ public record ExtractedMember(
+         String returns,
+         List<ThrownException> throwsTypes,
+         String since,
+-        Deprecation deprecation) {
++        Deprecation deprecation,
++        TypeRef returnType,
++        TypeRef fieldType,
++        TypeRef overrides,
++        TypeRef specifiedBy,
++        List<TypeRef> seeAlso) {
+ 
+     public ExtractedMember {
+         if (kind == null) {
+@@ -48,5 +68,24 @@ public record ExtractedMember(
+         throwsTypes = throwsTypes == null ? List.of() : List.copyOf(throwsTypes);
+         since = since == null ? "" : since;
+         deprecation = deprecation == null ? Deprecation.NONE : deprecation;
++        seeAlso = seeAlso == null ? List.of() : List.copyOf(seeAlso);
++    }
++
++    /**
++     * Back-compatible constructor for callers that carry no relationship-source references (Stories
++     * 2.2/2.3 and their tests): no return/field type, no overrides/specified-by, no see-also.
++     */
++    public ExtractedMember(
++            MemberKind kind,
++            String name,
++            String signature,
++            String description,
++            List<Param> params,
++            String returns,
++            List<ThrownException> throwsTypes,
++            String since,
++            Deprecation deprecation) {
++        this(kind, name, signature, description, params, returns, throwsTypes, since, deprecation,
++                null, null, null, null, List.of());
+     }
+ }
+diff --git a/app/ingest-javadoc/src/main/java/com/luciadmcp/knowledge/ingest/javadoc/ExtractedType.java b/app/ingest-javadoc/src/main/java/com/luciadmcp/knowledge/ingest/javadoc/ExtractedType.java
+index 1a54016..6f9a511 100644
+--- a/app/ingest-javadoc/src/main/java/com/luciadmcp/knowledge/ingest/javadoc/ExtractedType.java
++++ b/app/ingest-javadoc/src/main/java/com/luciadmcp/knowledge/ingest/javadoc/ExtractedType.java
+@@ -11,19 +11,37 @@ import java.util.List;
+  * SDK version, or anchor is minted here (Stories 2.3 / 2.4). Field values are whitespace-normalized so
+  * modern and legacy pages over the same API surface compare equal (AC 1).
+  *
+- * @param relativePath the page's path relative to the Javadoc root, {@code /}-separated (stable across
+- *                     operating systems — same value carried by the page's {@link ClassifiedPage})
+- * @param description  the type-level description prose (empty if none)
+- * @param since        the type-level {@code @since} value (empty if none)
+- * @param deprecation  the type-level {@code @deprecated} state ({@link Deprecation#NONE} if not)
+- * @param members      the documented members in source order (empty if none)
++ * <p>Story 2.5 adds the type-level relationship-source references — the direct {@link #superclass}
++ * ({@code EXTENDS_CLASS}), the direct {@link #superInterfaces} of an interface
++ * ({@code EXTENDS_INTERFACE}), the direct {@link #implementedInterfaces} of a class/enum
++ * ({@code IMPLEMENTS}), and the type-level {@link #seeAlso} ({@code SEE_ALSO}) — each carrying its link
++ * href where the page rendered one. Pass two resolves them against the completed catalog; nothing is
++ * resolved here (AD-4).
++ *
++ * @param relativePath          the page's path relative to the Javadoc root, {@code /}-separated (stable
++ *                              across operating systems — same value carried by the page's
++ *                              {@link ClassifiedPage})
++ * @param description           the type-level description prose (empty if none)
++ * @param since                 the type-level {@code @since} value (empty if none)
++ * @param deprecation           the type-level {@code @deprecated} state ({@link Deprecation#NONE} if not)
++ * @param members               the documented members in source order (empty if none)
++ * @param superclass            the direct superclass reference for a class/enum, or {@code null} if none
++ *                              (an interface, {@code java.lang.Object}, or an undocumented header)
++ * @param superInterfaces       the direct super-interface references of an interface (empty otherwise)
++ * @param implementedInterfaces the direct interface references implemented by a class/enum (empty for an
++ *                              interface)
++ * @param seeAlso               the type-level {@code See Also} references (empty if none)
+  */
+ public record ExtractedType(
+         String relativePath,
+         String description,
+         String since,
+         Deprecation deprecation,
+-        List<ExtractedMember> members) {
++        List<ExtractedMember> members,
++        TypeRef superclass,
++        List<TypeRef> superInterfaces,
++        List<TypeRef> implementedInterfaces,
++        List<TypeRef> seeAlso) {
+ 
+     public ExtractedType {
+         if (relativePath == null || relativePath.isBlank()) {
+@@ -33,5 +51,21 @@ public record ExtractedType(
+         since = since == null ? "" : since;
+         deprecation = deprecation == null ? Deprecation.NONE : deprecation;
+         members = members == null ? List.of() : List.copyOf(members);
++        superInterfaces = superInterfaces == null ? List.of() : List.copyOf(superInterfaces);
++        implementedInterfaces = implementedInterfaces == null ? List.of() : List.copyOf(implementedInterfaces);
++        seeAlso = seeAlso == null ? List.of() : List.copyOf(seeAlso);
++    }
++
++    /**
++     * Back-compatible constructor for callers that carry no relationship-source references (Stories
++     * 2.2/2.3 and their tests): no superclass, no interfaces, no see-also.
++     */
++    public ExtractedType(
++            String relativePath,
++            String description,
++            String since,
++            Deprecation deprecation,
++            List<ExtractedMember> members) {
++        this(relativePath, description, since, deprecation, members, null, List.of(), List.of(), List.of());
+     }
+ }
+diff --git a/app/ingest-javadoc/src/main/java/com/luciadmcp/knowledge/ingest/javadoc/JavadocCatalogSource.java b/app/ingest-javadoc/src/main/java/com/luciadmcp/knowledge/ingest/javadoc/JavadocCatalogSource.java
+index 346c2a3..ded9627 100644
+--- a/app/ingest-javadoc/src/main/java/com/luciadmcp/knowledge/ingest/javadoc/JavadocCatalogSource.java
++++ b/app/ingest-javadoc/src/main/java/com/luciadmcp/knowledge/ingest/javadoc/JavadocCatalogSource.java
+@@ -38,7 +38,7 @@ public final class JavadocCatalogSource {
+ 
+             List<String> issues = new ArrayList<>(extracted.issues());
+             issues.addAll(minted.issues());
+-            pages.add(new PageResult(relativePath, minted.records(), issues));
++            pages.add(new PageResult(relativePath, minted.records(), issues, extracted.type()));
+         }
+         return new Result(discovered.warnings(), pages);
+     }
+@@ -46,11 +46,19 @@ public final class JavadocCatalogSource {
+     /**
+      * The minted records and non-fatal issues for one type page.
+      *
++     * <p>Story 2.5 additionally exposes the page's {@link ExtractedType}, so pass two (the {@code cli}
++     * RELATIONSHIPS stage) can read the type's relationship-source references (superclass / interfaces /
++     * see-also and each member's return/field type, overrides, specified-by, see-also) without touching
++     * a JSoup type (AD-1). The minted {@link #records} supply the source-element canonical keys; the
++     * {@code type}'s members line up with the member records by {@link SymbolRecord#memberIndex()}.
++     *
+      * @param relativePath the page's {@code /}-separated path relative to the Javadoc root
+      * @param records      the minted canonical-symbol records (type first, then members)
+      * @param issues       extraction + minting issues, each carrying the page's relative path (AD-4)
++     * @param type         the extracted type, carrying the relationship-source references for pass two
+      */
+-    public record PageResult(String relativePath, List<SymbolRecord> records, List<String> issues) {
++    public record PageResult(
++            String relativePath, List<SymbolRecord> records, List<String> issues, ExtractedType type) {
+ 
+         public PageResult {
+             if (relativePath == null || relativePath.isBlank()) {
+diff --git a/app/ingest-javadoc/src/main/java/com/luciadmcp/knowledge/ingest/javadoc/JavadocFieldExtractor.java b/app/ingest-javadoc/src/main/java/com/luciadmcp/knowledge/ingest/javadoc/JavadocFieldExtractor.java
+index 9340d3b..3c12a7b 100644
+--- a/app/ingest-javadoc/src/main/java/com/luciadmcp/knowledge/ingest/javadoc/JavadocFieldExtractor.java
++++ b/app/ingest-javadoc/src/main/java/com/luciadmcp/knowledge/ingest/javadoc/JavadocFieldExtractor.java
+@@ -3,8 +3,11 @@ package com.luciadmcp.knowledge.ingest.javadoc;
+ import java.io.IOException;
+ import java.nio.file.Path;
+ import java.util.ArrayList;
++import java.util.HashMap;
+ import java.util.List;
+ import java.util.Locale;
++import java.util.Map;
++import java.util.Optional;
+ import org.jsoup.Jsoup;
+ import org.jsoup.nodes.Document;
+ import org.jsoup.nodes.Element;
+@@ -105,6 +108,8 @@ public final class JavadocFieldExtractor {
+         String typeDescription = "";
+         String typeSince = "";
+         Deprecation typeDeprecation = Deprecation.NONE;
++        TypeHeader header = TypeHeader.EMPTY;
++        List<TypeRef> typeSeeAlso = List.of();
+         if (scope != null) {
+             Element descBlock = firstNonDeprecationBlock(scope);
+             typeDescription = descBlock == null ? "" : norm(descBlock);
+@@ -113,6 +118,9 @@ public final class JavadocFieldExtractor {
+             }
+             typeSince = notesValue(scope, "since");
+             typeDeprecation = findDeprecation(scope);
++            // Story 2.5 relationship-source references (resolved in pass two, never here — AD-4).
++            header = parseTypeHeader(scope, relativePath);
++            typeSeeAlso = seeAlsoRefs(scope, relativePath);
+         } else {
+             issues.add(relativePath + ": no type-description section found");
+         }
+@@ -126,8 +134,9 @@ public final class JavadocFieldExtractor {
+             }
+         }
+ 
+-        ExtractedType type =
+-                new ExtractedType(relativePath, typeDescription, typeSince, typeDeprecation, members);
++        ExtractedType type = new ExtractedType(
++                relativePath, typeDescription, typeSince, typeDeprecation, members,
++                header.superclass(), header.superInterfaces(), header.implementedInterfaces(), typeSeeAlso);
+         return new ExtractionResult(type, issues);
+     }
+ 
+@@ -173,8 +182,50 @@ public final class JavadocFieldExtractor {
+ 
+         Notes notes = parseNotes(block, relativePath, name, issues);
+ 
++        // Story 2.5 relationship-source references (resolved in pass two, never here — AD-4). The
++        // return/field type is the erased leading type of the signature, carrying its link href when
++        // the signature rendered the type as a link; overrides/specified-by/see-also come from notes.
++        TypeRef returnType = kind == MemberKind.METHOD ? leadingTypeRef(sig, signature, relativePath) : null;
++        TypeRef fieldType =
++                (kind == MemberKind.FIELD || kind == MemberKind.ENUM_CONSTANT)
++                        ? leadingTypeRef(sig, signature, relativePath)
++                        : null;
++
+         return new ExtractedMember(kind, name, signature, description,
+-                notes.params, notes.returns, notes.throwsTypes, notes.since, deprecation);
++                notes.params, notes.returns, notes.throwsTypes, notes.since, deprecation,
++                returnType, fieldType, notes.overrides, notes.specifiedBy, List.copyOf(notes.seeAlso));
++    }
++
++    /**
++     * The erased leading-type reference of a member: the return type (method) or declared type
++     * (field/enum constant). The name is {@link SignatureNormalizer#leadingType(String) the erased
++     * simple type}; the href, when present, is the first link in the signature element (Javadoc links
++     * the return/field type first, before the element name). Returns {@code null} when no leading type
++     * is recoverable (a constructor, {@code void}, or a bare declaration) — pass two additionally
++     * ignores primitives, which name no documented type.
++     */
++    private static TypeRef leadingTypeRef(Element sig, String signature, String relativePath) {
++        Optional<String> type = SignatureNormalizer.leadingType(signature);
++        if (type.isEmpty() || isPrimitiveOrVoid(type.get())) {
++            return null; // a constructor, void, or a primitive names no documented type reference
++        }
++        Element firstLink = sig == null ? null : sig.selectFirst("a[href]");
++        if (firstLink != null) {
++            return makeRef(type.get(), firstLink.attr("href"), relativePath);
++        }
++        return TypeRef.ofName(type.get());
++    }
++
++    /** Language primitives and {@code void} — never documented types, so never a type reference. */
++    private static boolean isPrimitiveOrVoid(String name) {
++        String base = name;
++        while (base.endsWith("[]")) {
++            base = base.substring(0, base.length() - 2);
++        }
++        return switch (base) {
++            case "void", "boolean", "byte", "char", "short", "int", "long", "float", "double" -> true;
++            default -> false;
++        };
+     }
+ 
+     /**
+@@ -272,7 +323,7 @@ public final class JavadocFieldExtractor {
+                 currentLabel = normalizeLabel(el.text());
+                 ddsForCurrent = 0;
+             } else if (tag.equals("dd") && currentLabel != null) {
+-                dispatchNote(currentLabel, el, notes);
++                dispatchNote(currentLabel, el, notes, relativePath);
+                 ddsForCurrent++;
+             }
+         }
+@@ -301,7 +352,7 @@ public final class JavadocFieldExtractor {
+         return null;
+     }
+ 
+-    private static void dispatchNote(String label, Element dd, Notes notes) {
++    private static void dispatchNote(String label, Element dd, Notes notes, String relativePath) {
+         switch (label) {
+             // Only positional value parameters. "type parameters" (a generic method's <T>) is a
+             // separate concept and must not land in the positional param list — ignored this story.
+@@ -310,7 +361,13 @@ public final class JavadocFieldExtractor {
+             case "throws", "exceptions" ->
+                     notes.throwsTypes.add(splitNameProse(dd, ThrownException::new));
+             case "since" -> notes.since = norm(dd);
+-            default -> { /* Type Parameters:, See Also:, Overrides: — out of scope for this story */ }
++            // Story 2.5 relationship-source references. Overrides/Specified By target a specific
++            // supertype method — its member link is the first anchor in the dd; both are member-precise
++            // and resolve in pass two via the link href. See Also gathers every link in the dd.
++            case "overrides" -> notes.overrides = firstLinkRef(dd, relativePath);
++            case "specified by" -> notes.specifiedBy = firstLinkRef(dd, relativePath);
++            case "see also" -> notes.seeAlso.addAll(allLinkRefs(dd, relativePath));
++            default -> { /* Type Parameters: and other notes — out of scope for this story */ }
+         }
+     }
+ 
+@@ -443,7 +500,239 @@ public final class JavadocFieldExtractor {
+     private static final class Notes {
+         final List<Param> params = new ArrayList<>();
+         final List<ThrownException> throwsTypes = new ArrayList<>();
++        final List<TypeRef> seeAlso = new ArrayList<>();
+         String returns = "";
+         String since = "";
++        TypeRef overrides;
++        TypeRef specifiedBy;
++    }
++
++    // --- Story 2.5 relationship-source reference extraction ----------------------------------------
++
++    /** The type header's superclass / super-interfaces / implemented-interfaces references. */
++    private record TypeHeader(
++            TypeRef superclass, List<TypeRef> superInterfaces, List<TypeRef> implementedInterfaces) {
++        static final TypeHeader EMPTY = new TypeHeader(null, List.of(), List.of());
++    }
++
++    /**
++     * Parses the type declaration header within {@code scope} into its direct relationship-source
++     * references. Modern layouts render the header in {@code .type-signature}; legacy JDK 8 renders it
++     * as a {@code <pre>} in the description (not inside a {@code .block}). The {@code extends} clause is
++     * a class's superclass or an interface's super-interfaces (decided by the {@code interface}
++     * keyword); the {@code implements} clause is a class/enum's interfaces. Link hrefs are captured
++     * where present; an undocumented header (no signature element) yields {@link TypeHeader#EMPTY}.
++     */
++    private static TypeHeader parseTypeHeader(Element scope, String relativePath) {
++        Element sig = scope.selectFirst(".type-signature, .typeSignature");
++        if (sig == null) {
++            for (Element pre : scope.select("pre")) {
++                if (pre.closest(BLOCK) == null) { // not a prose code sample
++                    sig = pre;
++                    break;
++                }
++            }
++        }
++        if (sig == null) {
++            return TypeHeader.EMPTY;
++        }
++        String text = eraseAngles(norm(sig));
++        Map<String, TypeRef> links = signatureLinks(sig, relativePath);
++
++        List<TypeRef> extendsRefs = refsFor(namesAfterKeyword(text, "extends", "implements", "permits"), links);
++        List<TypeRef> implementsRefs = refsFor(namesAfterKeyword(text, "implements", "permits"), links);
++
++        if (isInterfaceSignature(text)) {
++            // An interface's `extends` clause lists its super-interfaces; it has no `implements`.
++            return new TypeHeader(null, extendsRefs, List.of());
++        }
++        TypeRef superclass = extendsRefs.isEmpty() ? null : extendsRefs.get(0);
++        return new TypeHeader(superclass, List.of(), implementsRefs);
++    }
++
++    /** Whether the declaration keyword is an interface (covers {@code @interface}), by word boundary. */
++    private static boolean isInterfaceSignature(String signatureText) {
++        return signatureText.matches("(?s).*\\binterface\\b.*");
++    }
++
++    /** Link text &rarr; reference, for every {@code <a href>} in a signature element. */
++    private static Map<String, TypeRef> signatureLinks(Element sig, String relativePath) {
++        Map<String, TypeRef> links = new HashMap<>();
++        for (Element a : sig.select("a[href]")) {
++            String key = a.text().trim();
++            if (!key.isEmpty()) {
++                links.putIfAbsent(key, makeRef(key, a.attr("href"), relativePath));
++            }
++        }
++        return links;
++    }
++
++    /** Builds a reference per name, attaching the matching link href (by name) when the header had one. */
++    private static List<TypeRef> refsFor(List<String> names, Map<String, TypeRef> links) {
++        List<TypeRef> refs = new ArrayList<>();
++        for (String name : names) {
++            String simple = lastDotSegment(name);
++            TypeRef linked = links.get(name);
++            if (linked == null) {
++                linked = links.get(simple);
++            }
++            refs.add(linked != null ? new TypeRef(name, linked.relativePath(), linked.anchor())
++                    : TypeRef.ofName(name));
++        }
++        return refs;
++    }
++
++    /**
++     * The comma-separated type names following {@code keyword} (as a standalone word) up to the first
++     * {@code stopWords} keyword or the end. Returns an empty list if the keyword is absent.
++     */
++    private static List<String> namesAfterKeyword(String text, String keyword, String... stopWords) {
++        java.util.regex.Matcher m =
++                java.util.regex.Pattern.compile("\\b" + keyword + "\\b").matcher(text);
++        if (!m.find()) {
++            return List.of();
++        }
++        String rest = text.substring(m.end());
++        int cut = rest.length();
++        for (String stop : stopWords) {
++            java.util.regex.Matcher s =
++                    java.util.regex.Pattern.compile("\\b" + stop + "\\b").matcher(rest);
++            if (s.find() && s.start() < cut) {
++                cut = s.start();
++            }
++        }
++        rest = rest.substring(0, cut);
++        List<String> names = new ArrayList<>();
++        for (String part : rest.split(",")) {
++            String name = part.trim();
++            if (!name.isEmpty()) {
++                // Defensive: a clause segment should be a single token post generic-erase; keep the
++                // last whitespace-delimited token so stray modifiers cannot leak in.
++                int sp = name.lastIndexOf(' ');
++                if (sp >= 0) {
++                    name = name.substring(sp + 1).trim();
++                }
++                if (!name.isEmpty()) {
++                    names.add(name);
++                }
++            }
++        }
++        return names;
++    }
++
++    /** The type-level {@code See Also} references gathered from the notes list in {@code scope}. */
++    private static List<TypeRef> seeAlsoRefs(Element scope, String relativePath) {
++        Element dl = notesList(scope);
++        if (dl == null) {
++            return List.of();
++        }
++        List<TypeRef> refs = new ArrayList<>();
++        String currentLabel = null;
++        for (Element el : dl.children()) {
++            String tag = el.tagName();
++            if (tag.equals("dt")) {
++                currentLabel = normalizeLabel(el.text());
++            } else if (tag.equals("dd") && "see also".equals(currentLabel)) {
++                refs.addAll(allLinkRefs(el, relativePath));
++            }
++        }
++        return refs;
++    }
++
++    /** The reference for the first {@code <a href>} in {@code dd}, or {@code null} if none. */
++    private static TypeRef firstLinkRef(Element dd, String relativePath) {
++        Element a = dd.selectFirst("a[href]");
++        return a == null ? null : makeRef(a.text().trim(), a.attr("href"), relativePath);
++    }
++
++    /** References for every {@code <a href>} in {@code dd}, in document order. */
++    private static List<TypeRef> allLinkRefs(Element dd, String relativePath) {
++        List<TypeRef> refs = new ArrayList<>();
++        for (Element a : dd.select("a[href]")) {
++            refs.add(makeRef(a.text().trim(), a.attr("href"), relativePath));
++        }
++        return refs;
++    }
++
++    /**
++     * Builds a reference from a documented name and its (possibly absent) href, resolving the href to
++     * a root-relative path against the referring {@code pageRelativePath} so it matches the path the
++     * catalog persists. An absent or external ({@code scheme://}) href yields a name-only reference; a
++     * pure {@code #fragment} targets the referring page itself.
++     */
++    private static TypeRef makeRef(String name, String href, String pageRelativePath) {
++        if (href == null || href.isBlank()) {
++            return TypeRef.ofName(name);
++        }
++        if (href.contains("://") || href.startsWith("//") || href.startsWith("mailto:")) {
++            return TypeRef.ofName(name); // outside the ingested tree — resolve (or fail) by name
++        }
++        int hash = href.indexOf('#');
++        String pathPart = hash >= 0 ? href.substring(0, hash) : href;
++        String anchor = hash >= 0 ? href.substring(hash + 1) : "";
++        String targetPath = pathPart.isEmpty()
++                ? pageRelativePath
++                : resolveRelative(parentDir(pageRelativePath), pathPart);
++        return new TypeRef(name, targetPath, anchor);
++    }
++
++    /** The parent directory of a {@code /}-separated relative path, or {@code ""} for a top-level path. */
++    private static String parentDir(String relativePath) {
++        int slash = relativePath.lastIndexOf('/');
++        return slash < 0 ? "" : relativePath.substring(0, slash);
++    }
++
++    /**
++     * Resolves a {@code /}-separated relative path against {@code baseDir}, collapsing {@code .} and
++     * {@code ..} segments — the offline, deterministic equivalent of resolving a page-relative href to
++     * a root-relative path.
++     */
++    private static String resolveRelative(String baseDir, String rel) {
++        List<String> segments = new ArrayList<>();
++        if (!baseDir.isEmpty()) {
++            for (String s : baseDir.split("/")) {
++                if (!s.isEmpty()) {
++                    segments.add(s);
++                }
++            }
++        }
++        for (String s : rel.split("/")) {
++            if (s.isEmpty() || s.equals(".")) {
++                continue;
++            }
++            if (s.equals("..")) {
++                if (!segments.isEmpty()) {
++                    segments.remove(segments.size() - 1);
++                }
++            } else {
++                segments.add(s);
++            }
++        }
++        return String.join("/", segments);
++    }
++
++    /** The last dotted segment of a possibly-qualified name ({@code com.example.Base} &rarr; {@code Base}). */
++    private static String lastDotSegment(String name) {
++        int dot = name.lastIndexOf('.');
++        return dot >= 0 ? name.substring(dot + 1) : name;
++    }
++
++    /** Removes balanced {@code <...>} generic-argument groups from text at any nesting depth. */
++    private static String eraseAngles(String s) {
++        StringBuilder out = new StringBuilder(s.length());
++        int depth = 0;
++        for (int i = 0; i < s.length(); i++) {
++            char c = s.charAt(i);
++            if (c == '<') {
++                depth++;
++            } else if (c == '>') {
++                if (depth > 0) {
++                    depth--;
++                }
++            } else if (depth == 0) {
++                out.append(c);
++            }
++        }
++        return out.toString();
+     }
+ }
+diff --git a/app/ingest-javadoc/src/main/java/com/luciadmcp/knowledge/ingest/javadoc/SignatureNormalizer.java b/app/ingest-javadoc/src/main/java/com/luciadmcp/knowledge/ingest/javadoc/SignatureNormalizer.java
+index 00692ac..a28bf6c 100644
+--- a/app/ingest-javadoc/src/main/java/com/luciadmcp/knowledge/ingest/javadoc/SignatureNormalizer.java
++++ b/app/ingest-javadoc/src/main/java/com/luciadmcp/knowledge/ingest/javadoc/SignatureNormalizer.java
+@@ -70,6 +70,60 @@ final class SignatureNormalizer {
+         return parse(signature).parameterTypes();
+     }
+ 
++    /**
++     * The erased simple <em>leading type</em> of a signature: a method's return type or a field's
++     * declared type (Story 2.5). This is the token immediately before the element name — the last
++     * token before the parameter list for a method (e.g. {@code boolean contains(Point p)} &rarr;
++     * {@code boolean}), or the second-to-last token of a field declaration (e.g. {@code int MAX}
++     * &rarr; {@code int}). Generics are erased, a fully-qualified type is reduced to its last dotted
++     * segment, and array/varargs dimensionality is preserved as {@code []} — the same normalization
++     * {@link #parameterType(String)} applies.
++     *
++     * <p>Returns {@link Optional#empty()} when no leading type can be recovered: a blank signature, a
++     * constructor (only the type name precedes the parameter list), or a declaration with a single
++     * token. The caller decides whether the recovered name denotes a documented type (a primitive or
++     * {@code void} names none and yields no edge).
++     *
++     * @param signature the raw signature text (any era's rendering)
++     * @return the erased simple leading-type name, or empty if none is recoverable
++     */
++    static Optional<String> leadingType(String signature) {
++        if (signature == null) {
++            return Optional.empty();
++        }
++        String cleaned = stripAnnotations(collapse(signature)).trim();
++        if (cleaned.isEmpty()) {
++            return Optional.empty();
++        }
++        // Everything before the parameter list for a method/constructor; the whole for a field.
++        int open = cleaned.indexOf('(');
++        String head = open >= 0 ? cleaned.substring(0, open) : cleaned;
++        head = eraseGenerics(head).text().trim();
++        if (head.isEmpty()) {
++            return Optional.empty();
++        }
++        String[] tokens = head.split("\\s+");
++        if (tokens.length < 2) {
++            // Only the element name is present (a constructor, or a bare declaration): no leading type.
++            return Optional.empty();
++        }
++        String typeToken = tokens[tokens.length - 2];
++        String nameToken = tokens[tokens.length - 1];
++        int[] typeDims = new int[1];
++        String base = stripArrayMarkers(typeToken, typeDims);
++        int[] nameDims = new int[1];
++        stripArrayMarkers(nameToken, nameDims); // C-style array on the name: `int foo[]`
++        int dims = typeDims[0] + nameDims[0];
++        int lastDot = base.lastIndexOf('.');
++        if (lastDot >= 0) {
++            base = base.substring(lastDot + 1);
++        }
++        if (base.isEmpty()) {
++            return Optional.empty();
++        }
++        return Optional.of(base + "[]".repeat(dims));
++    }
++
+     /**
+      * Parses {@code signature} into its erased parameter-type list plus any degradation problems.
+      *
+diff --git a/app/ingest-javadoc/src/main/java/com/luciadmcp/knowledge/ingest/javadoc/package-info.java b/app/ingest-javadoc/src/main/java/com/luciadmcp/knowledge/ingest/javadoc/package-info.java
+index 628bb77..ed5658b 100644
+--- a/app/ingest-javadoc/src/main/java/com/luciadmcp/knowledge/ingest/javadoc/package-info.java
++++ b/app/ingest-javadoc/src/main/java/com/luciadmcp/knowledge/ingest/javadoc/package-info.java
+@@ -27,7 +27,17 @@
+  * story can map onto the {@code domain} symbol. Signatures it cannot parse degrade into explicit
+  * issues on {@link com.luciadmcp.knowledge.ingest.javadoc.SymbolMintResult} (AD-4).
+  *
+- * <p>Catalog persistence (Story 2.4) builds on this. This package mints no {@code domain} records and
+- * performs no network I/O (AD-9).
++ * <p>Catalog persistence (Story 2.4) builds on this. Story 2.5 extends
++ * {@link com.luciadmcp.knowledge.ingest.javadoc.JavadocFieldExtractor} to also capture the
++ * relationship-source references — a type's superclass / super-interfaces / implemented-interfaces /
++ * see-also, and each member's return/field type, overrides, specified-by, and see-also — as
++ * {@link com.luciadmcp.knowledge.ingest.javadoc.TypeRef}s carrying their link hrefs where the page
++ * rendered one. These ride on {@link com.luciadmcp.knowledge.ingest.javadoc.ExtractedType} /
++ * {@link com.luciadmcp.knowledge.ingest.javadoc.ExtractedMember} and are exposed per page by
++ * {@link com.luciadmcp.knowledge.ingest.javadoc.JavadocCatalogSource} so the jsoup-free {@code cli}
++ * RELATIONSHIPS stage can resolve them against the completed catalog in pass two. Resolution and
++ * canonical-symbol minting never happen here (AD-4).
++ *
++ * <p>This package mints no {@code domain} records and performs no network I/O (AD-9).
+  */
+ package com.luciadmcp.knowledge.ingest.javadoc;
+diff --git a/app/catalog-sqlite/src/main/java/com/luciadmcp/knowledge/catalog/sqlite/SqliteRelationshipStore.java b/app/catalog-sqlite/src/main/java/com/luciadmcp/knowledge/catalog/sqlite/SqliteRelationshipStore.java
+new file mode 100644
+index 0000000..a574499
+--- /dev/null
++++ b/app/catalog-sqlite/src/main/java/com/luciadmcp/knowledge/catalog/sqlite/SqliteRelationshipStore.java
+@@ -0,0 +1,281 @@
++package com.luciadmcp.knowledge.catalog.sqlite;
++
++import com.luciadmcp.knowledge.domain.ContentHashes;
++import com.luciadmcp.knowledge.domain.RelationshipEdge;
++import com.luciadmcp.knowledge.domain.RelationshipStore;
++import com.luciadmcp.knowledge.domain.RelationshipType;
++import com.luciadmcp.knowledge.domain.StoredRelationshipEdge;
++import java.io.IOException;
++import java.io.UncheckedIOException;
++import java.nio.file.Files;
++import java.nio.file.Path;
++import java.sql.Connection;
++import java.sql.DriverManager;
++import java.sql.PreparedStatement;
++import java.sql.ResultSet;
++import java.sql.SQLException;
++import java.sql.Statement;
++import java.util.ArrayList;
++import java.util.List;
++import java.util.Optional;
++
++/**
++ * SQLite implementation of the {@link RelationshipStore} domain port (Story 2.5). It is the sole
++ * authority that computes edge IDs (AD-22): it maps each submitted endpoint canonical key to its
++ * stored {@code record_id} on the shared build-scoped catalog file, then hashes the edge identity with
++ * {@link ContentHashes#relationshipHash(String, String, RelationshipType, String, String)} — no other
++ * module computes an edge ID. It opens the <em>same</em> build-scoped SQLite file the catalog wrote
++ * (Story 2.4), so the {@code records} table it resolves against and the {@code edges} table it writes
++ * live together.
++ *
++ * <h2>Provisional schema — pending governance sign-off</h2>
++ *
++ * <p>The concrete {@code edges} DDL below is a working, clearly-labeled <b>provisional</b> schema,
++ * mirroring the Story-2.4 catalog precedent. The SQLite relationship schema (adjacency +
++ * recursive-CTE traversal) is a {@code [NEEDS APPROVAL]} governance gate (ARCHITECTURE-SPINE
++ * Deferred, Epic 3); this is not the approved DDL. Identity inputs are captured explicitly
++ * ({@code sdk_version}, {@code source_id}, {@code type}, {@code target_id}, {@code evidence}) so a
++ * later approved schema maps on without reshaping. {@code evidence} is empty for the 13 Javadoc
++ * structural edges (it is an example-link concern, AD-30) but the column exists for Epic-3 reuse.
++ *
++ * <ul>
++ *   <li><b>{@code edge_id}</b> — TEXT primary key, the AD-22 computed content hash.</li>
++ *   <li><b>Identity uniqueness</b> — {@code UNIQUE(sdk_version, source_id, type, target_id, evidence)}:
++ *       exactly the fields folded into {@code edge_id}, so the index and the hash agree.</li>
++ *   <li><b>Version scoping</b> — every edge carries {@code sdk_version} and both endpoints are
++ *       resolved from the same version's records (AD-12).</li>
++ * </ul>
++ *
++ * <h2>Idempotent upsert &amp; identity clash (AD-4)</h2>
++ *
++ * <p>Because the edge ID is a pure function of the version-scoped edge identity, submitting the same
++ * logical edge twice resolves to the same ID and leaves one row ({@link PutStatus#DUPLICATE}).
++ * Submitting a <em>different</em> logical edge that resolves to the same identity is a real clash: the
++ * existing row is left untouched and {@link PutStatus#IDENTITY_CLASH} is returned so the caller can
++ * record an issue — never a silent overwrite or drop.
++ *
++ * <h2>Determinism (NFR-13)</h2>
++ *
++ * <p>Nothing here reads the clock, a random source, or a locale-dependent transform; IDs are pure
++ * content hashes and reads are ordered by ascending {@code edge_id}. An interrupted-then-resumed build
++ * re-submitting the same edges yields byte-identical rows and IDs. AD-9: SQLite runs in-process
++ * against a local file; no socket is opened.
++ */
++public final class SqliteRelationshipStore implements RelationshipStore {
++
++    /** Provisional edges-table DDL (pending governance sign-off). */
++    static final String CREATE_EDGES_TABLE =
++            "CREATE TABLE IF NOT EXISTS edges ("
++                    + "edge_id TEXT PRIMARY KEY NOT NULL, "
++                    + "sdk_version TEXT NOT NULL, "
++                    + "source_id TEXT NOT NULL, "
++                    + "type TEXT NOT NULL, "
++                    + "target_id TEXT NOT NULL, "
++                    + "evidence TEXT NOT NULL, "
++                    + "UNIQUE(sdk_version, source_id, type, target_id, evidence)"
++                    + ")";
++
++    /** Structural edges carry no evidence (AD-30); the column exists for Epic-3 example reuse. */
++    private static final String STRUCTURAL_EVIDENCE = "";
++
++    private final Connection connection;
++
++    /**
++     * Opens (creating if absent) the build-scoped catalog file at {@code dbPath} — the same file the
++     * catalog store wrote — and creates the provisional {@code edges} table. The {@code records} table
++     * is owned by {@link SqliteCatalogStore} and is expected to already exist (the catalog stage runs
++     * first); this store only reads it to resolve endpoint keys.
++     *
++     * @param dbPath the build-scoped SQLite file path (coordinator-owned; AD-25)
++     */
++    public SqliteRelationshipStore(Path dbPath) {
++        if (dbPath == null) {
++            throw new IllegalArgumentException("dbPath must not be null");
++        }
++        Path absolute = dbPath.toAbsolutePath().normalize();
++        Path parent = absolute.getParent();
++        if (parent != null) {
++            try {
++                Files.createDirectories(parent);
++            } catch (IOException e) {
++                throw new UncheckedIOException("could not create relationship store directory " + parent, e);
++            }
++        }
++        Connection opened = null;
++        try {
++            opened = DriverManager.getConnection("jdbc:sqlite:" + absolute);
++            try (Statement stmt = opened.createStatement()) {
++                stmt.execute(CREATE_EDGES_TABLE);
++            }
++            this.connection = opened;
++        } catch (SQLException e) {
++            closeQuietly(opened);
++            throw new IllegalStateException("could not open relationship store at " + absolute, e);
++        }
++    }
++
++    private static void closeQuietly(Connection connection) {
++        if (connection == null) {
++            return;
++        }
++        try {
++            connection.close();
++        } catch (SQLException ignored) {
++            // Best-effort cleanup on a failed open; the original failure is what the caller sees.
++        }
++    }
++
++    @Override
++    public PutResult put(RelationshipEdge edge) {
++        if (edge == null) {
++            throw new IllegalArgumentException("edge must not be null");
++        }
++        // The store maps each endpoint canonical key to its stored record_id — it never trusts the
++        // caller to supply an id. A key with no matching version-scoped record is an integrity failure:
++        // pass two only ever submits resolved catalog symbols, so this must not happen silently.
++        String sourceId = resolveRecordId(edge.sdkVersion(), edge.sourceSymbol());
++        if (sourceId == null) {
++            throw new IllegalStateException("no catalog record for source key '" + edge.sourceSymbol()
++                    + "' (SDK version " + edge.sdkVersion() + ")");
++        }
++        String targetId = resolveRecordId(edge.sdkVersion(), edge.targetSymbol());
++        if (targetId == null) {
++            throw new IllegalStateException("no catalog record for target key '" + edge.targetSymbol()
++                    + "' (SDK version " + edge.sdkVersion() + ")");
++        }
++
++        String edgeId = ContentHashes.relationshipHash(
++                edge.sdkVersion(), sourceId, edge.type(), targetId, STRUCTURAL_EVIDENCE);
++
++        Optional<StoredRelationshipEdge> existing = findByEdgeId(edgeId);
++        if (existing.isPresent()) {
++            // Same identity already stored: idempotent no-op if the logical edge matches, otherwise a
++            // real identity clash — two distinct logical edges claiming one identity (AD-4).
++            return existing.get().edge().equals(edge)
++                    ? new PutResult(edgeId, PutStatus.DUPLICATE)
++                    : new PutResult(edgeId, PutStatus.IDENTITY_CLASH);
++        }
++
++        String sql = "INSERT INTO edges (edge_id, sdk_version, source_id, type, target_id, evidence) "
++                + "VALUES (?, ?, ?, ?, ?, ?)";
++        try (PreparedStatement ps = connection.prepareStatement(sql)) {
++            ps.setString(1, edgeId);
++            ps.setString(2, edge.sdkVersion());
++            ps.setString(3, sourceId);
++            ps.setString(4, edge.type().name());
++            ps.setString(5, targetId);
++            ps.setString(6, STRUCTURAL_EVIDENCE);
++            ps.executeUpdate();
++            return new PutResult(edgeId, PutStatus.INSERTED);
++        } catch (SQLException e) {
++            // Defensive: a UNIQUE(identity) violation without an edge_id match means a different
++            // logical edge already occupies this identity — a real clash, not a silent drop (AD-4).
++            if (isIdentityConstraintViolation(e)) {
++                return new PutResult(edgeId, PutStatus.IDENTITY_CLASH);
++            }
++            throw new IllegalStateException("could not persist relationship edge " + edgeId, e);
++        }
++    }
++
++    @Override
++    public Optional<StoredRelationshipEdge> findByEdgeId(String edgeId) {
++        if (edgeId == null || edgeId.isBlank()) {
++            throw new IllegalArgumentException("edgeId must not be blank");
++        }
++        String sql = SELECT_EDGE_JOIN + " WHERE e.edge_id = ?";
++        try (PreparedStatement ps = connection.prepareStatement(sql)) {
++            ps.setString(1, edgeId);
++            try (ResultSet rs = ps.executeQuery()) {
++                return rs.next() ? Optional.of(read(rs)) : Optional.empty();
++            }
++        } catch (SQLException e) {
++            throw new IllegalStateException("could not query relationship edge by id", e);
++        }
++    }
++
++    @Override
++    public List<StoredRelationshipEdge> allEdges() {
++        // Ascending edge_id gives a deterministic order independent of insertion sequence (NFR-13).
++        String sql = SELECT_EDGE_JOIN + " ORDER BY e.edge_id ASC";
++        List<StoredRelationshipEdge> out = new ArrayList<>();
++        try (Statement stmt = connection.createStatement();
++                ResultSet rs = stmt.executeQuery(sql)) {
++            while (rs.next()) {
++                out.add(read(rs));
++            }
++        } catch (SQLException e) {
++            throw new IllegalStateException("could not enumerate relationship edges", e);
++        }
++        return out;
++    }
++
++    @Override
++    public void close() {
++        try {
++            connection.close();
++        } catch (SQLException e) {
++            throw new IllegalStateException("could not close relationship store", e);
++        }
++    }
++
++    // Reconstruct the logical edge by joining each stored record_id back to its version-scoped
++    // canonical key on the records table (Story 2.4). The store persists ids, not keys, but reads
++    // return keys so a submitted logical edge round-trips unchanged (NFR-13).
++    private static final String SELECT_EDGE_JOIN =
++            "SELECT e.edge_id AS edge_id, e.sdk_version AS sdk_version, e.type AS type, "
++                    + "s.canonical_key AS source_key, t.canonical_key AS target_key "
++                    + "FROM edges e "
++                    + "JOIN records s ON s.record_id = e.source_id "
++                    + "JOIN records t ON t.record_id = e.target_id";
++
++    private static StoredRelationshipEdge read(ResultSet rs) throws SQLException {
++        String edgeId = rs.getString("edge_id");
++        RelationshipEdge edge = new RelationshipEdge(
++                rs.getString("source_key"),
++                rs.getString("target_key"),
++                RelationshipType.valueOf(rs.getString("type")),
++                rs.getString("sdk_version"));
++        return new StoredRelationshipEdge(edgeId, edge);
++    }
++
++    /** The stored {@code record_id} for a version-scoped canonical key, or {@code null} if none. */
++    private String resolveRecordId(String sdkVersion, String canonicalKey) {
++        String sql = "SELECT record_id FROM records WHERE sdk_version = ? AND canonical_key = ?";
++        try (PreparedStatement ps = connection.prepareStatement(sql)) {
++            ps.setString(1, sdkVersion);
++            ps.setString(2, canonicalKey);
++            try (ResultSet rs = ps.executeQuery()) {
++                return rs.next() ? rs.getString("record_id") : null;
++            }
++        } catch (SQLException e) {
++            throw new IllegalStateException("could not resolve endpoint record id for key " + canonicalKey, e);
++        }
++    }
++
++    // SQLite result codes (see sqlite.org/rescode.html). getErrorCode() carries the primary code
++    // (19 = SQLITE_CONSTRAINT) or, when the driver surfaces it, the extended code that pinpoints which
++    // constraint failed.
++    private static final int SQLITE_CONSTRAINT = 19;
++    private static final int SQLITE_CONSTRAINT_PRIMARYKEY = 1555; // 19 | (6 << 8)
++    private static final int SQLITE_CONSTRAINT_UNIQUE = 2067;     // 19 | (8 << 8)
++
++    /**
++     * Whether a failed {@code INSERT} is a {@code UNIQUE(identity)} violation — a real identity clash —
++     * as opposed to a genuine storage error. Uses the SQLite result code rather than scanning the
++     * (driver-text/locale-dependent) message. A primary-key ({@code edge_id}) collision is explicitly
++     * <em>not</em> treated as a clash: it cannot occur here because {@link #put} checks
++     * {@link #findByEdgeId} first, so if it ever surfaced it is a real error and must propagate.
++     */
++    private static boolean isIdentityConstraintViolation(SQLException e) {
++        int code = e.getErrorCode();
++        if (code == SQLITE_CONSTRAINT_UNIQUE) {
++            return true;
++        }
++        if (code == SQLITE_CONSTRAINT_PRIMARYKEY) {
++            return false;
++        }
++        // Only the primary constraint code is available (no extended detail): our INSERT is guarded by
++        // findByEdgeId, so a constraint failure here can only be the identity UNIQUE index.
++        return (code & 0xFF) == SQLITE_CONSTRAINT;
++    }
++}
+diff --git a/app/catalog-sqlite/src/test/java/com/luciadmcp/knowledge/catalog/sqlite/SqliteRelationshipStoreTest.java b/app/catalog-sqlite/src/test/java/com/luciadmcp/knowledge/catalog/sqlite/SqliteRelationshipStoreTest.java
+new file mode 100644
+index 0000000..5e17e3a
+--- /dev/null
++++ b/app/catalog-sqlite/src/test/java/com/luciadmcp/knowledge/catalog/sqlite/SqliteRelationshipStoreTest.java
+@@ -0,0 +1,189 @@
++package com.luciadmcp.knowledge.catalog.sqlite;
++
++import static org.junit.jupiter.api.Assertions.assertEquals;
++import static org.junit.jupiter.api.Assertions.assertThrows;
++import static org.junit.jupiter.api.Assertions.assertTrue;
++
++import com.luciadmcp.knowledge.domain.CatalogRecord;
++import com.luciadmcp.knowledge.domain.ContentHashes;
++import com.luciadmcp.knowledge.domain.RelationshipEdge;
++import com.luciadmcp.knowledge.domain.RelationshipStore;
++import com.luciadmcp.knowledge.domain.RelationshipType;
++import com.luciadmcp.knowledge.domain.StoredRelationshipEdge;
++import java.nio.file.Path;
++import java.util.List;
++import org.junit.jupiter.api.Test;
++import org.junit.jupiter.api.io.TempDir;
++
++/**
++ * The versioned SQLite relationship store (Story 2.5): it maps endpoint canonical keys to their stored
++ * {@code record_id}s, computes {@code edge_id} via {@link ContentHashes#relationshipHash} as the sole
++ * edge-ID authority (AD-22), upserts idempotently, reproduces byte-identical rows/ids on resume
++ * (NFR-13), returns a deterministic order, and refuses an endpoint with no catalog record. Fixtures are
++ * synthetic; no proprietary content.
++ */
++class SqliteRelationshipStoreTest {
++
++    private static final String V = "2024.0";
++
++    /** Seeds the shared catalog file with the type records the edges connect. */
++    private static void seedRecords(Path db, String... fqns) {
++        try (SqliteCatalogStore catalog = new SqliteCatalogStore(db)) {
++            for (String fqn : fqns) {
++                catalog.put(new CatalogRecord(V, fqn, "TYPE", fqn, simpleOf(fqn), pathOf(fqn), ""));
++            }
++        }
++    }
++
++    private static String simpleOf(String fqn) {
++        int dot = fqn.lastIndexOf('.');
++        return dot >= 0 ? fqn.substring(dot + 1) : fqn;
++    }
++
++    private static String pathOf(String fqn) {
++        return fqn.replace('.', '/') + ".html";
++    }
++
++    private static Path db(Path dir) {
++        return dir.resolve("catalog.sqlite");
++    }
++
++    private static RelationshipEdge extendsClass(String sub, String sup) {
++        return new RelationshipEdge(sub, sup, RelationshipType.EXTENDS_CLASS, V);
++    }
++
++    /** AD-22: edge_id is exactly relationshipHash over the resolved endpoint record ids — no other recipe. */
++    @Test
++    void edgeIdIsTheRelationshipContentHashOverResolvedRecordIds(@TempDir Path tmp) {
++        Path db = db(tmp);
++        seedRecords(db, "com.example.Widget", "com.example.Base");
++
++        String sourceId;
++        String targetId;
++        try (SqliteCatalogStore catalog = new SqliteCatalogStore(db)) {
++            sourceId = catalog.findByKey(V, "com.example.Widget").orElseThrow().recordId();
++            targetId = catalog.findByKey(V, "com.example.Base").orElseThrow().recordId();
++        }
++        String expected =
++                ContentHashes.relationshipHash(V, sourceId, RelationshipType.EXTENDS_CLASS, targetId, "");
++
++        try (RelationshipStore store = new SqliteRelationshipStore(db)) {
++            RelationshipStore.PutResult result = store.put(extendsClass("com.example.Widget", "com.example.Base"));
++            assertEquals(RelationshipStore.PutStatus.INSERTED, result.status());
++            assertEquals(expected, result.edgeId(), "edge id must be the relationshipHash of the record ids");
++        }
++    }
++
++    /** Matrix row "Duplicate edge within a build": identical logical edge upserts to one row. */
++    @Test
++    void duplicateSubmissionIsIdempotent(@TempDir Path tmp) {
++        Path db = db(tmp);
++        seedRecords(db, "com.example.Widget", "com.example.Base");
++        try (RelationshipStore store = new SqliteRelationshipStore(db)) {
++            RelationshipStore.PutResult first = store.put(extendsClass("com.example.Widget", "com.example.Base"));
++            RelationshipStore.PutResult second = store.put(extendsClass("com.example.Widget", "com.example.Base"));
++
++            assertEquals(RelationshipStore.PutStatus.INSERTED, first.status());
++            assertEquals(RelationshipStore.PutStatus.DUPLICATE, second.status(),
++                    "re-submitting the same logical edge is a no-op");
++            assertEquals(first.edgeId(), second.edgeId(), "the same logical edge yields the same id");
++            assertEquals(1, store.allEdges().size(), "an idempotent upsert leaves exactly one row");
++        }
++    }
++
++    /** The submitted logical edge round-trips (endpoints reconstructed as canonical keys). */
++    @Test
++    void edgeRoundTripsAsCanonicalKeys(@TempDir Path tmp) {
++        Path db = db(tmp);
++        seedRecords(db, "com.example.Widget", "com.example.Base");
++        RelationshipEdge edge = extendsClass("com.example.Widget", "com.example.Base");
++        try (RelationshipStore store = new SqliteRelationshipStore(db)) {
++            String edgeId = store.put(edge).edgeId();
++            StoredRelationshipEdge back = store.findByEdgeId(edgeId).orElseThrow();
++            assertEquals(edge, back.edge(), "the logical edge must round-trip unchanged");
++            assertEquals(List.of(back), store.allEdges());
++        }
++    }
++
++    /** Matrix row "Interrupted then resumed": re-running over the same file reproduces rows/ids. */
++    @Test
++    void resumeOverSameFileReproducesEdgesAndIds(@TempDir Path tmp) {
++        Path db = db(tmp);
++        seedRecords(db, "com.example.Widget", "com.example.Base", "com.example.Drawable");
++
++        List<StoredRelationshipEdge> firstRun;
++        try (RelationshipStore store = new SqliteRelationshipStore(db)) {
++            store.put(extendsClass("com.example.Widget", "com.example.Base"));
++            store.put(new RelationshipEdge(
++                    "com.example.Widget", "com.example.Drawable", RelationshipType.IMPLEMENTS, V));
++            firstRun = store.allEdges();
++        }
++
++        // A resumed run re-submits the same edges: idempotent, byte-identical rows and ids.
++        try (RelationshipStore store = new SqliteRelationshipStore(db)) {
++            assertEquals(RelationshipStore.PutStatus.DUPLICATE,
++                    store.put(extendsClass("com.example.Widget", "com.example.Base")).status());
++            assertEquals(RelationshipStore.PutStatus.DUPLICATE,
++                    store.put(new RelationshipEdge(
++                            "com.example.Widget", "com.example.Drawable", RelationshipType.IMPLEMENTS, V)).status());
++            assertEquals(firstRun, store.allEdges(), "a resumed run must reproduce identical edges and ids");
++            assertEquals(2, store.allEdges().size());
++        }
++    }
++
++    /** NFR-13: allEdges is deterministically ordered (ascending id), independent of insertion order. */
++    @Test
++    void allEdgesIsDeterministicallyOrdered(@TempDir Path tmp) {
++        seedRecords(db(tmp.resolve("f")), "com.example.A", "com.example.B", "com.example.C");
++        seedRecords(db(tmp.resolve("r")), "com.example.A", "com.example.B", "com.example.C");
++
++        List<StoredRelationshipEdge> forward;
++        try (RelationshipStore store = new SqliteRelationshipStore(db(tmp.resolve("f")))) {
++            store.put(new RelationshipEdge("com.example.A", "com.example.B", RelationshipType.SEE_ALSO, V));
++            store.put(new RelationshipEdge("com.example.A", "com.example.C", RelationshipType.SEE_ALSO, V));
++            forward = store.allEdges();
++        }
++        List<StoredRelationshipEdge> reverse;
++        try (RelationshipStore store = new SqliteRelationshipStore(db(tmp.resolve("r")))) {
++            store.put(new RelationshipEdge("com.example.A", "com.example.C", RelationshipType.SEE_ALSO, V));
++            store.put(new RelationshipEdge("com.example.A", "com.example.B", RelationshipType.SEE_ALSO, V));
++            reverse = store.allEdges();
++        }
++        assertEquals(forward, reverse, "edge order must not depend on insertion order");
++        assertTrue(forward.get(0).edgeId().compareTo(forward.get(1).edgeId()) <= 0,
++                "edges must be ordered by ascending id");
++    }
++
++    /** NFR-13: two independent builds of the same inputs assign byte-identical edge ids. */
++    @Test
++    void independentBuildsOfSameInputsAssignSameIds(@TempDir Path tmp) {
++        seedRecords(db(tmp.resolve("a")), "com.example.Widget", "com.example.Base");
++        seedRecords(db(tmp.resolve("b")), "com.example.Widget", "com.example.Base");
++
++        String idA;
++        String idB;
++        try (RelationshipStore sa = new SqliteRelationshipStore(db(tmp.resolve("a")))) {
++            idA = sa.put(extendsClass("com.example.Widget", "com.example.Base")).edgeId();
++        }
++        try (RelationshipStore sb = new SqliteRelationshipStore(db(tmp.resolve("b")))) {
++            idB = sb.put(extendsClass("com.example.Widget", "com.example.Base")).edgeId();
++        }
++        assertEquals(idA, idB, "the same logical edge must hash to the same id across builds");
++    }
++
++    /**
++     * AD-4 / AD-22: the store resolves endpoints itself; an endpoint canonical key with no catalog
++     * record for the version is an integrity failure, refused (never invented an id from the key text).
++     */
++    @Test
++    void endpointWithNoCatalogRecordIsRefused(@TempDir Path tmp) {
++        Path db = db(tmp);
++        seedRecords(db, "com.example.Widget"); // Base is NOT seeded
++        try (RelationshipStore store = new SqliteRelationshipStore(db)) {
++            IllegalStateException e = assertThrows(IllegalStateException.class,
++                    () -> store.put(extendsClass("com.example.Widget", "com.example.Base")));
++            assertTrue(e.getMessage().contains("com.example.Base"),
++                    () -> "the message should name the unresolved endpoint: " + e.getMessage());
++        }
++    }
++}
+diff --git a/app/cli/src/main/java/com/luciadmcp/knowledge/cli/pipeline/RelationshipsStage.java b/app/cli/src/main/java/com/luciadmcp/knowledge/cli/pipeline/RelationshipsStage.java
+new file mode 100644
+index 0000000..4de8c55
+--- /dev/null
++++ b/app/cli/src/main/java/com/luciadmcp/knowledge/cli/pipeline/RelationshipsStage.java
+@@ -0,0 +1,528 @@
++package com.luciadmcp.knowledge.cli.pipeline;
++
++import com.luciadmcp.knowledge.domain.CatalogStore;
++import com.luciadmcp.knowledge.domain.RelationshipEdge;
++import com.luciadmcp.knowledge.domain.RelationshipStore;
++import com.luciadmcp.knowledge.domain.RelationshipType;
++import com.luciadmcp.knowledge.domain.StoredCatalogRecord;
++import com.luciadmcp.knowledge.ingest.javadoc.ExtractedMember;
++import com.luciadmcp.knowledge.ingest.javadoc.ExtractedType;
++import com.luciadmcp.knowledge.ingest.javadoc.JavadocCatalogSource;
++import com.luciadmcp.knowledge.ingest.javadoc.SymbolKind;
++import com.luciadmcp.knowledge.ingest.javadoc.SymbolRecord;
++import com.luciadmcp.knowledge.ingest.javadoc.ThrownException;
++import com.luciadmcp.knowledge.ingest.javadoc.TypeRef;
++import java.nio.file.Path;
++import java.util.ArrayList;
++import java.util.HashMap;
++import java.util.List;
++import java.util.Map;
++import java.util.function.Consumer;
++import java.util.function.Function;
++
++/**
++ * The real {@link PipelineStage#RELATIONSHIPS} stage (Story 2.5): the end-to-end pass-two
++ * graph-construction path. It reads the catalog persisted by pass one, re-parses the Javadoc tree for
++ * the relationship-source references (which the catalog does not persist), resolves each documented
++ * reference to a catalog symbol, emits the 13 Javadoc <b>structural</b> typed edges, materializes the
++ * two inverse pairs, and submits every edge through the {@link RelationshipStore} port — which alone
++ * computes edge IDs and persists version-scoped rows (AD-22).
++ *
++ * <p><b>Two-pass, never fabricate (AD-4).</b> Pass one is the persisted catalog (Story 2.4); pass two
++ * resolves references against the <em>completed</em> catalog only. An edge is emitted only when both
++ * endpoints are catalog symbols in the same SDK version (AD-12). A reference that does not resolve is
++ * surfaced as a {@link FailureSeverity#RECOVERABLE} failure — never fabricated, never silently dropped;
++ * the first-class stored unresolved-reference model and traversal-scope reporting are Story 2.6.
++ *
++ * <p><b>Why re-parse.</b> The catalog persists only identity + {@code (relativePath, anchor)}, not
++ * supertype/param/see-also facts, so pass two re-parses the tree (deterministic) for the <em>source</em>
++ * references and resolves <em>targets</em> against the completed catalog. This is the AD-4 two-pass
++ * shape, not a parse of convenience.
++ *
++ * <p><b>Resolution ladder (minimal, Story 2.5).</b> (1) a reference carrying an href into the ingested
++ * tree resolves via the catalog's persisted {@code (relativePath, anchor)} — reliable and
++ * member-precise (this is how {@code OVERRIDES}/{@code SPECIFIED_BY} reach a specific supertype method);
++ * (2) otherwise a plain type name resolves by fully-qualified name, else by a <em>unique</em>
++ * simple-name match; (3) otherwise it is unresolved. Language primitives and {@code void} name no
++ * documented type and are neither edges nor failures.
++ *
++ * <p><b>Inverse derivation (golden).</b> After emitting a resolved {@code EXTENDS_CLASS(a→b)} the stage
++ * also emits {@code DIRECT_SUBCLASS(b→a)}, and after {@code IMPLEMENTS(a→b)} it emits
++ * {@code IMPLEMENTED_BY(b→a)} — derived, never parsed from a second source, so the two directions can
++ * never disagree. The other 9 structural types have no named inverse and are single-direction.
++ *
++ * <p><b>Dependency direction (AD-1).</b> This stage lives in {@code cli}. It drives Javadoc parsing only
++ * through {@link JavadocCatalogSource} (no JSoup type crosses the boundary) and reaches both stores only
++ * through {@code domain} ports; the concrete SQLite stores are supplied by the wiring via factories, so
++ * this class names no engine type.
++ *
++ * <h2>Failure mapping</h2>
++ * <ul>
++ *   <li><b>Unresolved reference</b> &rarr; {@link FailureSeverity#RECOVERABLE} (per the failure policy).</li>
++ *   <li><b>Store open/close, re-parse, or persistence integrity failure, and an edge identity clash</b>
++ *       &rarr; {@link FailureSeverity#BUILD_INVALIDATING}: relationship-graph integrity is compromised.</li>
++ * </ul>
++ */
++public final class RelationshipsStage implements Stage {
++
++    private final Path javadocRoot;
++    private final JavadocCatalogSource source;
++    private final Function<BuildContext, CatalogStore> catalogStoreFactory;
++    private final Function<BuildContext, RelationshipStore> relationshipStoreFactory;
++
++    /**
++     * @param javadocRoot              the Javadoc tree root to re-parse (validated by {@code IngestCommand})
++     * @param source                   the Story-2.1&ndash;2.3 discover/extract/mint facade (now also
++     *                                 exposing the relationship-source references per type)
++     * @param catalogStoreFactory      opens the build-scoped {@link CatalogStore} to read the catalog
++     *                                 for the resolution index
++     * @param relationshipStoreFactory opens the build-scoped {@link RelationshipStore} to persist edges
++     */
++    public RelationshipsStage(
++            Path javadocRoot,
++            JavadocCatalogSource source,
++            Function<BuildContext, CatalogStore> catalogStoreFactory,
++            Function<BuildContext, RelationshipStore> relationshipStoreFactory) {
++        this.javadocRoot = javadocRoot;
++        this.source = source;
++        this.catalogStoreFactory = catalogStoreFactory;
++        this.relationshipStoreFactory = relationshipStoreFactory;
++    }
++
++    @Override
++    public void execute(BuildContext context, Consumer<StageFailure> failures) {
++        String version = context.sdkVersion();
++
++        // 1. Build the resolution index from the persisted catalog (pass one's completed output).
++        ResolutionIndex index;
++        try (CatalogStore catalog = catalogStoreFactory.apply(context)) {
++            index = ResolutionIndex.build(catalog.allRecords(), version);
++        } catch (RuntimeException e) {
++            failures.accept(StageFailure.of(
++                    PipelineStage.RELATIONSHIPS,
++                    FailureSeverity.BUILD_INVALIDATING,
++                    "could not read catalog for relationship resolution: " + e.getMessage()));
++            return;
++        }
++
++        // 2. Re-parse the tree for the source references (deterministic; AD-4 two-pass).
++        JavadocCatalogSource.Result parsed;
++        try {
++            parsed = source.ingest(javadocRoot);
++        } catch (RuntimeException e) {
++            failures.accept(StageFailure.of(
++                    PipelineStage.RELATIONSHIPS,
++                    FailureSeverity.BUILD_INVALIDATING,
++                    "Javadoc re-parse for relationships failed under " + javadocRoot + ": " + e.getMessage()));
++            return;
++        }
++
++        // 3. Persist edges through the store (the sole edge-ID authority, AD-22).
++        RelationshipStore store;
++        try {
++            store = relationshipStoreFactory.apply(context);
++        } catch (RuntimeException e) {
++            failures.accept(StageFailure.of(
++                    PipelineStage.RELATIONSHIPS,
++                    FailureSeverity.BUILD_INVALIDATING,
++                    "could not open relationship store: " + e.getMessage()));
++            return;
++        }
++        try {
++            for (JavadocCatalogSource.PageResult page : parsed.pages()) {
++                emitPage(version, page, index, store, failures);
++            }
++        } catch (RuntimeException e) {
++            // A genuine storage/integrity error (e.g. an endpoint key with no catalog record) compromises
++            // graph integrity — route it through the policy as build-invalidating, not raw.
++            failures.accept(StageFailure.of(
++                    PipelineStage.RELATIONSHIPS,
++                    FailureSeverity.BUILD_INVALIDATING,
++                    "relationship persistence failed: " + e.getMessage()));
++        } finally {
++            try {
++                store.close();
++            } catch (RuntimeException e) {
++                failures.accept(StageFailure.of(
++                        PipelineStage.RELATIONSHIPS,
++                        FailureSeverity.BUILD_INVALIDATING,
++                        "could not close relationship store: " + e.getMessage()));
++            }
++        }
++    }
++
++    /** Emits every structural edge for one type page (type-level then per-member), plus inverses. */
++    private void emitPage(
++            String version,
++            JavadocCatalogSource.PageResult page,
++            ResolutionIndex index,
++            RelationshipStore store,
++            Consumer<StageFailure> failures) {
++        Path file = javadocRoot.resolve(page.relativePath());
++        ExtractedType type = page.type();
++
++        // The type-level record (memberIndex == -1) is the source for the type-header + type see-also
++        // edges; member records supply their own source keys and line up with type.members() by index.
++        SymbolRecord typeRecord = null;
++        for (SymbolRecord record : page.records()) {
++            if (record.kind() == SymbolKind.TYPE) {
++                typeRecord = record;
++                break;
++            }
++        }
++
++        if (typeRecord != null && type != null) {
++            String typeKey = typeRecord.canonicalKey();
++            // EXTENDS_CLASS + derived DIRECT_SUBCLASS (inverse).
++            resolveType(type.superclass(), index).ifPresentOrElse(
++                    target -> {
++                        submit(store, version, typeKey, target, RelationshipType.EXTENDS_CLASS, file, failures);
++                        submit(store, version, target, typeKey, RelationshipType.DIRECT_SUBCLASS, file, failures);
++                    },
++                    () -> unresolved(type.superclass(), "EXTENDS_CLASS", typeKey, file, failures));
++            // EXTENDS_INTERFACE (single direction).
++            for (TypeRef ref : type.superInterfaces()) {
++                resolveType(ref, index).ifPresentOrElse(
++                        target -> submit(store, version, typeKey, target,
++                                RelationshipType.EXTENDS_INTERFACE, file, failures),
++                        () -> unresolved(ref, "EXTENDS_INTERFACE", typeKey, file, failures));
++            }
++            // IMPLEMENTS + derived IMPLEMENTED_BY (inverse).
++            for (TypeRef ref : type.implementedInterfaces()) {
++                resolveType(ref, index).ifPresentOrElse(
++                        target -> {
++                            submit(store, version, typeKey, target, RelationshipType.IMPLEMENTS, file, failures);
++                            submit(store, version, target, typeKey, RelationshipType.IMPLEMENTED_BY, file, failures);
++                        },
++                        () -> unresolved(ref, "IMPLEMENTS", typeKey, file, failures));
++            }
++            // Type-level SEE_ALSO (single direction; may target a type or a member).
++            for (TypeRef ref : type.seeAlso()) {
++                resolveAny(ref, index).ifPresentOrElse(
++                        target -> submit(store, version, typeKey, target,
++                                RelationshipType.SEE_ALSO, file, failures),
++                        () -> unresolved(ref, "SEE_ALSO", typeKey, file, failures));
++            }
++        }
++
++        List<ExtractedMember> members = type == null ? List.of() : type.members();
++        for (SymbolRecord record : page.records()) {
++            int idx = record.memberIndex();
++            if (idx < 0 || idx >= members.size()) {
++                continue; // the type record, or a member whose index fell outside the extracted list
++            }
++            emitMember(version, record, members.get(idx), index, store, file, failures);
++        }
++    }
++
++    private void emitMember(
++            String version,
++            SymbolRecord record,
++            ExtractedMember member,
++            ResolutionIndex index,
++            RelationshipStore store,
++            Path file,
++            Consumer<StageFailure> failures) {
++        String sourceKey = record.canonicalKey();
++
++        // RETURN_TYPE (methods) / FIELD_TYPE (fields, enum constants).
++        if (record.kind() == SymbolKind.METHOD) {
++            emitTypeRef(version, sourceKey, member.returnType(), RelationshipType.RETURN_TYPE,
++                    index, store, file, failures);
++        } else if (record.kind() == SymbolKind.FIELD || record.kind() == SymbolKind.ENUM_CONSTANT) {
++            emitTypeRef(version, sourceKey, member.fieldType(), RelationshipType.FIELD_TYPE,
++                    index, store, file, failures);
++        }
++
++        // PARAMETER_TYPE / CONSTRUCTOR_PARAMETER_TYPE — from the minted erased parameter types (plain
++        // names, resolved by FQN / unique simple name).
++        RelationshipType paramType = record.kind() == SymbolKind.CONSTRUCTOR
++                ? RelationshipType.CONSTRUCTOR_PARAMETER_TYPE
++                : RelationshipType.PARAMETER_TYPE;
++        for (String erased : record.erasedParameterTypes()) {
++            emitNameRef(version, sourceKey, erased, paramType, index, store, file, failures);
++        }
++
++        // THROWS_TYPE — from the documented @throws type names.
++        for (ThrownException thrown : member.throwsTypes()) {
++            emitNameRef(version, sourceKey, thrown.type(), RelationshipType.THROWS_TYPE,
++                    index, store, file, failures);
++        }
++
++        // OVERRIDES / SPECIFIED_BY — member-precise; resolved by href only, never guessed by name.
++        emitMemberPrecise(version, sourceKey, member.overrides(), RelationshipType.OVERRIDES,
++                index, store, file, failures);
++        emitMemberPrecise(version, sourceKey, member.specifiedBy(), RelationshipType.SPECIFIED_BY,
++                index, store, file, failures);
++
++        // Member-level SEE_ALSO (may target a type or a member).
++        for (TypeRef ref : member.seeAlso()) {
++            resolveAny(ref, index).ifPresentOrElse(
++                    target -> submit(store, version, sourceKey, target,
++                            RelationshipType.SEE_ALSO, file, failures),
++                    () -> unresolved(ref, "SEE_ALSO", sourceKey, file, failures));
++        }
++    }
++
++    /** Emits a type-target edge from a {@link TypeRef} (href then name), or records it unresolved. */
++    private void emitTypeRef(
++            String version, String sourceKey, TypeRef ref, RelationshipType type,
++            ResolutionIndex index, RelationshipStore store, Path file, Consumer<StageFailure> failures) {
++        if (ref == null || isPrimitiveOrVoid(ref.name())) {
++            return; // no reference (constructor/void) or a primitive — never an edge, never a failure
++        }
++        resolveType(ref, index).ifPresentOrElse(
++                target -> submit(store, version, sourceKey, target, type, file, failures),
++                () -> unresolved(ref, type.name(), sourceKey, file, failures));
++    }
++
++    /** Emits a type-target edge from a plain erased/documented name, or records it unresolved. */
++    private void emitNameRef(
++            String version, String sourceKey, String name, RelationshipType type,
++            ResolutionIndex index, RelationshipStore store, Path file, Consumer<StageFailure> failures) {
++        if (name == null || name.isBlank() || isPrimitiveOrVoid(name)) {
++            return;
++        }
++        String target = index.resolveTypeByName(name);
++        if (target != null) {
++            submit(store, version, sourceKey, target, type, file, failures);
++        } else {
++            unresolvedName(name, type.name(), sourceKey, file, failures);
++        }
++    }
++
++    /** Emits a member-precise edge (href only); an unlinked or unmatched target stays unresolved. */
++    private void emitMemberPrecise(
++            String version, String sourceKey, TypeRef ref, RelationshipType type,
++            ResolutionIndex index, RelationshipStore store, Path file, Consumer<StageFailure> failures) {
++        if (ref == null) {
++            return;
++        }
++        String target = index.resolveByHref(ref);
++        if (target != null) {
++            submit(store, version, sourceKey, target, type, file, failures);
++        } else {
++            unresolved(ref, type.name(), sourceKey, file, failures);
++        }
++    }
++
++    /** Resolves a type target: href into the tree, else FQN, else a unique simple name. */
++    private static java.util.Optional<String> resolveType(TypeRef ref, ResolutionIndex index) {
++        if (ref == null) {
++            return java.util.Optional.empty();
++        }
++        String byHref = index.resolveByHref(ref);
++        if (byHref != null) {
++            return java.util.Optional.of(byHref);
++        }
++        String byName = index.resolveTypeByName(ref.name());
++        return java.util.Optional.ofNullable(byName);
++    }
++
++    /** Resolves a see-also target: href (type or member) into the tree, else a type by name. */
++    private static java.util.Optional<String> resolveAny(TypeRef ref, ResolutionIndex index) {
++        if (ref == null) {
++            return java.util.Optional.empty();
++        }
++        String byHref = index.resolveByHref(ref);
++        if (byHref != null) {
++            return java.util.Optional.of(byHref);
++        }
++        return java.util.Optional.ofNullable(index.resolveTypeByName(ref.name()));
++    }
++
++    private void submit(
++            RelationshipStore store, String version, String sourceKey, String targetKey,
++            RelationshipType type, Path file, Consumer<StageFailure> failures) {
++        RelationshipStore.PutResult result =
++                store.put(new RelationshipEdge(sourceKey, targetKey, type, version));
++        if (result.status() == RelationshipStore.PutStatus.IDENTITY_CLASH) {
++            // A real identity clash compromises graph integrity — never overwrite or drop (AD-4).
++            failures.accept(StageFailure.ofFile(
++                    PipelineStage.RELATIONSHIPS,
++                    FailureSeverity.BUILD_INVALIDATING,
++                    file,
++                    "identity clash persisting " + type + " edge " + sourceKey + " -> " + targetKey
++                            + " (SDK version " + version + "); computed edge id " + result.edgeId()));
++        }
++    }
++
++    private void unresolved(
++            TypeRef ref, String type, String sourceKey, Path file, Consumer<StageFailure> failures) {
++        if (ref == null) {
++            return;
++        }
++        String detail = ref.hasHref()
++                ? "'" + ref.name() + "' (link " + ref.relativePath()
++                        + (ref.anchor().isBlank() ? "" : "#" + ref.anchor()) + ")"
++                : "'" + ref.name() + "'";
++        failures.accept(StageFailure.ofFile(
++                PipelineStage.RELATIONSHIPS,
++                FailureSeverity.RECOVERABLE,
++                file,
++                "unresolved " + type + " reference " + detail + " from " + sourceKey
++                        + "; no edge emitted (explicit unresolved model deferred to Story 2.6)"));
++    }
++
++    private void unresolvedName(
++            String name, String type, String sourceKey, Path file, Consumer<StageFailure> failures) {
++        failures.accept(StageFailure.ofFile(
++                PipelineStage.RELATIONSHIPS,
++                FailureSeverity.RECOVERABLE,
++                file,
++                "unresolved " + type + " reference '" + name + "' from " + sourceKey
++                        + "; no edge emitted (explicit unresolved model deferred to Story 2.6)"));
++    }
++
++    /** Language primitives and {@code void} — never documented types, so never references to resolve. */
++    private static boolean isPrimitiveOrVoid(String name) {
++        String base = name;
++        // Strip array/varargs markers to test the element type.
++        while (base.endsWith("[]")) {
++            base = base.substring(0, base.length() - 2);
++        }
++        if (base.endsWith("...")) {
++            base = base.substring(0, base.length() - 3);
++        }
++        return switch (base) {
++            case "void", "boolean", "byte", "char", "short", "int", "long", "float", "double" -> true;
++            default -> false;
++        };
++    }
++
++    /**
++     * The pass-two resolution index over the completed catalog for one SDK version: {@code (path,
++     * anchor)} &rarr; canonical key for link-precise resolution, and type-record FQN / simple-name maps
++     * for plain-name resolution. Built once per run from {@code allRecords()} (deterministic).
++     */
++    static final class ResolutionIndex {
++
++        private final Map<String, String> byPathAnchor;
++        private final Map<String, String> byFqnType;
++        private final Map<String, List<String>> bySimpleType;
++
++        private ResolutionIndex(
++                Map<String, String> byPathAnchor,
++                Map<String, String> byFqnType,
++                Map<String, List<String>> bySimpleType) {
++            this.byPathAnchor = byPathAnchor;
++            this.byFqnType = byFqnType;
++            this.bySimpleType = bySimpleType;
++        }
++
++        static ResolutionIndex build(List<StoredCatalogRecord> records, String version) {
++            Map<String, String> byPathAnchor = new HashMap<>();
++            Map<String, String> byFqnType = new HashMap<>();
++            Map<String, List<String>> bySimpleType = new HashMap<>();
++            for (StoredCatalogRecord stored : records) {
++                var record = stored.record();
++                if (!record.sdkVersion().equals(version)) {
++                    continue; // edges connect only same-version symbols (AD-12)
++                }
++                byPathAnchor.put(
++                        pathAnchorKey(record.relativePath(), record.anchor()), record.canonicalKey());
++                if ("TYPE".equals(record.kind())) {
++                    byFqnType.put(record.typeFqn(), record.canonicalKey());
++                    if (!record.simpleName().isBlank()) {
++                        bySimpleType.computeIfAbsent(record.simpleName(), k -> new ArrayList<>())
++                                .add(record.canonicalKey());
++                    }
++                }
++            }
++            return new ResolutionIndex(byPathAnchor, byFqnType, bySimpleType);
++        }
++
++        /** The canonical key at a link's {@code (relativePath, anchor)}, or {@code null} if none. */
++        String resolveByHref(TypeRef ref) {
++            if (ref == null || !ref.hasHref()) {
++                return null;
++            }
++            return byPathAnchor.get(pathAnchorKey(ref.relativePath(), ref.anchor()));
++        }
++
++        /** The canonical key for a type by FQN, else by a unique simple name; {@code null} otherwise. */
++        String resolveTypeByName(String name) {
++            if (name == null || name.isBlank()) {
++                return null;
++            }
++            if (name.indexOf('.') >= 0) {
++                String byFqn = byFqnType.get(name);
++                if (byFqn != null) {
++                    return byFqn;
++                }
++            }
++            String simple = lastDotSegment(name);
++            List<String> candidates = bySimpleType.get(simple);
++            return (candidates != null && candidates.size() == 1) ? candidates.get(0) : null;
++        }
++
++        private static String pathAnchorKey(String relativePath, String anchor) {
++            return relativePath + "#" + normalizeAnchor(anchor);
++        }
++    }
++
++    /**
++     * Normalizes a member anchor so a catalog anchor (built from erased <em>simple</em> parameter type
++     * names) and a Javadoc link anchor (which may carry fully-qualified parameter types) compare equal:
++     * generics are erased and each parameter type is reduced to its last dotted segment. A type/field
++     * anchor (no parameter list) passes through unchanged; the transform is idempotent on an
++     * already-simple anchor.
++     */
++    static String normalizeAnchor(String anchor) {
++        if (anchor == null || anchor.isBlank()) {
++            return "";
++        }
++        int open = anchor.indexOf('(');
++        if (open < 0) {
++            return anchor; // a field / type anchor
++        }
++        int close = anchor.lastIndexOf(')');
++        String name = anchor.substring(0, open);
++        String inner = close > open ? anchor.substring(open + 1, close) : anchor.substring(open + 1);
++        inner = eraseAngles(inner).trim();
++        List<String> params = new ArrayList<>();
++        if (!inner.isEmpty()) {
++            for (String part : inner.split(",")) {
++                String p = part.trim();
++                if (p.isEmpty()) {
++                    continue;
++                }
++                int dims = 0;
++                while (p.endsWith("[]")) {
++                    dims++;
++                    p = p.substring(0, p.length() - 2);
++                }
++                if (p.endsWith("...")) {
++                    dims++;
++                    p = p.substring(0, p.length() - 3);
++                }
++                p = lastDotSegment(p) + "[]".repeat(dims);
++                params.add(p);
++            }
++        }
++        return name + "(" + String.join(",", params) + ")";
++    }
++
++    private static String lastDotSegment(String name) {
++        int dot = name.lastIndexOf('.');
++        return dot >= 0 ? name.substring(dot + 1) : name;
++    }
++
++    private static String eraseAngles(String s) {
++        StringBuilder out = new StringBuilder(s.length());
++        int depth = 0;
++        for (int i = 0; i < s.length(); i++) {
++            char c = s.charAt(i);
++            if (c == '<') {
++                depth++;
++            } else if (c == '>') {
++                if (depth > 0) {
++                    depth--;
++                }
++            } else if (depth == 0) {
++                out.append(c);
++            }
++        }
++        return out.toString();
++    }
++}
+diff --git a/app/cli/src/test/java/com/luciadmcp/knowledge/cli/pipeline/RelationshipsStageTest.java b/app/cli/src/test/java/com/luciadmcp/knowledge/cli/pipeline/RelationshipsStageTest.java
+new file mode 100644
+index 0000000..1d3fde1
+--- /dev/null
++++ b/app/cli/src/test/java/com/luciadmcp/knowledge/cli/pipeline/RelationshipsStageTest.java
+@@ -0,0 +1,437 @@
++package com.luciadmcp.knowledge.cli.pipeline;
++
++import static org.junit.jupiter.api.Assertions.assertEquals;
++import static org.junit.jupiter.api.Assertions.assertFalse;
++import static org.junit.jupiter.api.Assertions.assertTrue;
++
++import com.luciadmcp.knowledge.catalog.sqlite.SqliteCatalogStore;
++import com.luciadmcp.knowledge.catalog.sqlite.SqliteRelationshipStore;
++import com.luciadmcp.knowledge.domain.CatalogStore;
++import com.luciadmcp.knowledge.domain.RelationshipEdge;
++import com.luciadmcp.knowledge.domain.RelationshipStore;
++import com.luciadmcp.knowledge.domain.RelationshipType;
++import com.luciadmcp.knowledge.domain.StoredCatalogRecord;
++import com.luciadmcp.knowledge.domain.StoredRelationshipEdge;
++import com.luciadmcp.knowledge.ingest.javadoc.JavadocCatalogSource;
++import java.nio.charset.StandardCharsets;
++import java.nio.file.Files;
++import java.nio.file.Path;
++import java.util.ArrayList;
++import java.util.EnumSet;
++import java.util.List;
++import java.util.Optional;
++import java.util.Set;
++import java.util.function.Function;
++import java.util.stream.Collectors;
++import org.junit.jupiter.api.Test;
++import org.junit.jupiter.api.io.TempDir;
++
++/**
++ * The real pass-two RELATIONSHIPS stage (Story 2.5): over a synthetic tree exercising every one of the
++ * 13 Javadoc structural relationship types, it resolves each documented reference against the completed
++ * catalog, emits the typed edges, materializes both inverse pairs, and surfaces unresolved references as
++ * recoverable failures — never fabricating an edge (AD-4). Fixtures are synthetic HTML.
++ */
++class RelationshipsStageTest {
++
++    private static final String VERSION = "2024.0";
++
++    // The 13 structural types (everything except the example/workflow types out of scope for 2.5).
++    private static final Set<RelationshipType> STRUCTURAL = EnumSet.complementOf(
++            EnumSet.of(RelationshipType.EXAMPLE_USES, RelationshipType.WORKFLOW_REQUIRES));
++
++    // --- synthetic documented SDK tree (modern layout), all under com/example -----------------------
++
++    private static final String POINT = page("class-declaration-page", "Class Point",
++            "<section class=\"class-description\"><div class=\"block\">A point.</div></section>");
++
++    private static final String WIDGET_EXCEPTION = page("class-declaration-page", "Class WidgetException",
++            "<section class=\"class-description\"><div class=\"block\">An error.</div></section>");
++
++    private static final String BASE = page("class-declaration-page", "Class Base", """
++            <section class="class-description"><div class="block">A base.</div></section>
++            <section class="method-details" id="method-detail"><ul class="member-list">
++             <li><section class="detail" id="doThing(int)">
++               <h3>doThing</h3>
++               <div class="member-signature">void doThing(int count)</div>
++               <div class="block">Does.</div>
++             </section></li>
++            </ul></section>
++            """);
++
++    private static final String DRAWABLE = page("interface-declaration-page", "Interface Drawable", """
++            <section class="class-description"><div class="block">Drawable.</div></section>
++            <section class="method-details" id="method-detail"><ul class="member-list">
++             <li><section class="detail" id="draw()">
++               <h3>draw</h3>
++               <div class="member-signature">void draw()</div>
++               <div class="block">Draws.</div>
++             </section></li>
++            </ul></section>
++            """);
++
++    private static final String SHAPE = page("interface-declaration-page", "Interface Shape", """
++            <section class="class-description" id="class-description">
++              <div class="block">A shape.</div>
++              <div class="type-signature"><span class="modifiers">public interface </span><span class="element-name">Shape</span>
++               <span class="extends-implements">extends <a href="Drawable.html">Drawable</a></span></div>
++            </section>
++            """);
++
++    private static final String WIDGET = page("class-declaration-page", "Class Widget", """
++            <section class="class-description" id="class-description">
++              <div class="block">A widget.</div>
++              <div class="type-signature"><span class="modifiers">public class </span><span class="element-name">Widget</span>
++               <span class="extends-implements">extends <a href="Base.html">Base</a>
++               implements <a href="Drawable.html">Drawable</a></span></div>
++              <dl class="notes"><dt>See Also:</dt><dd><a href="Point.html"><code>Point</code></a></dd></dl>
++            </section>
++            <section class="constructor-details" id="constructor-detail"><ul class="member-list">
++             <li><section class="detail" id="&lt;init&gt;(com.example.Point)">
++               <h3>Widget</h3>
++               <div class="member-signature">public Widget(Point origin)</div>
++               <div class="block">Creates.</div>
++             </section></li>
++            </ul></section>
++            <section class="method-details" id="method-detail"><ul class="member-list">
++             <li><section class="detail" id="getOrigin()">
++               <h3>getOrigin</h3>
++               <div class="member-signature"><span class="return-type"><a href="Point.html">Point</a></span>&nbsp;getOrigin()</div>
++               <div class="block">Gets it.</div>
++             </section></li>
++             <li><section class="detail" id="process(com.example.Point)">
++               <h3>process</h3>
++               <div class="member-signature">void process(Point p) throws WidgetException</div>
++               <div class="block">Processes.</div>
++               <dl class="notes"><dt>Throws:</dt><dd><code>WidgetException</code> - if bad</dd></dl>
++             </section></li>
++             <li><section class="detail" id="doThing(int)">
++               <h3>doThing</h3>
++               <div class="member-signature">void doThing(int count)</div>
++               <div class="block">Does.</div>
++               <dl class="notes"><dt>Overrides:</dt>
++                <dd><code><a href="Base.html#doThing(int)">doThing</a></code> in class <code><a href="Base.html">Base</a></code></dd></dl>
++             </section></li>
++             <li><section class="detail" id="draw()">
++               <h3>draw</h3>
++               <div class="member-signature">void draw()</div>
++               <div class="block">Draws.</div>
++               <dl class="notes"><dt>Specified by:</dt>
++                <dd><code><a href="Drawable.html#draw()">draw</a></code> in interface <code><a href="Drawable.html">Drawable</a></code></dd></dl>
++             </section></li>
++            </ul></section>
++            <section class="field-details" id="field-detail"><ul class="member-list">
++             <li><section class="detail" id="anchor">
++               <h3>anchor</h3>
++               <div class="member-signature"><a href="Point.html">Point</a>&nbsp;anchor</div>
++               <div class="block">Anchor.</div>
++             </section></li>
++            </ul></section>
++            """);
++
++    private static String page(String bodyClass, String heading, String body) {
++        return "<!DOCTYPE html><html><head><title>T</title></head>\n"
++                + "<body class=\"" + bodyClass + "\">\n<main>\n"
++                + "<h1 class=\"title\">" + heading + "</h1>\n"
++                + body + "\n</main></body></html>\n";
++    }
++
++    private static void write(Path root, String relativePath, String html) throws Exception {
++        Path file = root.resolve(relativePath);
++        Files.createDirectories(file.getParent());
++        Files.writeString(file, html, StandardCharsets.UTF_8);
++    }
++
++    /** Writes the full 13-type tree under {@code javadoc}. */
++    private static void writeFullTree(Path javadoc) throws Exception {
++        write(javadoc, "com/example/Point.html", POINT);
++        write(javadoc, "com/example/WidgetException.html", WIDGET_EXCEPTION);
++        write(javadoc, "com/example/Base.html", BASE);
++        write(javadoc, "com/example/Drawable.html", DRAWABLE);
++        write(javadoc, "com/example/Shape.html", SHAPE);
++        write(javadoc, "com/example/Widget.html", WIDGET);
++    }
++
++    private static BuildContext context(Path tmp) {
++        return new BuildContext("b-test", "digest-test", tmp.resolve("staging"), VERSION);
++    }
++
++    private static Function<BuildContext, CatalogStore> catalogFactory() {
++        return ctx -> new SqliteCatalogStore(ctx.catalogDbPath());
++    }
++
++    private static Function<BuildContext, RelationshipStore> relFactory() {
++        return ctx -> new SqliteRelationshipStore(ctx.catalogDbPath());
++    }
++
++    /** Runs pass one (catalog) then pass two (relationships) over {@code javadoc}, collecting failures. */
++    private static List<StageFailure> runBothPasses(Path javadoc, BuildContext ctx) {
++        List<StageFailure> failures = new ArrayList<>();
++        new CatalogStage(javadoc, new JavadocCatalogSource(), catalogFactory())
++                .execute(ctx, failures::add);
++        new RelationshipsStage(javadoc, new JavadocCatalogSource(), catalogFactory(), relFactory())
++                .execute(ctx, failures::add);
++        return failures;
++    }
++
++    private static List<StoredRelationshipEdge> readEdges(BuildContext ctx) {
++        try (RelationshipStore store = new SqliteRelationshipStore(ctx.catalogDbPath())) {
++            return store.allEdges();
++        }
++    }
++
++    private static boolean hasEdge(
++            List<StoredRelationshipEdge> edges, String source, String target, RelationshipType type) {
++        return edges.stream().anyMatch(e -> e.edge().sourceSymbol().equals(source)
++                && e.edge().targetSymbol().equals(target) && e.edge().type() == type);
++    }
++
++    private static Optional<RelationshipEdge> edge(
++            List<StoredRelationshipEdge> edges, String source, RelationshipType type) {
++        return edges.stream().map(StoredRelationshipEdge::edge)
++                .filter(e -> e.sourceSymbol().equals(source) && e.type() == type).findFirst();
++    }
++
++    // --- AC 1: every one of the 13 structural types is present after both passes --------------------
++
++    @Test
++    void allThirteenStructuralTypesArePresentAfterBothPasses(@TempDir Path tmp) throws Exception {
++        Path javadoc = Files.createDirectories(tmp.resolve("javadoc"));
++        writeFullTree(javadoc);
++        BuildContext ctx = context(tmp);
++
++        List<StageFailure> failures = runBothPasses(javadoc, ctx);
++        assertTrue(failures.isEmpty(), () -> "a fully-documented tree should resolve with no failures: "
++                + failures.stream().map(StageFailure::message).toList());
++
++        List<StoredRelationshipEdge> edges = readEdges(ctx);
++        Set<RelationshipType> present = edges.stream()
++                .map(e -> e.edge().type()).collect(Collectors.toCollection(() -> EnumSet.noneOf(RelationshipType.class)));
++        assertEquals(STRUCTURAL, present,
++                () -> "all 13 structural types must be present, and only those: " + present);
++    }
++
++    // --- AC 1: forward⇄inverse consistency for both inverse pairs ------------------------------------
++
++    @Test
++    void inversePairsAreReconciledInBothDirections(@TempDir Path tmp) throws Exception {
++        Path javadoc = Files.createDirectories(tmp.resolve("javadoc"));
++        writeFullTree(javadoc);
++        BuildContext ctx = context(tmp);
++        runBothPasses(javadoc, ctx);
++        List<StoredRelationshipEdge> edges = readEdges(ctx);
++
++        // Every EXTENDS_CLASS(a→b) has a DIRECT_SUBCLASS(b→a), and vice versa.
++        for (StoredRelationshipEdge e : edges) {
++            if (e.edge().type() == RelationshipType.EXTENDS_CLASS) {
++                assertTrue(hasEdge(edges, e.edge().targetSymbol(), e.edge().sourceSymbol(),
++                                RelationshipType.DIRECT_SUBCLASS),
++                        () -> "EXTENDS_CLASS " + e.edge() + " must have its DIRECT_SUBCLASS inverse");
++            }
++            if (e.edge().type() == RelationshipType.DIRECT_SUBCLASS) {
++                assertTrue(hasEdge(edges, e.edge().targetSymbol(), e.edge().sourceSymbol(),
++                                RelationshipType.EXTENDS_CLASS),
++                        () -> "DIRECT_SUBCLASS " + e.edge() + " must have its EXTENDS_CLASS inverse");
++            }
++            if (e.edge().type() == RelationshipType.IMPLEMENTS) {
++                assertTrue(hasEdge(edges, e.edge().targetSymbol(), e.edge().sourceSymbol(),
++                                RelationshipType.IMPLEMENTED_BY),
++                        () -> "IMPLEMENTS " + e.edge() + " must have its IMPLEMENTED_BY inverse");
++            }
++            if (e.edge().type() == RelationshipType.IMPLEMENTED_BY) {
++                assertTrue(hasEdge(edges, e.edge().targetSymbol(), e.edge().sourceSymbol(),
++                                RelationshipType.IMPLEMENTS),
++                        () -> "IMPLEMENTED_BY " + e.edge() + " must have its IMPLEMENTS inverse");
++            }
++        }
++        assertTrue(hasEdge(edges, "com.example.Widget", "com.example.Base", RelationshipType.EXTENDS_CLASS));
++        assertTrue(hasEdge(edges, "com.example.Base", "com.example.Widget", RelationshipType.DIRECT_SUBCLASS));
++        assertTrue(hasEdge(edges, "com.example.Widget", "com.example.Drawable", RelationshipType.IMPLEMENTS));
++        assertTrue(hasEdge(edges, "com.example.Drawable", "com.example.Widget", RelationshipType.IMPLEMENTED_BY));
++    }
++
++    // --- Matrix: linked reference (href) vs plain-name resolution -----------------------------------
++
++    @Test
++    void hrefResolvesMemberPreciselyAndPlainNameResolvesByUniqueSimpleName(@TempDir Path tmp) throws Exception {
++        Path javadoc = Files.createDirectories(tmp.resolve("javadoc"));
++        writeFullTree(javadoc);
++        BuildContext ctx = context(tmp);
++        runBothPasses(javadoc, ctx);
++        List<StoredRelationshipEdge> edges = readEdges(ctx);
++
++        // OVERRIDES resolves via the link href+anchor to the SPECIFIC supertype method (member-precise).
++        RelationshipEdge overrides = edge(edges, "com.example.Widget#doThing(int)", RelationshipType.OVERRIDES)
++                .orElseThrow(() -> new AssertionError("no OVERRIDES edge from Widget#doThing(int)"));
++        assertEquals("com.example.Base#doThing(int)", overrides.targetSymbol(),
++                "OVERRIDES must reach the specific supertype method via its link");
++
++        // SPECIFIED_BY likewise reaches the interface method via the link.
++        RelationshipEdge specifiedBy = edge(edges, "com.example.Widget#draw()", RelationshipType.SPECIFIED_BY)
++                .orElseThrow(() -> new AssertionError("no SPECIFIED_BY edge from Widget#draw()"));
++        assertEquals("com.example.Drawable#draw()", specifiedBy.targetSymbol());
++
++        // A PARAMETER_TYPE has no href — it resolves by unique simple name to the documented type.
++        RelationshipEdge param = edge(edges, "com.example.Widget#process(Point)", RelationshipType.PARAMETER_TYPE)
++                .orElseThrow(() -> new AssertionError("no PARAMETER_TYPE edge from Widget#process(Point)"));
++        assertEquals("com.example.Point", param.targetSymbol(), "plain-name param type resolves to the type");
++
++        // A THROWS_TYPE also resolves by name to the documented exception type.
++        assertTrue(hasEdge(edges, "com.example.Widget#process(Point)", "com.example.WidgetException",
++                RelationshipType.THROWS_TYPE));
++    }
++
++    // --- Matrix: reference outside the ingested tree -> RECOVERABLE, no edge ------------------------
++
++    @Test
++    void referenceOutsideTheTreeIsRecoverableAndNotFabricated(@TempDir Path tmp) throws Exception {
++        Path javadoc = Files.createDirectories(tmp.resolve("javadoc"));
++        // A lone class whose method returns an undocumented (out-of-tree) type by plain name.
++        write(javadoc, "com/example/Widget.html", page("class-declaration-page", "Class Widget", """
++                <section class="class-description"><div class="block">A widget.</div></section>
++                <section class="method-details" id="method-detail"><ul class="member-list">
++                 <li><section class="detail" id="external()">
++                   <h3>external</h3>
++                   <div class="member-signature">ExternalThing external()</div>
++                   <div class="block">Returns an out-of-tree type.</div>
++                 </section></li>
++                </ul></section>
++                """));
++        BuildContext ctx = context(tmp);
++        List<StageFailure> failures = runBothPasses(javadoc, ctx);
++
++        List<StoredRelationshipEdge> edges = readEdges(ctx);
++        assertTrue(edges.isEmpty(), () -> "no edge may be fabricated for an out-of-tree reference: " + edges);
++        assertTrue(failures.stream().anyMatch(f -> f.stage() == PipelineStage.RELATIONSHIPS
++                        && f.severity() == FailureSeverity.RECOVERABLE
++                        && f.message().contains("unresolved") && f.message().contains("ExternalThing")),
++                () -> "the unresolved reference must be a recoverable failure: "
++                        + failures.stream().map(StageFailure::message).toList());
++    }
++
++    // --- Matrix: ambiguous simple name -> left unresolved, no guessed edge --------------------------
++
++    @Test
++    void ambiguousSimpleNameIsLeftUnresolved(@TempDir Path tmp) throws Exception {
++        Path javadoc = Files.createDirectories(tmp.resolve("javadoc"));
++        // Two documented types share the simple name "Thing" in different packages.
++        write(javadoc, "com/example/Thing.html", page("class-declaration-page", "Class Thing",
++                "<section class=\"class-description\"><div class=\"block\">One.</div></section>"));
++        write(javadoc, "com/other/Thing.html", page("class-declaration-page", "Class Thing",
++                "<section class=\"class-description\"><div class=\"block\">Two.</div></section>"));
++        // A method returns "Thing" by plain name (no href) — ambiguous across the two candidates.
++        write(javadoc, "com/example/User.html", page("class-declaration-page", "Class User", """
++                <section class="class-description"><div class="block">Uses Thing.</div></section>
++                <section class="method-details" id="method-detail"><ul class="member-list">
++                 <li><section class="detail" id="make()">
++                   <h3>make</h3>
++                   <div class="member-signature">Thing make()</div>
++                   <div class="block">Makes a Thing.</div>
++                 </section></li>
++                </ul></section>
++                """));
++        BuildContext ctx = context(tmp);
++        List<StageFailure> failures = runBothPasses(javadoc, ctx);
++
++        List<StoredRelationshipEdge> edges = readEdges(ctx);
++        assertTrue(edge(edges, "com.example.User#make()", RelationshipType.RETURN_TYPE).isEmpty(),
++                "an ambiguous simple name must not be guessed into an edge");
++        assertTrue(failures.stream().anyMatch(f -> f.severity() == FailureSeverity.RECOVERABLE
++                        && f.message().contains("RETURN_TYPE") && f.message().contains("Thing")),
++                () -> "the ambiguous reference must be a recoverable failure: "
++                        + failures.stream().map(StageFailure::message).toList());
++    }
++
++    // --- AC 3 / Matrix: interrupted-then-resumed yields identical edges/ids, no duplicates ----------
++
++    @Test
++    void rerunningPassTwoIsIdempotentAndByteIdentical(@TempDir Path tmp) throws Exception {
++        Path javadoc = Files.createDirectories(tmp.resolve("javadoc"));
++        writeFullTree(javadoc);
++        BuildContext ctx = context(tmp);
++
++        // Pass one once; pass two twice (the second models a resumed, re-run RELATIONSHIPS stage).
++        List<StageFailure> failures = new ArrayList<>();
++        new CatalogStage(javadoc, new JavadocCatalogSource(), catalogFactory()).execute(ctx, failures::add);
++        new RelationshipsStage(javadoc, new JavadocCatalogSource(), catalogFactory(), relFactory())
++                .execute(ctx, failures::add);
++        List<StoredRelationshipEdge> firstRun = readEdges(ctx);
++
++        new RelationshipsStage(javadoc, new JavadocCatalogSource(), catalogFactory(), relFactory())
++                .execute(ctx, failures::add);
++        List<StoredRelationshipEdge> secondRun = readEdges(ctx);
++
++        assertTrue(failures.isEmpty(), () -> "re-run must not introduce failures: " + failures);
++        assertEquals(firstRun, secondRun, "a resumed pass two must reproduce byte-identical edges and ids");
++    }
++
++    // --- Matrix: identity clash from the store -> BUILD_INVALIDATING --------------------------------
++
++    @Test
++    void storeIdentityClashIsBuildInvalidating(@TempDir Path tmp) throws Exception {
++        Path javadoc = Files.createDirectories(tmp.resolve("javadoc"));
++        write(javadoc, "com/example/Base.html", page("class-declaration-page", "Class Base",
++                "<section class=\"class-description\"><div class=\"block\">Base.</div></section>"));
++        write(javadoc, "com/example/Widget.html", page("class-declaration-page", "Class Widget", """
++                <section class="class-description" id="class-description">
++                  <div class="block">A widget.</div>
++                  <div class="type-signature"><span class="modifiers">public class </span><span class="element-name">Widget</span>
++                   <span class="extends-implements">extends <a href="Base.html">Base</a></span></div>
++                </section>
++                """));
++        BuildContext ctx = context(tmp);
++        List<StageFailure> failures = new ArrayList<>();
++        new CatalogStage(javadoc, new JavadocCatalogSource(), catalogFactory()).execute(ctx, failures::add);
++
++        // A relationship store that reports every put as an identity clash.
++        RelationshipStore clashing = new ClashingStore();
++        new RelationshipsStage(javadoc, new JavadocCatalogSource(), catalogFactory(), c -> clashing)
++                .execute(ctx, failures::add);
++
++        assertTrue(failures.stream().anyMatch(f -> f.stage() == PipelineStage.RELATIONSHIPS
++                        && f.severity() == FailureSeverity.BUILD_INVALIDATING
++                        && f.message().contains("identity clash")),
++                () -> "a store identity clash must be build-invalidating: "
++                        + failures.stream().map(StageFailure::message).toList());
++    }
++
++    /** A relationship store that reports every put as an identity clash (drives the AD-4 clash path). */
++    private static final class ClashingStore implements RelationshipStore {
++        @Override
++        public PutResult put(RelationshipEdge edge) {
++            return new PutResult("edge-" + edge.type() + "-" + edge.sourceSymbol() + "-" + edge.targetSymbol(),
++                    PutStatus.IDENTITY_CLASH);
++        }
++
++        @Override
++        public Optional<StoredRelationshipEdge> findByEdgeId(String edgeId) {
++            return Optional.empty();
++        }
++
++        @Override
++        public List<StoredRelationshipEdge> allEdges() {
++            return List.of();
++        }
++
++        @Override
++        public void close() {
++        }
++    }
++
++    // --- AD-1: cli reaches the stores only through domain ports (no engine type named here) ---------
++
++    @Test
++    void catalogRecordsAndEdgesShareTheOneBuildScopedFile(@TempDir Path tmp) throws Exception {
++        Path javadoc = Files.createDirectories(tmp.resolve("javadoc"));
++        writeFullTree(javadoc);
++        BuildContext ctx = context(tmp);
++        runBothPasses(javadoc, ctx);
++
++        // Records and edges live in the same file (adjacency by record_id into the records table).
++        try (CatalogStore catalog = new SqliteCatalogStore(ctx.catalogDbPath())) {
++            List<StoredCatalogRecord> records = catalog.allRecords();
++            assertFalse(records.isEmpty(), "pass one must have persisted records into the shared file");
++        }
++        assertFalse(readEdges(ctx).isEmpty(), "pass two must have persisted edges into the same file");
++    }
++}
+diff --git a/app/domain/src/main/java/com/luciadmcp/knowledge/domain/RelationshipStore.java b/app/domain/src/main/java/com/luciadmcp/knowledge/domain/RelationshipStore.java
+new file mode 100644
+index 0000000..f83dcc8
+--- /dev/null
++++ b/app/domain/src/main/java/com/luciadmcp/knowledge/domain/RelationshipStore.java
+@@ -0,0 +1,86 @@
++package com.luciadmcp.knowledge.domain;
++
++import java.util.List;
++import java.util.Optional;
++
++/**
++ * Domain port for the versioned typed-relationship graph store (Story 2.5, AD-1). Mirrors
++ * {@link CatalogStore}: the {@code catalog.sqlite} module provides the sole implementation and no
++ * other module reaches the storage engine except through this interface.
++ *
++ * <p>Pass two submits resolved logical {@link RelationshipEdge} tuples — a
++ * {@code (sourceSymbol, targetSymbol, type, sdkVersion)} where both endpoints are version-scoped
++ * canonical keys already present in the catalog. The store is the sole authority that computes each
++ * edge's ID (AD-22) via {@link ContentHashes#relationshipHash(String, String, RelationshipType,
++ * String, String)} after mapping each endpoint key to its stored {@code record_id}; callers never
++ * compute an ID and never assume a hash recipe.
++ *
++ * <p><b>Version scoping (AD-12).</b> Every persisted edge carries its {@code sdkVersion} and connects
++ * only same-version symbols. <b>Determinism (NFR-13).</b> Edge IDs are pure content hashes, so an
++ * interrupted-then-resumed build persists byte-identical rows and IDs, and reads return a deterministic
++ * order.
++ *
++ * <p>The SQLite edges schema/DDL remains a governance approval gate (Epic 3); the current
++ * implementation is a clearly-labeled provisional schema (Story 2.5), mirroring the Story 2.4 catalog
++ * precedent.
++ */
++public interface RelationshipStore extends AutoCloseable {
++
++    /**
++     * Persists one logical edge, mapping each endpoint canonical key to its stored {@code record_id},
++     * computing the edge ID from those IDs (AD-22), and deduplicating by it. The write is an idempotent
++     * upsert: submitting the same logical edge twice leaves a single row ({@link PutStatus#DUPLICATE}).
++     * A <em>different</em> logical edge that resolves to the same identity is an explicit clash
++     * ({@link PutStatus#IDENTITY_CLASH}) — never a silent overwrite or drop (AD-4). Structural edges
++     * pass {@code evidence=""}; the evidence dimension exists for Epic-3 example reuse (AD-30).
++     *
++     * @param edge the resolved logical edge tuple (both endpoints are catalog canonical keys)
++     * @return the computed edge ID and the outcome ({@link PutStatus})
++     */
++    PutResult put(RelationshipEdge edge);
++
++    /** The stored edge for a computed edge ID, or empty if none. */
++    Optional<StoredRelationshipEdge> findByEdgeId(String edgeId);
++
++    /** Every persisted edge, in a deterministic order (ascending edge ID). */
++    List<StoredRelationshipEdge> allEdges();
++
++    /** Closes the underlying store. Overridden to declare no checked exception for try-with-resources. */
++    @Override
++    void close();
++
++    /** The outcome of a {@link #put(RelationshipEdge)} call. */
++    enum PutStatus {
++
++        /** The edge was newly inserted. */
++        INSERTED,
++
++        /** An identical edge was already present; the upsert was a no-op (idempotent). */
++        DUPLICATE,
++
++        /**
++         * A different logical edge already occupies this identity — a real identity clash. The
++         * existing row is left untouched; the caller records an issue per the failure policy (AD-4).
++         */
++        IDENTITY_CLASH
++    }
++
++    /**
++     * The result of a {@link #put(RelationshipEdge)}: the store-computed edge ID (AD-22) and the
++     * outcome.
++     *
++     * @param edgeId the computed edge ID
++     * @param status whether the edge was inserted, already present, or clashed
++     */
++    record PutResult(String edgeId, PutStatus status) {
++
++        public PutResult {
++            if (edgeId == null || edgeId.isBlank()) {
++                throw new IllegalArgumentException("edgeId must not be blank");
++            }
++            if (status == null) {
++                throw new IllegalArgumentException("status must not be null");
++            }
++        }
++    }
++}
+diff --git a/app/domain/src/main/java/com/luciadmcp/knowledge/domain/StoredRelationshipEdge.java b/app/domain/src/main/java/com/luciadmcp/knowledge/domain/StoredRelationshipEdge.java
+new file mode 100644
+index 0000000..e5e26da
+--- /dev/null
++++ b/app/domain/src/main/java/com/luciadmcp/knowledge/domain/StoredRelationshipEdge.java
+@@ -0,0 +1,26 @@
++package com.luciadmcp.knowledge.domain;
++
++/**
++ * A persisted relationship edge read back from {@link RelationshipStore}: the store-computed edge ID
++ * (AD-22) paired with the logical {@link RelationshipEdge} that was submitted.
++ *
++ * <p>The {@code edgeId} is assigned solely by the store from the {@link ContentHashes#relationshipHash
++ * relationshipHash} recipe; it is never supplied by pass two. On read, the store reconstructs the
++ * logical edge's version-scoped canonical endpoint keys from the persisted {@code record_id}s, so the
++ * same logical edge always round-trips to the same {@link RelationshipEdge} and the same ID (NFR-13
++ * determinism).
++ *
++ * @param edgeId the deterministic content-hash ID the store assigned (AD-22)
++ * @param edge   the logical edge tuple, endpoints as version-scoped canonical keys
++ */
++public record StoredRelationshipEdge(String edgeId, RelationshipEdge edge) {
++
++    public StoredRelationshipEdge {
++        if (edgeId == null || edgeId.isBlank()) {
++            throw new IllegalArgumentException("edgeId must not be blank");
++        }
++        if (edge == null) {
++            throw new IllegalArgumentException("edge must not be null");
++        }
++    }
++}
+diff --git a/app/ingest-javadoc/src/main/java/com/luciadmcp/knowledge/ingest/javadoc/TypeRef.java b/app/ingest-javadoc/src/main/java/com/luciadmcp/knowledge/ingest/javadoc/TypeRef.java
+new file mode 100644
+index 0000000..4d129d1
+--- /dev/null
++++ b/app/ingest-javadoc/src/main/java/com/luciadmcp/knowledge/ingest/javadoc/TypeRef.java
+@@ -0,0 +1,42 @@
++package com.luciadmcp.knowledge.ingest.javadoc;
++
++/**
++ * One relationship-source reference extracted from a Javadoc page (Story 2.5): the documented target
++ * text plus, when the page rendered the reference as a link, the href resolved into the ingested tree.
++ *
++ * <p>An {@code ingest.javadoc}-internal contract like {@link ExtractedType}/{@link ExtractedMember} —
++ * not a {@code domain} record. It carries only what the page states: the target's documented
++ * {@link #name} (a type name — simple or fully-qualified — or a member display text) and, for a linked
++ * reference, the link's {@link #relativePath} (root-relative, {@code /}-separated) and {@link #anchor}.
++ * Pass two (the {@code cli} RELATIONSHIPS stage) resolves these against the completed catalog: a
++ * link-bearing reference resolves via the catalog's persisted {@code (relativePath, anchor)} — reliable
++ * and member-precise — and a plain name falls back to FQN then unique simple-name. No resolution or
++ * canonical-symbol minting happens here (AD-4 two-pass discipline).
++ *
++ * <p>{@link #relativePath} is empty when the page did not link the reference (or linked it outside the
++ * tree, e.g. an absolute URL); {@link #anchor} is empty for a type target or a same-page member link's
++ * bare page. The {@code relativePath} is already resolved relative to the referring page (so it matches
++ * the root-relative path the catalog persists), never the raw page-relative href.
++ *
++ * @param name         the documented target text (never null; may be empty for a bare link)
++ * @param relativePath the link target's root-relative {@code /}-separated path, or {@code ""} if none
++ * @param anchor       the link's on-page fragment, or {@code ""} if none
++ */
++public record TypeRef(String name, String relativePath, String anchor) {
++
++    public TypeRef {
++        name = name == null ? "" : name;
++        relativePath = relativePath == null ? "" : relativePath;
++        anchor = anchor == null ? "" : anchor;
++    }
++
++    /** A plain (unlinked) reference to a documented target by its {@code name}. */
++    public static TypeRef ofName(String name) {
++        return new TypeRef(name, "", "");
++    }
++
++    /** Whether this reference carries a link into the ingested tree (a resolved root-relative path). */
++    public boolean hasHref() {
++        return !relativePath.isBlank();
++    }
++}
+diff --git a/app/ingest-javadoc/src/test/java/com/luciadmcp/knowledge/ingest/javadoc/JavadocRelationshipExtractionTest.java b/app/ingest-javadoc/src/test/java/com/luciadmcp/knowledge/ingest/javadoc/JavadocRelationshipExtractionTest.java
+new file mode 100644
+index 0000000..26045f6
+--- /dev/null
++++ b/app/ingest-javadoc/src/test/java/com/luciadmcp/knowledge/ingest/javadoc/JavadocRelationshipExtractionTest.java
+@@ -0,0 +1,210 @@
++package com.luciadmcp.knowledge.ingest.javadoc;
++
++import static org.junit.jupiter.api.Assertions.assertEquals;
++import static org.junit.jupiter.api.Assertions.assertNotNull;
++import static org.junit.jupiter.api.Assertions.assertNull;
++import static org.junit.jupiter.api.Assertions.assertTrue;
++
++import java.util.List;
++import org.jsoup.Jsoup;
++import org.jsoup.nodes.Document;
++import org.junit.jupiter.api.Test;
++
++/**
++ * Story 2.5 extraction: the field extractor captures the relationship-source references — a type's
++ * superclass / super-interfaces / implemented-interfaces / see-also, and each member's return/field
++ * type, overrides, specified-by, see-also — with their link hrefs (resolved to root-relative paths),
++ * identically for modern (JDK 11+) and legacy (JDK 8) layouts. Fixtures are synthetic (no proprietary
++ * content).
++ */
++class JavadocRelationshipExtractionTest {
++
++    private final JavadocFieldExtractor extractor = new JavadocFieldExtractor();
++
++    private static final String MODERN_WIDGET = """
++            <!DOCTYPE html><html><head><title>Widget</title></head>
++            <body class="class-declaration-page">
++            <main>
++            <h1 class="title">Class Widget</h1>
++            <section class="class-description" id="class-description">
++              <div class="block">A widget.</div>
++              <hr>
++              <div class="type-signature"><span class="modifiers">public class </span><span class="element-name">Widget</span>
++               <span class="extends-implements">extends <a href="Base.html" title="class in com.example">Base</a>
++               implements <a href="Drawable.html" title="interface in com.example">Drawable</a></span></div>
++              <dl class="notes"><dt>See Also:</dt><dd><a href="Point.html"><code>Point</code></a></dd></dl>
++            </section>
++            <section class="method-details" id="method-detail">
++              <ul class="member-list">
++               <li><section class="detail" id="getOrigin()">
++                 <h3>getOrigin</h3>
++                 <div class="member-signature"><span class="return-type"><a href="Point.html">Point</a></span>&nbsp;getOrigin()</div>
++                 <div class="block">Gets it.</div>
++               </section></li>
++               <li><section class="detail" id="doThing(int)">
++                 <h3>doThing</h3>
++                 <div class="member-signature">void&nbsp;doThing&#8203;(int&nbsp;count)</div>
++                 <div class="block">Does.</div>
++                 <dl class="notes"><dt>Overrides:</dt>
++                  <dd><code><a href="Base.html#doThing(int)">doThing</a></code> in class <code><a href="Base.html">Base</a></code></dd></dl>
++               </section></li>
++               <li><section class="detail" id="draw()">
++                 <h3>draw</h3>
++                 <div class="member-signature">void&nbsp;draw()</div>
++                 <div class="block">Draws.</div>
++                 <dl class="notes"><dt>Specified by:</dt>
++                  <dd><code><a href="Drawable.html#draw()">draw</a></code> in interface <code><a href="Drawable.html">Drawable</a></code></dd></dl>
++               </section></li>
++              </ul>
++            </section>
++            <section class="field-details" id="field-detail">
++              <ul class="member-list">
++               <li><section class="detail" id="anchor">
++                 <h3>anchor</h3>
++                 <div class="member-signature"><a href="Point.html">Point</a>&nbsp;anchor</div>
++                 <div class="block">Anchor.</div>
++               </section></li>
++              </ul>
++            </section>
++            </main></body></html>
++            """;
++
++    private static final String LEGACY_WIDGET = """
++            <!DOCTYPE html><html><head><title>Widget</title></head>
++            <body>
++            <div class="header"><h2 class="title">Class Widget</h2></div>
++            <div class="contentContainer">
++            <div class="description"><ul class="blockList"><li class="blockList">
++              <pre>public class Widget
++            extends <a href="Base.html" title="class in com.example">Base</a>
++            implements <a href="Drawable.html" title="interface in com.example">Drawable</a></pre>
++              <div class="block">A widget.</div>
++            </li></ul></div>
++            <div class="details"><ul class="blockList">
++             <li class="blockList"><h3>Method Detail</h3>
++              <ul class="blockList"><li class="blockList">
++                <h4>doThing</h4>
++                <pre>void doThing(int count)</pre>
++                <div class="block">Does.</div>
++                <dl><dt><span class="overrideSpecifyLabel">Overrides:</span></dt>
++                 <dd><code><a href="Base.html#doThing(int)">doThing</a></code>&nbsp;in class&nbsp;<code><a href="Base.html">Base</a></code></dd></dl>
++              </li></ul>
++             </li>
++            </ul></div>
++            </div>
++            </body></html>
++            """;
++
++    private static final String LEGACY_INTERFACE = """
++            <!DOCTYPE html><html><head><title>Shape</title></head>
++            <body>
++            <div class="header"><h2 class="title">Interface Shape</h2></div>
++            <div class="contentContainer">
++            <div class="description"><ul class="blockList"><li class="blockList">
++              <pre>public interface Shape
++            extends <a href="Drawable.html" title="interface in com.example">Drawable</a></pre>
++              <div class="block">A shape.</div>
++            </li></ul></div>
++            </div>
++            </body></html>
++            """;
++
++    private ExtractedType extract(String html, String path) {
++        Document doc = Jsoup.parse(html);
++        ExtractionResult result = extractor.extract(doc, path);
++        assertTrue(result.issues().isEmpty(), () -> path + " issues: " + result.issues());
++        return result.type();
++    }
++
++    private static ExtractedMember member(ExtractedType type, String name) {
++        return type.members().stream().filter(m -> m.name().equals(name)).findFirst()
++                .orElseThrow(() -> new AssertionError("no member named " + name));
++    }
++
++    /** Modern: superclass, implemented interface, type see-also all captured with resolved hrefs. */
++    @Test
++    void modernTypeHeaderAndSeeAlsoCaptureHrefs() {
++        ExtractedType type = extract(MODERN_WIDGET, "com/example/Widget.html");
++
++        assertNotNull(type.superclass(), "superclass must be captured");
++        assertEquals("Base", type.superclass().name());
++        assertEquals("com/example/Base.html", type.superclass().relativePath());
++        assertEquals("", type.superclass().anchor());
++
++        assertEquals(1, type.implementedInterfaces().size());
++        assertEquals("com/example/Drawable.html", type.implementedInterfaces().get(0).relativePath());
++        assertTrue(type.superInterfaces().isEmpty(), "a class has no super-interfaces");
++
++        assertEquals(1, type.seeAlso().size());
++        assertEquals("com/example/Point.html", type.seeAlso().get(0).relativePath());
++    }
++
++    /** Modern: return type, field type (href from signature), overrides + specified-by (href from notes). */
++    @Test
++    void modernMemberReferencesCaptureHrefs() {
++        ExtractedType type = extract(MODERN_WIDGET, "com/example/Widget.html");
++
++        ExtractedMember getOrigin = member(type, "getOrigin");
++        assertNotNull(getOrigin.returnType());
++        assertEquals("Point", getOrigin.returnType().name());
++        assertEquals("com/example/Point.html", getOrigin.returnType().relativePath());
++
++        ExtractedMember anchor = member(type, "anchor");
++        assertNotNull(anchor.fieldType());
++        assertEquals("com/example/Point.html", anchor.fieldType().relativePath());
++
++        ExtractedMember doThing = member(type, "doThing");
++        assertNotNull(doThing.overrides(), "Overrides: note must be captured");
++        assertEquals("com/example/Base.html", doThing.overrides().relativePath());
++        assertEquals("doThing(int)", doThing.overrides().anchor(), "the override is member-precise (anchored)");
++        assertNull(doThing.returnType(), "a void method names no documented return type");
++
++        ExtractedMember draw = member(type, "draw");
++        assertNotNull(draw.specifiedBy(), "Specified by: note must be captured");
++        assertEquals("com/example/Drawable.html", draw.specifiedBy().relativePath());
++        assertEquals("draw()", draw.specifiedBy().anchor());
++    }
++
++    /** Legacy JDK 8: the {@code <pre>} type header yields the same superclass/interface references. */
++    @Test
++    void legacyTypeHeaderCaptureHrefs() {
++        ExtractedType type = extract(LEGACY_WIDGET, "com/example/Widget.html");
++        assertNotNull(type.superclass());
++        assertEquals("com/example/Base.html", type.superclass().relativePath());
++        assertEquals(1, type.implementedInterfaces().size());
++        assertEquals("com/example/Drawable.html", type.implementedInterfaces().get(0).relativePath());
++
++        ExtractedMember doThing = member(type, "doThing");
++        assertNotNull(doThing.overrides());
++        assertEquals("com/example/Base.html", doThing.overrides().relativePath());
++        assertEquals("doThing(int)", doThing.overrides().anchor());
++    }
++
++    /** Legacy interface: the {@code extends} clause is captured as super-interfaces, not a superclass. */
++    @Test
++    void legacyInterfaceExtendsIsSuperInterface() {
++        ExtractedType type = extract(LEGACY_INTERFACE, "com/example/Shape.html");
++        assertNull(type.superclass(), "an interface has no superclass");
++        assertTrue(type.implementedInterfaces().isEmpty(), "an interface implements nothing");
++        assertEquals(1, type.superInterfaces().size());
++        assertEquals("Drawable", type.superInterfaces().get(0).name());
++        assertEquals("com/example/Drawable.html", type.superInterfaces().get(0).relativePath());
++    }
++
++    /** An absent header (no signature element) yields no relationship references, not a crash. */
++    @Test
++    void undocumentedHeaderYieldsNoReferences() {
++        String bare = """
++                <!DOCTYPE html><html><head><title>Bare</title></head>
++                <body class="class-declaration-page">
++                <main><h1 class="title">Class Bare</h1>
++                <section class="class-description"><div class="block">Bare.</div></section>
++                </main></body></html>
++                """;
++        ExtractedType type = extract(bare, "com/example/Bare.html");
++        assertNull(type.superclass());
++        assertTrue(type.superInterfaces().isEmpty());
++        assertTrue(type.implementedInterfaces().isEmpty());
++        assertEquals(List.of(), type.seeAlso());
++    }
++}

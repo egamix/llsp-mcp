@@ -3,7 +3,7 @@ title: 'Story 2.5: Construct the typed relationship graph in two passes'
 type: 'feature'
 created: '2026-09-01'
 baseline_commit: c3b0adc0db01e6e456e0cba0b60b9df1173ca99d
-status: 'in-review'
+status: 'done'
 review_loop_iteration: 0
 context:
   - "{project-root}/_bmad-output/implementation-artifacts/epic-2-context.md"

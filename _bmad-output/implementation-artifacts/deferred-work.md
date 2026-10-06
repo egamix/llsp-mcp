@@ -112,3 +112,11 @@ Execution statuses remain backlog; `sprint-status.yaml` uses additive `deferred_
 - Story 2.5 reviewer: reconcile in-review story vs in-progress tracker; scope is the frozen 13 structural types and two inverse pairs, not the obsolete 17-type epic summary.
 - Story 2.8: identity/schema/lexical/tool/finite-limit/report/fingerprint/recipe-cycle/recovery contracts and separate sign-offs. No planning amendment fixes code or grants schema approval.
 - Release owner: complete 6.3/6.4, 8.1–8.3 and existing lifecycle/packaging/NFR/legal/release gates after product proof.
+
+## Deferred from: code review of Story 2.5 (2026-10-06)
+
+- AC3 resume is only tested as "rerun a finished pass two"; no test stops mid-stage and resumes from a partial edge table.
+- Not run against real modern/legacy Luciad Javadoc; href-anchor vs catalog-anchor matching (esp. legacy `method-int-` anchors) is unverified.
+- Qualified parameter types still resolve by simple name (pass one mints erased simple names). Fix with Story 2.6.
+- External-link See Also entries become recoverable unresolved failures (noise); filter in Story 2.6.
+- First link in a member signature is taken as the return/field type href; an annotation link would misdirect it.
