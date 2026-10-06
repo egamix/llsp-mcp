@@ -3,14 +3,14 @@ package com.luciadmcp.knowledge.ingest.javadoc;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
-import org.jsoup.nodes.Node;
-import org.jsoup.nodes.TextNode;
 
 /**
  * Extracts the documented fields of a {@link PageType#TYPE} page into a layout-agnostic
