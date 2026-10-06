@@ -75,8 +75,8 @@ final class SignatureNormalizer {
      * declared type (Story 2.5). This is the token immediately before the element name — the last
      * token before the parameter list for a method (e.g. {@code boolean contains(Point p)} &rarr;
      * {@code boolean}), or the second-to-last token of a field declaration (e.g. {@code int MAX}
-     * &rarr; {@code int}). Generics are erased, a fully-qualified type is reduced to its last dotted
-     * segment, and array/varargs dimensionality is preserved as {@code []} — the same normalization
+     * &rarr; {@code int}). Generics are erased, a fully-qualified type keeps its package qualifier,
+     * and array/varargs dimensionality is preserved as {@code []} — the same normalization
      * {@link #parameterType(String)} applies.
      *
      * <p>Returns {@link Optional#empty()} when no leading type can be recovered: a blank signature, a
@@ -114,10 +114,8 @@ final class SignatureNormalizer {
         int[] nameDims = new int[1];
         stripArrayMarkers(nameToken, nameDims); // C-style array on the name: `int foo[]`
         int dims = typeDims[0] + nameDims[0];
-        int lastDot = base.lastIndexOf('.');
-        if (lastDot >= 0) {
-            base = base.substring(lastDot + 1);
-        }
+        // The package qualifier is kept: pass two resolves a qualified name by FQN only, so a JDK type
+        // is never mistaken for a same-simple-name catalog type.
         if (base.isEmpty()) {
             return Optional.empty();
         }

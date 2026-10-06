@@ -309,6 +309,33 @@ class RelationshipsStageTest {
                         + failures.stream().map(StageFailure::message).toList());
     }
 
+    @Test
+    void qualifiedNameOutsideTheTreeDoesNotMatchSameSimpleNameInAnotherPackage(@TempDir Path tmp) throws Exception {
+        Path javadoc = Files.createDirectories(tmp.resolve("javadoc"));
+        write(javadoc, "com/example/Point.html", POINT);
+        // java.awt.Point is not documented; the catalog's com.example.Point must not be linked to it.
+        write(javadoc, "com/example/Widget.html", page("class-declaration-page", "Class Widget", """
+                <section class="class-description"><div class="block">A widget.</div></section>
+                <section class="method-details" id="method-detail"><ul class="member-list">
+                 <li><section class="detail" id="awt()">
+                   <h3>awt</h3>
+                   <div class="member-signature">java.awt.Point awt()</div>
+                   <div class="block">Returns a JDK type.</div>
+                 </section></li>
+                </ul></section>
+                """));
+        BuildContext ctx = context(tmp);
+        List<StageFailure> failures = runBothPasses(javadoc, ctx);
+
+        List<StoredRelationshipEdge> edges = readEdges(ctx);
+        assertTrue(edges.stream().noneMatch(e -> e.edge().type() == RelationshipType.RETURN_TYPE),
+                () -> "java.awt.Point must not resolve to com.example.Point: " + edges);
+        assertTrue(failures.stream().anyMatch(f -> f.severity() == FailureSeverity.RECOVERABLE
+                        && f.message().contains("java.awt.Point")),
+                () -> "expected a recoverable unresolved failure: "
+                        + failures.stream().map(StageFailure::message).toList());
+    }
+
     // --- Matrix: ambiguous simple name -> left unresolved, no guessed edge --------------------------
 
     @Test

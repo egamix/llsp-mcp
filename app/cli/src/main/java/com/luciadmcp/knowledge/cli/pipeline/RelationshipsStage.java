@@ -446,13 +446,11 @@ public final class RelationshipsStage implements Stage {
                 return null;
             }
             if (name.indexOf('.') >= 0) {
-                String byFqn = byFqnType.get(name);
-                if (byFqn != null) {
-                    return byFqn;
-                }
+                // A qualified name names one specific type; if it is not in the catalog it is outside
+                // the ingested tree. Never fall back to a same-simple-name type in another package.
+                return byFqnType.get(name);
             }
-            String simple = lastDotSegment(name);
-            List<String> candidates = bySimpleType.get(simple);
+            List<String> candidates = bySimpleType.get(name);
             return (candidates != null && candidates.size() == 1) ? candidates.get(0) : null;
         }
 
