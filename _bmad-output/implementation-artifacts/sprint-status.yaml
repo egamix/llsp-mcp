@@ -1,5 +1,5 @@
 # generated: 2026-08-24
-# last_updated: 2026-08-31
+# last_updated: 2026-10-02 (planning only)
 # project: luciad-mcp
 # project_key: NOKEY
 # tracking_system: file-system
@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-08-24
-last_updated: 2026-09-01  # story 2.4 implemented + reviewed (patches applied) → done
+last_updated: 2026-10-02  # coordinated planning only; existing execution statuses unchanged
 project: luciad-mcp
 project_key: NOKEY
 tracking_system: file-system
@@ -56,56 +56,70 @@ development_status:
   1-4-deterministic-ids-content-hashes-and-a-machine-readable-ingestion-report: done
   epic-1-retrospective: done
 
-  # Epic 2: Javadoc Knowledge Extraction
+  # Epic 2: Javadoc Knowledge Extraction and Contract Freeze
   epic-2: in-progress
   2-1-discover-and-classify-javadoc-pages: done
   2-2-parse-modern-and-legacy-javadoc-layouts-into-equivalent-fields: done
   2-3-build-canonical-symbol-records-with-overload-distinction: done
   2-4-persist-the-versioned-canonical-catalog: done
-  2-5-construct-the-typed-relationship-graph-in-two-passes: backlog
+  2-5-construct-the-typed-relationship-graph-in-two-passes: in-progress
   2-6-keep-unresolved-references-explicit-scope-traversal-to-the-documented-sdk: backlog
   2-7-bounded-cycle-safe-relationship-traversal: backlog
+  2-8-contract-and-verification-freeze: backlog
   epic-2-retrospective: optional
 
-  # Epic 3: Example, Workflow & Guide Knowledge
+  # Epic 3: Selected Examples, Recipes, Guides and Practices
   epic-3: backlog
   3-1-parse-java-examples-via-ast: backlog
   3-2-link-examples-to-catalog-symbols: backlog
+  # Rescoped: quality and practice approval; broad tags deferred.
   3-3-apply-governance-supplied-quality-labels-and-technique-tags: backlog
+  # Rescoped: compiled Workflow recipes and required knowledge dependencies.
   3-4-ingest-and-link-workflow-documents: backlog
+  # Rescoped: selected allowed local guide sections only.
   3-5-parse-and-link-guide-tutorial-articles: backlog
+  3-6-compile-approved-engineering-practices: backlog
   epic-3-retrospective: optional
 
-  # Epic 4: Hybrid Retrieval Engine
+  # Epic 4: Exact and Lexical Retrieval; Gated Semantic Enhancement
   epic-4: backlog
   4-1-detect-and-prioritize-exact-symbol-queries: backlog
   4-2-index-canonical-and-lexical-fields-for-bm25: backlog
   4-3-local-onnx-vector-search-with-explicit-failure-semantics: backlog
   4-4-fuse-lexical-and-vector-results-under-exact-priority: backlog
   4-5-enforce-a-consistent-embedding-fingerprint: backlog
+  4-6-assemble-bounded-cited-lexical-results: backlog
   epic-4-retrospective: optional
 
-  # Epic 5: MCP Tool Surface
+  # Epic 5: Six-Tool MCP Surface
   epic-5: backlog
+  # Rescoped: search_knowledge and resolve_symbol.
   5-1-retrieval-and-symbol-tools: backlog
+  # Rescoped: get_relationships.
   5-2-relationship-tools: backlog
+  # Rescoped: bounded get_record for all eligible content.
   5-3-example-and-workflow-tools: backlog
   5-3b-guide-tools: backlog
   5-3c-training-tools: backlog
   5-3d-concept-technique-search-tool: backlog
   5-4-validation-and-status-tools: backlog
   5-5-streamable-http-transport: backlog
+  # Rescoped: validated immutable handles; requires minimum 6.1/6.2/6.5.
   5-6-serve-from-a-fixed-active-build-pointer: backlog
+  # Six-tool envelope accepted before handlers.
   5-7-structured-error-ambiguity-and-truncation-contract: backlog
+  # Six-tool guidance begins as contracts stabilize; external compile/test/repair.
   5-8-draft-the-agent-retrieval-policy-skeleton: backlog
   epic-5-retrospective: optional
 
-  # Epic 6: Index Lifecycle
+  # Epic 6: Shared Validation and Index Lifecycle
   epic-6: backlog
   6-1-immutable-builds-with-pre-activation-validation-and-atomic-activation: backlog
   6-2-reject-incompatible-builds: backlog
   6-3-rollback-via-pointer-swap-and-build-retention: backlog
+  # Profile-declared assets; no mandatory lexical model.
   6-4-full-set-backups: backlog
+  6-5-shared-diagnostics-and-service-conformance: backlog
   epic-6-retrospective: optional
 
   # Epic 7: Agent Guidance & Usability
@@ -122,12 +136,20 @@ development_status:
   8-4-separate-ingest-time-only-image-for-training-material-ingestion: backlog
   epic-8-retrospective: optional
 
-  # Epic 9: Training Material Knowledge
+  # Epic 9: Training Material Knowledge [DEFERRED]
   epic-9: backlog
   9-1-ingest-training-decks-via-docling: backlog
   9-2-link-training-references-to-the-catalog: backlog
   9-3-apply-governance-supplied-technique-tags-to-training-records: backlog
   epic-9-retrospective: optional
+
+  # Epic 10: Agent Outcome Evaluation
+  epic-10: backlog
+  10-1-freeze-evaluation-protocol-and-task-set: backlog
+  10-2-build-controlled-external-evaluation-harness: backlog
+  10-3-evaluate-outcomes-and-decide-expansion: backlog
+  10-4-govern-corrections-and-retain-regressions: backlog
+  epic-10-retrospective: optional
 
 action_items:
   - epic: 1
@@ -150,3 +172,64 @@ action_items:
     action: "Confirm the AD-22 identityFields registry approach before Epic 2 catalog work so recordHash/relationshipHash wire to real entities without reshaping"
     owner: "dev"
     status: open
+
+# Scheduling MUST exclude deferred_scope keys (and all Epic 9 children, including
+# its retrospective) until explicit owner-approved reactivation. Backlog is not done.
+# Existing keys/status vocabulary stay intact; ticket-tree migration is not applied.
+deferred_scope:
+  4-3-local-onnx-vector-search-with-explicit-failure-semantics:
+    reason: "Vector benefit requires evaluation after lexical baseline."
+    reactivation_gate: "Diagnosed task gap; controlled benefit; preserved safety; owner approval. Training also requires provenance, governance and version decisions."
+    replacement_capability_owners: "4.1/4.2 lexical baseline; 10.3 expansion decision"
+  4-4-fuse-lexical-and-vector-results-under-exact-priority:
+    reason: "Vector fusion deferred; required bounded lexical enrichment transfers to 4.6, not completion of this story."
+    reactivation_gate: "Diagnosed task gap; controlled benefit; preserved safety; owner approval. Training also requires provenance, governance and version decisions."
+    replacement_capability_owners: "4.6 bounded lexical enrichment; vector fusion remains deferred"
+  4-5-enforce-a-consistent-embedding-fingerprint:
+    reason: "Vector-specific fingerprints deferred; general identity/compatibility remains 2.8/6.2."
+    reactivation_gate: "Diagnosed task gap; controlled benefit; preserved safety; owner approval. Training also requires provenance, governance and version decisions."
+    replacement_capability_owners: "2.8/6.2 general compatibility; vector fingerprint remains deferred"
+  5-3b-guide-tools:
+    reason: "Guide aliases deferred; selected-guide capability belongs to 5.1/5.3."
+    reactivation_gate: "Diagnosed task gap; controlled benefit; preserved safety; owner approval. Training also requires provenance, governance and version decisions."
+    replacement_capability_owners: "5.1/5.3 selected-guide search/fetch"
+  5-3c-training-tools:
+    reason: "Training corpus and specialized tools deferred; no placeholder tools."
+    reactivation_gate: "Diagnosed task gap; controlled benefit; preserved safety; owner approval. Training also requires provenance, governance and version decisions."
+    replacement_capability_owners: "none for training; common tools for currently eligible records"
+  5-3d-concept-technique-search-tool:
+    reason: "Broad tags/concept tool deferred; symbol-less common search remains 4.2/4.6/5.1/5.3."
+    reactivation_gate: "Diagnosed task gap; controlled benefit; preserved safety; owner approval. Training also requires provenance, governance and version decisions."
+    replacement_capability_owners: "4.2/4.6/5.1/5.3 symbol-less knowledge discovery"
+  8-4-separate-ingest-time-only-image-for-training-material-ingestion:
+    reason: "Training image deferred; lexical serving needs neither model nor Docling."
+    reactivation_gate: "Diagnosed task gap; controlled benefit; preserved safety; owner approval. Training also requires provenance, governance and version decisions."
+    replacement_capability_owners: "8.1/8.2 lexical profile packaging"
+  9-1-ingest-training-decks-via-docling:
+    reason: "Training ingestion deferred pending benefit, provenance/governance/version decisions."
+    reactivation_gate: "Diagnosed task gap; controlled benefit; preserved safety; owner approval. Training also requires provenance, governance and version decisions."
+    replacement_capability_owners: "3.5/3.6 task-relevant guides/practices; no training replacement"
+  9-2-link-training-references-to-the-catalog:
+    reason: "Training links deferred with corpus."
+    reactivation_gate: "Diagnosed task gap; controlled benefit; preserved safety; owner approval. Training also requires provenance, governance and version decisions."
+    replacement_capability_owners: "none until training approved"
+  9-3-apply-governance-supplied-technique-tags-to-training-records:
+    reason: "Broad training tags deferred with corpus/vocabulary."
+    reactivation_gate: "Diagnosed task gap; controlled benefit; preserved safety; owner approval. Training also requires provenance, governance and version decisions."
+    replacement_capability_owners: "3.3 quality/approval metadata; broad tags remain deferred"
+  epic-9:
+    reason: "Entire training epic excluded until its evaluation/provenance/governance/version gates clear."
+    reactivation_gate: "Diagnosed task gap; controlled benefit; preserved safety; owner approval. Training also requires provenance, governance and version decisions."
+    replacement_capability_owners: "No training work scheduled; see 10.3 and deferred-work register."
+
+planning_application:
+  approved_at: 2026-10-02
+  applied_at: 2026-10-02
+  scope: "Prospective planning only; no implementation applied"
+  source: "../initiative-luciad-mcp/change-evidence-backed-first-proof/change-evidence-backed-first-proof.md"
+  active_delivery_gate: "Story 2.5 review completion and story/tracker reconciliation; not cleared by planning"
+  story_2_5_observation: "Detailed story in-review; tracker in-progress; both preserved"
+  contract_gate: "Story 2.8 technical schema/identity/interface sign-offs remain open"
+  evaluation_gate: "10.1/B2/B6 before corpus curation or tuning; held-out protection"
+  proof_sequence: "2.5 review -> 2.6/2.7 -> 2.8 -> 4.1/4.2/4.6 + 6.1/6.2/6.5 + 5.7 -> handlers/content/guidance -> 10.2/10.3/10.4"
+  release_gate: "Lifecycle completion, packaging, approved NFR evidence, corpus/legal and release sign-offs"

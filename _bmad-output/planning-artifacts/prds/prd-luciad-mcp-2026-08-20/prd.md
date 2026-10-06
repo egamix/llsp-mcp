@@ -2,26 +2,22 @@
 title: LuciadLightspeed Knowledge MCP
 status: final
 created: 2026-08-20
-updated: 2026-08-20
+updated: 2026-10-02
+planning_application: applied
+implementation_application: not-applied
 ---
 
 # PRD: LuciadLightspeed Knowledge MCP
 
 ## 0. Document Purpose
 
-This is a **lean reference PRD**. The authoritative source is [`docs/luciad-knowledge-mcp-implementation-brief.md`](../../../../docs/luciad-knowledge-mcp-implementation-brief.md) (the final BMAD handoff, a locked contract). This document does **not** restate that brief. Its sole job is to convert the brief's prose into the stable, testable, individually-referenceable units the rest of the BMAD chain needs:
+This is the current requirements reference. The [approved Evidence-Backed Luciad First Proof change](../../../initiative-luciad-mcp/change-evidence-backed-first-proof/change-evidence-backed-first-proof.md), approved 2026-10-02, governs first-proof scope, interfaces, identity/evidence contracts and delivery order where it conflicts with the [historical implementation brief](../../../../docs/luciad-knowledge-mcp-implementation-brief.md). Earlier approved shared internal-host deployment remains binding. Historical text is retained for provenance, not as an instruction to reintroduce deferred work.
 
-- **Features (F-*)** grouping **Functional Requirements (FR-*)**, each with testable *Consequences* and a `→ brief §` provenance pointer.
-- **Cross-cutting Non-Functional Requirements (NFR-*)** derived from brief §14, made testable.
-- **Non-goals, MVP scope, success metrics, constraints/guardrails**, and a single **Open Questions** registry (blockers B1–B5).
-
-Downstream artifacts (architecture, epics/stories, traceability matrix) reference the IDs minted here. Architecture *how* lives in the architecture artifact and in `addendum.md`, not here. Where the brief already fixes a decision, this PRD records the requirement and points to the section — it does not reopen it.
+Planning reconciliation applied 2026-10-02; implementation is not applied by this document. Completed 1.1–1.4/2.1–2.4 and current Story 2.5 history remain intact. Story 2.5 review/status reconciliation still gates active delivery; this amendment does not close it. FR-37 remains reserved. Final wire/schema contracts and B1–B6 require their own sign-offs.
 
 ## 1. Vision
 
-A portable, fully offline knowledge service that lets a coding agent use the proprietary LuciadLightspeed Java SDK **accurately**, grounded only in the SDK's offline Javadocs and curated Java examples. A developer sets up the appliance, connects a compatible agent to its MCP endpoint, and asks for a LuciadLightspeed outcome (e.g. *"plot an object on a map"*); the agent discovers the right classes, retrieves exact signatures and trusted examples, validates every proposed symbol against a canonical catalog, and cites the supporting Javadoc page or example. `→ brief §1`
-
-The system must substantially reduce invented packages, classes, methods, and overloads. It cannot guarantee semantically correct Java without compilation, but it **must never report an unknown symbol as verified**. `→ brief §1`
+A Luciad-first offline knowledge layer gives a coding agent version-scoped SDK facts, cited examples, approved practices and recipes. The agent searches knowledge, resolves exact symbols, fetches records/relationships, generates code, batch-checks Luciad symbols, and compiles/tests in its own environment before repair. The service proves catalog membership and supplied evidence; it does not prove compilation, runtime behavior, rendering or non-Luciad dependencies. It must never report an unknown or ambiguous symbol as verified.
 
 ## 2. Target User
 
@@ -38,60 +34,44 @@ The system must substantially reduce invented packages, classes, methods, and ov
 ### 2.3 Key User Journeys
 The only "UI" is the MCP tool surface consumed by an agent; journeys are tool sequences, not screens.
 
-- **UJ-1. Agent builds a Luciad feature from a natural-language request.** Agent receives *"display a point object"* → `search_workflows`/`search_examples` for a relevant pattern → `resolve_symbol`/`get_class`/`get_method` for exact signatures → `find_implementations` when an interface is required → `check_symbols` on all proposed symbols → emits code citing the Javadoc page/example. Value lands when generated code compiles-conceptually against real symbols and every API choice is cited. `→ brief §1, §11`
+- **UJ-1. Agent builds a Luciad feature.** `search_knowledge` → `resolve_symbol` → `get_record` / `get_relationships` → generate → `check_symbols` → external compile/test → repair. Cite evidence, check applicability, and report unresolved or untested outcomes. `index_status` establishes build/version/coverage before relying on results.
 - **UJ-2. Operator activates a new index in the air gap.** Operator runs `ingest` on a supplied local corpus → `validate-index` → atomic activation of the immutable build → `serve` on the shared internal host. Value lands when the MCP endpoint answers against the frozen index with zero external network access. `→ brief §12, §14`
 
 ## 3. Glossary
 
-Downstream artifacts must use these terms verbatim.
+- Record type identifies content structure; knowledge kind identifies its epistemic/governance role. They are separate fields. A Workflow is the existing procedure record carrying `RECIPE` knowledge, rather than a parallel recipe runtime store.
+- A symbol coordinate is a domain-owned versioned structure containing SDK/product, version, language, namespace, owner, member, parameter types and element kind. Wire serialization is frozen under 2.8; display names and normalized aliases cannot become alternate identities.
+- A stable record ID identifies any content record, including symbol-less content. Symbol coordinates identify API elements and their links. Neither depends on engine row/document IDs or absolute host paths.
+- Exact plus BM25 is a supported primary retrieval mode requiring no model. Vector/hybrid mode is a deferred capability with explicit compatibility/failure behavior if later enabled.
+- Proof facts record exact membership, ambiguity, unresolved evidence, version and source separately; relevance scores never prove correctness.
+- Four knowledge kinds are `AUTHORITATIVE_FACT`, `EXPERT_APPROVED_PRACTICE`, `RECIPE`, `CANDIDATE_LEARNING`. Candidates stay outside active builds. Provenance can establish a vendor fact, but cannot automatically establish practice approval.
+- Citations use typed source locators: HTML page/anchor, source range, curated document/section, and later deck/slide. Source identity, SDK scope and stable record ID remain mandatory for primary content; canonical symbol is optional when absent. Missing anchors are represented truthfully; never synthesize a source locator and call it verified.
 
-- **Canonical symbol** — the unique, version-scoped key identifying a type or member, overload-distinguishing (e.g. `pkg.Type#method(ParamType,Other)`). `→ brief §7`
-- **Normalized key** — auxiliary lookup variant of a canonical symbol (simple-name, dotted-member, erased-generic, camel-case). `→ brief §7`
-- **Catalog** — the SQLite store of canonical symbols and their metadata for one SDK version. `→ brief §3, §6`
-- **Relationship edge** — a typed, cited link between two canonical symbols (one of the 17 required relationship types). `→ brief §6` *(15→17, 2026-08-25 Sprint Change Proposal — AD-30.)*
-- **Record** — a primary retrieval unit: one API element, one example, one workflow, one guide, or one training-deck section. *(Amended 2026-08-21, Sprint Change Proposal, to add training-deck sections.)* `→ brief §6`
-- **Workflow (record)** — a curated Markdown/YAML task recipe (prerequisites, ordered steps, referenced symbols, linked examples, limitations, version). `→ brief §6`
-- **Guide (record)** — a curated SDK tutorial/how-to article (HTML, sourced from the LuciadLightspeed doc portal) explaining a concept or use case in prose, with embedded code snippets and step-by-step instructions. Distinct from a Workflow (a discrete task recipe) in that a Guide is a narrative explainer that may span multiple concepts and does not necessarily decompose into ordered steps with explicit prerequisites. *(Added 2026-08-21, Sprint Change Proposal.)*
-- **Training (record)** — a structured excerpt of a vendor/internal training slide deck (PPTX/PDF), extracted via the `docling` vision-model pipeline into a section title, ordered text blocks, and any extracted tables/figures. Distinct from a Guide (HTML tutorial article) in source format and extraction method (layout/vision-model-based, not DOM parsing); the only record type whose ingestion may reach the network (see FR-39). *(Added 2026-08-21, Sprint Change Proposal.)*
-- **Quality label** — governance-assigned example trust level: `official` | `validated` | `best-practice` | `illustrative` | `legacy`. `→ brief §8`
-- **Technique tag** — a curated, governance-assigned coding-technique/best-practice label (e.g. `resource-lifecycle`, `builder-pattern`) attachable to Example, Workflow, Guide, and Training records via the same sidecar mechanism as Quality label; a secondary, non-symbol join key for content not anchored to one canonical symbol. *(Added 2026-08-21, Sprint Change Proposal.)* `→ brief §8, §14`
-- **Hybrid retrieval** — the required normal mode fusing exact-symbol priority + BM25 lexical + vector search. `→ brief §9`
-- **Lexical mode** — fallback retrieval with no embedding model, visible in `index_status`. `→ brief §9`
-- **Index build** — one immutable directory for one SDK version, identified by SDK version + build ID. `→ brief §12`
-- **Manifest** — pinned build metadata: app version, schema version, Lucene version, embedding model, dimensions, tokenizer/preprocessing fingerprint, record count, SDK version. `→ brief §12`
-- **Compatibility fingerprint** — the tuple whose change makes an index incompatible (schema, Lucene-major, canonical-symbol format, model, dimensions, tokenizer, preprocessing). `→ brief §12`
-- **Citation** — SDK version + record type + relative source path + HTML anchor (when available) + stable record ID, attached to every primary result; canonical symbol/example ID is included when the record has one resolved, and omitted — never fabricated — for a record with no resolved canonical-symbol link (e.g. a symbol-less Guide or Training record). *(Amended 2026-08-21, Sprint Change Proposal, fixing an AD-15 defect that made canonical symbol unconditionally required.)* `→ brief §9`
-- **Documented SDK universe** — the closed set of symbols present in the indexed documentation; traversal never leaves it and reports that scope. `→ brief §7`
+- **Catalog:** canonical SQLite store for version-scoped records and evidence.
+- **Index build:** sealed immutable SDK/build directory; serving is read-only.
+- **Manifest:** versioned profile, assets, schema, SDK/build identities, recipe/runtime fingerprints and coverage. Absent capabilities are explicit.
+- **Documented SDK universe:** indexed SDK symbols; traversal reports scope and bounds.
+- **Quality label:** governance-supplied official, validated, best-practice, illustrative or legacy; independent of practice approval.
+- **Technique tag / Training:** deferred grouping metadata / deck-derived content; neither gates symbol-less discovery or the first proof.
 
 ## 4. Features
 
 Provenance pointers cite the governing brief section. Each FR's *Consequences* are the testable conditions downstream stories must satisfy.
 
 ### F1. Offline, file-only corpus ingestion
-**Description:** A one-shot ingester consumes only local directories (Javadocs, samples/workflows, guides, training materials, model, output). It never crawls, downloads, logs in, or fetches a model — except the single explicitly-scoped training-material exception (FR-39). `→ brief §2, §5, §12`
+**Description:** Local Javadocs and approved task-relevant source/curated inputs only; zero egress, no required model, no active training exception.
 
-#### FR-1: File-only ingestion inputs
-The ingester accepts a local Javadoc dir, local samples/workflows dir, local guides dir, local training-materials dir, local model dir, and local output dir, and nothing else — except the single, explicitly-scoped network/runtime exception in FR-39 (training-material ingestion via docling). *(Amended 2026-08-21 to add the guides dir, and again to add the training-materials dir with its scoped exception, Sprint Change Proposals.)*
-**Consequences (testable):**
-- Ingestion of the five non-training input types completes with no DNS/HTTP/socket egress (asserted by an offline test harness enumerating all six permitted paths).
-- No HTTP crawler, portal client, or login automation exists in the runtime image; the only permitted model-fetch is docling's, confined to training-material ingestion (FR-39) and never present in the serving image.
+#### FR-1: File-only first-proof inputs
 
-#### FR-2: Multi-stage, resumable ingestion pipeline
-Ingestion runs as ordered stages: catalog → relationships → examples/workflows → lexical index → embeddings → vector index → validation → atomic activation, with resume/checkpoint for large embedding runs. `→ brief §12`
-**Consequences (testable):**
-- A killed ingestion resumes from the last completed checkpoint without redoing embedded records.
-- Malformed pages are handled per a configurable `fail-fast | collect-and-continue` policy.
-- File parsing uses bounded work queues and releases a completed AST after its records and unresolved references are emitted. *(Added 2026-08-25 Sprint Change Proposal — AD-30.)*
-- Catalog and index writes use bounded batches whose sizes are recorded in the ingestion report.
-- A resumed run validates input hashes + toolchain fingerprint before reusing work; a changed input set is a new build, not a resume (AD-25). A restarted build produces the same records, edges, and manifest as an uninterrupted build from the same inputs and toolchain (NFR-13). No restart or fallback path performs a network request (AD-9; `ingest.trainings` exception unchanged).
+Consume local Javadocs and approved development-task-relevant examples, workflow recipes, guide sections and curated practices. Lexical mode requires no model. Training import is unavailable and returns a clear unsupported-capability error. No crawler, login automation, model download or external egress occurs. Story 2.8/6.5 specifies the existing CLI flag transition explicitly; completed Story 1.2 history is unchanged.
 
-#### FR-3: Deterministic, hashed, reportable ingestion
-Record IDs are deterministic; content hashes enable repeatable updates; a machine-readable ingestion report and progress/error counts are emitted. `→ brief §12`
-**Consequences (testable):**
-- Re-ingesting identical input yields identical record IDs and hashes.
-- The ingestion report is valid, machine-readable, and includes throughput and error summaries.
-- Distinct hashes exist for source bytes (`sourceHash`, new), extracted record (`recordHash` = AD-22 identity fields), relationship edge (`relationshipHash` = AD-22 identity fields), embedding input (`semanticHash` = AD-8/AD-21 embedding fingerprint), and toolchain (`toolchainFingerprint` = AD-6 compatibility fingerprint); a change to one does not spuriously invalidate the others. *(Added 2026-08-25 Sprint Change Proposal — AD-30.)*
-- The report includes counts for exact, ambiguous, and unresolved example relationships, grouped by relationship type and resolution kind.
+#### FR-2: Profile-aware resumable ingestion
+
+Preserve ordered catalog → relationships → selected examples/curated records → lexical index → validation → atomic activation and staging-only checkpoints. The exact/lexical manifest and report explicitly skip deferred embedding/vector stages. Resume verifies source/content and build-recipe hashes; changed inputs start a new build. Interrupted/resumed logical output agrees with uninterrupted output. Parsing queues and catalog/index batches are bounded and reported; release each AST after emitting records/evidence. Malformed sources follow fail-fast or collect-and-continue, but BUILD_INVALIDATING always blocks activation.
+
+#### FR-3: Portable identity, content hashes and versioned reports
+
+Freeze distinct purposes for stable record/edge identity, source/content hashes, build-recipe fingerprint and runtime-compatibility fingerprint in Story 2.8. Relevant logical content/recipe changes affect the appropriate digest; absolute source/output locations do not affect portable build identity. Version the report and include profile, coverage, skipped stages, severity/completion, throughput, errors, batch sizes and exact/ambiguous/unresolved resolution counts grouped by type/kind. Do not equate content hashes with identity fields or build recipe with runtime compatibility.
 
 ### F2. Javadoc structural parsing & canonical symbols
 **Description:** Structure-aware parsing of thousands of Javadoc HTML files across modern and legacy doclet layouts, emitting one record per API element. `→ brief §7`
@@ -114,38 +94,28 @@ Each semantic API element is exactly one primary retrieval record; unrelated API
 - Two overloads of the same method produce two records with distinct canonical symbols.
 - No primary record spans more than one semantic API element.
 
-#### FR-7: Canonical + normalized symbol keys
-Canonical keys distinguish overloads; normalized simple-name, dotted-member, erased-generic, and camel-case keys are retained for lookup. `→ brief §7`
-**Consequences (testable):**
-- Canonical-symbol normalization is deterministic and round-trips through the unit suite.
-- A camel-case or simple-name query resolves to the correct canonical symbol(s).
+#### FR-7: Domain-owned versioned symbol coordinates
+
+Use one domain-owned versioned coordinate containing SDK/product, SDK version, language, namespace, owner/type, member, parameter types and element kind. Overloads remain distinct. Simple-name, dotted-member, erased-generic and camel-case aliases are lookup aids, never alternate identities. Freeze serialization and known-answer round trips in 2.8; preserve completed 2.3 history.
 
 ### F3. Canonical catalog & relationship graph
 **Description:** A versioned SQLite catalog plus a typed relationship graph built by a mandatory two-pass process, traversable with bounded recursion. `→ brief §3, §6, §7`
 
-#### FR-8: Versioned SQLite catalog
-A version-scoped SQLite schema stores canonical symbols with unique keys and maps relative HTML paths/anchors to canonical symbols. `→ brief §3, §7`
-**Consequences (testable):**
-- Symbol keys are unique within an SDK version; identical keys across versions do not collide.
-- Every catalog symbol resolves to a source path + anchor.
+#### FR-8: Versioned canonical storage and stable record identity
 
-#### FR-9: Two-pass typed relationship construction
-Pass one builds the complete catalog + path/anchor map; pass two resolves internal links/declarations into typed edges; forward/inverse pairs are reconciled (e.g. `IMPLEMENTS`/`IMPLEMENTED_BY`). All 17 required relationship types are produced. `→ brief §6, §7` *(15→17, 2026-08-25 Sprint Change Proposal — AD-30 refines the example edge into `USES_TYPE`/`CONSTRUCTS`/`CALLS`.)*
-**Consequences (testable):**
-- Each of the 17 relationship types is produced and unit-tested on fixtures.
-- Method parameter/return/field/exception types are stored as linked canonical symbols when resolvable, not display strings.
+SQLite persists unique version-scoped symbols and stable record IDs, including symbol-less content, using domain-owned identity recipes. Record/edge IDs never depend on row IDs, search document IDs, absolute paths or output location. Preserve source locators truthfully, including absent anchors. Story 2.8 freezes schema/build metadata, uniqueness and explicit migration or rebuild-only rejection of provisional stores; completed 2.4 is not reopened.
 
-#### FR-10: Explicit unresolved/external references
-Unresolved external or undocumented links stay explicit and are never converted into guessed symbols; traversal is restricted to the documented SDK universe and reports that scope. `→ brief §7`
-**Consequences (testable):**
-- An unresolved link is retrievable as `unresolved`, never as a fabricated symbol.
-- Traversal results declare that scope is limited to indexed documentation.
+#### FR-9: Two-pass typed relationships with explicit producer ownership
 
-#### FR-11: Bounded direct + recursive traversal
-Direct and recursive (CTE) traversal supports depth limits and cycle handling. `→ brief §3, §7`
-**Consequences (testable):**
-- Recursive subclass/implementation traversal terminates on cyclic fixtures within the depth limit.
-- Direct-only queries return exactly one hop.
+Pass one builds the catalog and source locator map; pass two resolves references with the two specified inverse pairs reconciled. The eventual 17-type SDK/example/workflow family comprises 13 Javadoc structural types (2.5), WORKFLOW_REQUIRES (3.4), and USES_TYPE/CONSTRUCTS/CALLS (3.2). Test each at its producer. Parameter/return/field/exception types link only when resolvable. Curated-knowledge dependency relations receive a separate versioned typed contract in 2.8; do not append ad-hoc SDK enum values.
+
+#### FR-10: Explicit unresolved and ambiguous evidence
+
+Persist original token/locator, SDK scope, candidate IDs when applicable, status/kind and reason. External/undocumented references remain unresolved; competing matches remain ambiguous with no selected exact target. Evidence remains retrievable and never becomes a guessed edge. Partial records require valid provenance. Invalid required recipe dependencies block activation; ordinary contract-permitted incomplete source evidence does not.
+
+#### FR-11: Bounded typed traversal
+
+Direct/recursive traversal is cycle-safe, version-isolated and deterministically ordered. Enforce finite depth, visited-node/edge, result, execution and continuation budgets frozen in 2.8. Report scope, limits and truncation; bounded results never prove graph completeness. SDK traversal and explicitly requested knowledge-dependency traversal remain distinct. Test cycles, empty graphs and below/above-limit cases.
 
 ### F4. Example, workflow & guide ingestion and linking
 **Description:** JavaParser-based ingestion of examples and workflow docs, plus HTML-article parsing of guide/tutorial pages, preserving complete source/content, extracting Luciad references, and linking to the catalog — never compiling or executing. `→ brief §2, §8`
@@ -153,7 +123,7 @@ Direct and recursive (CTE) traversal supports depth limits and cycle handling. `
 #### FR-12: Example parsing preserves complete source (no execution)
 `.java` examples are parsed with JavaParser AST; complete source is preserved **once**; the ingester emits **three levels of record — whole example, declared class/interface, and method/constructor**. Child (class/method) records are canonical SQLite rows linked to the parent example, each storing a `SourceRange` (relative path, start/end line+column) and the minimum source text needed for search and citation; Lucene holds method-sized projections. Examples are never compiled or run. `→ brief §8` *(Expanded 2026-08-25 Sprint Change Proposal — AD-30.)*
 **Consequences (testable):**
-- The complete original source is retrievable via `get_example`.
+- The complete original source is retrievable via bounded `get_record`.
 - A method-sized search hit can fetch its complete parent example.
 - Every class/method record and every source-derived edge carries a `SourceRange` and citation.
 - No build or execution of any sample occurs during ingest (asserted by code review + absence-of-build test).
@@ -161,251 +131,267 @@ Direct and recursive (CTE) traversal supports depth limits and cycle handling. `
 #### FR-13: Luciad reference extraction & catalog linking
 Luciad imports and syntactically identifiable type/member references are resolved against the catalog after Javadocs are indexed, using a **fixed resolution ladder** (FQN literal → explicit import + exact match → local/same-package declaration → unique wildcard-import match → owner+name+signature/arity match → ambiguous/unresolved). Each resolved reference emits a typed edge (`USES_TYPE`/`CONSTRUCTS`/`CALLS`, AD-30) carrying **resolution evidence** (source range, original token, candidate canonical symbols, selected symbol only when status is `EXACT`). Only an `EXACT` match becomes a verified Luciad symbol; `AMBIGUOUS` and `UNRESOLVED` references stay explicit and are never promoted (AD-4, AD-7). `→ brief §8` *(Expanded 2026-08-25 Sprint Change Proposal — AD-30.)*
 **Consequences (testable):**
-- A symbol can retrieve its linked examples via `find_examples_for_symbol`.
+- A symbol can retrieve its linked examples via `search_knowledge` / `get_relationships`.
 - Two packages exposing the same simple class name stay `AMBIGUOUS` unless source context selects one exactly.
 - Overloaded methods stay `AMBIGUOUS` when parameter info is insufficient.
 - An incomplete example project still produces cited partial records without an SDK JAR or build execution.
 - An unresolvable reference is recorded as unresolved, never fabricated.
 
-#### FR-14: Governance-supplied quality metadata
-Example quality (`official`/`validated`/`best-practice`/`illustrative`/`legacy`) is supplied via sidecar metadata (e.g. `example-metadata.yaml`); filename conventions alone never determine quality; only vendor provenance establishes `official`; only an authorized corpus owner marks `validated`/`best-practice`. `→ brief §8, §14`
-**Consequences (testable):**
-- Quality label originates from sidecar/governance input, not the parser.
-- Retrieval prefers current `official`/`validated`/`best-practice` examples.
+**Forward gate:** Story 2.8 approved contracts precede example implementation; arity uniqueness alone cannot prove an overload when parameter types cannot resolve. Development-task sources only; 10.1 reserves held-out tasks before curation.
 
-#### FR-15: Workflow ingestion & linking
-Workflow docs (Markdown/YAML) are ingested with prerequisites, ordered steps, referenced symbols, linked examples, limitations, version metadata, and linked to catalog symbols/examples. `→ brief §6, §8`
-**Consequences (testable):**
-- A workflow returns its required symbols and linked examples.
-- `WORKFLOW_REQUIRES` edges resolve to catalog symbols where present.
+#### FR-14: Governance-supplied quality and approval
 
-#### FR-35: Guide article ingestion
-*(Added 2026-08-21, Sprint Change Proposal.)* Guide HTML tutorial/how-to pages are parsed into title, ordered prose sections, and embedded code snippets; malformed/broken HTML degrades gracefully under the same policy as FR-5, never aborting the whole ingest run.
-**Consequences (testable):**
-- A guide article is retrievable as one record with title, prose sections, and embedded code snippets intact.
-- A malformed guide-article fixture is handled per the configured `fail-fast | collect-and-continue` policy, never crashing the run silently.
+Retain official/validated/best-practice/illustrative/legacy quality labels from governed input; filenames and parsers never infer quality. Vendor provenance alone establishes official facts, not approved practices. Practices require explicit approval/owner/provenance and SDK applicability. Missing sidecars imply neither label nor approval. Retrieval can prefer current official/validated/best-practice examples without treating quality as practice approval. Candidate and invalid approval records cannot enter active builds. Broad technique vocabulary is deferred and does not gate 3.3–3.6.
 
-#### FR-36: Guide reference extraction & catalog linking
-*(Added 2026-08-21, Sprint Change Proposal.)* Luciad symbol/API references found in guide prose and embedded code snippets are resolved against the catalog using the same canonical/normalized keys as FR-7; unresolved references stay explicitly unresolved, never fabricated, per the FR-10 guarantee.
-**Consequences (testable):**
-- A resolvable reference in a guide's prose or code snippet links to its catalog record.
-- An unresolvable reference is recorded as unresolved, never fabricated.
+#### FR-15: Compile workflow recipes and required dependencies
+
+Preserve prerequisites, ordered steps, limitations, linked examples and version metadata. Compile Workflow records with RECIPE kind, stable required knowledge IDs and explicit applicability. Resolve dependencies against compatible facts/approved practices; absent, incompatible or candidate required dependencies block activation. Freeze cycle policy in 2.8 and reject invalid graphs deterministically. Check applicability before recommendation; no duplicated versioned facts or second runtime recipe database.
+
+#### FR-35: Selected local guide sections
+
+Story 3.5 consumes an explicit allowlist of approved local guide pages/sections selected using development tasks. Preserve title, ordered selected prose/snippets, original source/section locator and content hash. Report selection/skips and coverage without claiming full-corpus ingestion. Malformed content follows the classified failure policy. Broad guide ingestion remains deferred.
+
+#### FR-36: Guide evidence and governance
+
+Resolve selected guide references against the version-bound catalog; retain exact/ambiguous/unresolved evidence and never guess. Vendor facts can be cited without invented quality labels; guide-derived engineering practices require separate human approval. Serve fully cited symbol-less sections through common tools.
 
 #### FR-37: (reserved — intentionally unassigned)
 No requirement carries this number. The gap is intentional; FR numbering jumps FR-36 → FR-38 across the PRD, architecture spine, and epics, with no lost requirement.
 
-#### FR-42: Cross-cutting technique tags
+#### FR-42: Cross-cutting technique tags [DEFERRED]
+
+**Disposition (2026-10-02):** Historical intent below is retained for reactivation only, not first-proof acceptance. No placeholder capability is exposed. Reactivation requires a diagnosed task gap, controlled benefit, preserved safety metrics and owner approval; training also requires provenance/governance/version decisions.
 *(Added 2026-08-21, Sprint Change Proposal.)* A curated, fixed vocabulary of coding-technique/best-practice labels (e.g. `resource-lifecycle`, `builder-pattern`, `listener-chaining`) is supplied only via the same governance sidecar mechanism as FR-14, attachable to `Example`, `Workflow`, `Guide`, and `Training` records — never `ApiElement`/Javadoc records — independent of whether the record has a resolved canonical-symbol link. Filename/code-shape/prose inference never assigns a technique tag; a tag value outside the published vocabulary is rejected at ingest, not silently accepted or coerced.
 **Consequences (testable):**
 - A record with no sidecar-supplied technique tags is retrievable with an empty tag set, never a guessed one.
 - A record whose sidecar specifies a technique tag outside the curated vocabulary fails ingest validation with a structured error naming the offending value.
 - A `Guide` or `Training` record with no resolved canonical-symbol link remains discoverable via its technique tags (see FR-43), closing the symbol-less-content discoverability gap.
 
-### F5. Hybrid retrieval (exact + lexical + vector fusion)
-**Description:** A routed pipeline: detect exact signatures → exact resolution first → lexical + vector → fuse with exact-symbol priority → bounded relationship expansion → filters → concise cited results. Hybrid is the required normal mode; lexical is a visible fallback. `→ brief §9`
+### F5. Exact and lexical retrieval with gated semantic enhancement
+**Description:** Version-bound exact resolution plus BM25 is the supported first-proof mode; vector search and fusion require later evaluation and approval.
 
-#### FR-16: Routed retrieval with exact-symbol priority
-Exact fully-qualified signatures in the query are detected and resolved first; exact-symbol matches are heavily boosted over lexical/vector; exact validation always overrides semantic similarity. `→ brief §9`
-**Consequences (testable):**
-- Hybrid mode preserves 100% exact canonical lookup on indexed fixtures (no regression vs lexical).
-- A query containing an exact signature returns that symbol as top result.
+#### FR-16: Version-bound exact resolution
 
-#### FR-17: Lexical fields & BM25
-`canonicalSymbol` + normalized variants are indexed as exact/prefix/camel-case fields; descriptions, params, returns, exceptions, example/workflow/guide/training prose as analyzed text; BM25 with filters and highlighting. Applies uniformly across API elements, examples, workflows, guides, and training records. `→ brief §9`
-**Consequences (testable):**
-- Exact/prefix/camel-case fields return expected hits on fixtures.
-- Filters apply for SDK version, record type, package, kind, deprecation, quality, and technique tag (FR-42).
+Bind SDK version before catalog lookup. Known signatures resolve to exact proof or explicit ambiguity/unresolved state. Exact matches lead ranked candidates; BM25 relevance can never become identity or applicability proof. Canonical fixtures achieve 100% exact lookup with zero wrong-version or silently selected overloads.
 
-#### FR-18: Local ONNX vector search with lexical fallback
+#### FR-17: BM25 and scoped knowledge filters
+
+Index canonical/normalized exact, prefix and camel-case fields plus prose, params, returns, exceptions and selected example/workflow/guide/practice text. Support highlighting and SDK version, record type, knowledge kind, applicability, governance/provenance, package/kind/deprecation/quality filters. Stable record IDs identify and deduplicate all content, including symbol-less records. No model or technique vocabulary is required.
+
+#### FR-18: Local ONNX vector search with lexical fallback [DEFERRED]
+
+**Disposition (2026-10-02):** Historical intent below is retained for reactivation only, not first-proof acceptance. No placeholder capability is exposed. Reactivation requires a diagnosed task gap, controlled benefit, preserved safety metrics and owner approval; training also requires provenance/governance/version decisions.
 Vector search runs over normalized semantic records using a locally-supplied ONNX model + tokenizer; the service never downloads a model; model-load failure is explicit; fallback to lexical occurs only when configured and is visible in `index_status`. `→ brief §9`
 **Consequences (testable):**
 - With no model present and fallback disabled, hybrid mode fails explicitly (does not silently degrade).
 - `index_status` reports retrieval mode and model status accurately.
 
-#### FR-19: Fusion, relationship enrichment, bounded cited results
-Lexical + vector results are fused (e.g. RRF) under exact priority; the top candidates are enriched with a bounded relationship neighborhood from SQLite; results are concise, cited, and carry stable IDs. `→ brief §9`
-**Consequences (testable):**
-- Every primary result carries a complete citation (see Glossary).
-- Relationship enrichment stays within the configured bound.
+#### FR-19: Bounded cited lexical result assembly
 
-#### FR-20: Fingerprint-consistent embedding
+Story 4.6 assembles exact/lexical candidates with governance/applicability/content-citation checks, deterministic stable-ID deduplication/order and bounded relationship enrichment. Filter-only browse is deterministic. Bound internal work as well as payload and expose exact/lower-bound/unknown counts, empty reason, truncation and continuation. Vector fusion stays deferred in 4.4, never marked completed by this capability transfer.
+
+#### FR-20: Fingerprint-consistent embedding [DEFERRED]
+
+**Disposition (2026-10-02):** Historical intent below is retained for reactivation only, not first-proof acceptance. No placeholder capability is exposed. Reactivation requires a diagnosed task gap, controlled benefit, preserved safety metrics and owner approval; training also requires provenance/governance/version decisions.
 The same pinned model, tokenizer, preprocessing, normalization, dimensions, and query instructions are used for indexing and runtime queries; navigation/duplicate/boilerplate/empty content is excluded from embedding. The embedding fingerprint is a schema-level property, not per-record-type — adding the guide record type does not itself change the fingerprint definition (see NFR-14), only what content is embedded under it. `→ brief §9`
 **Consequences (testable):**
 - An index whose embedding fingerprint differs from the runtime model is rejected (see FR-27).
 - Embedded content excludes navigation and empty records.
 
 ### F6. MCP tool surface
-**Description:** A deliberately small MCP tool surface over Streamable HTTP at `/mcp` (optional stdio), with bounded responses and never-guess guarantees. All 20 tools below are FRs. *(15 → 17 → 19 → 20, 2026-08-21, Sprint Change Proposals; the prior PRD "19" here was an off-by-one against epics/architecture, corrected 2026-08-25.)* `→ brief §3, §10`
+**Description:** Exactly six read-only tools: `search_knowledge`, `resolve_symbol`, `get_record`, `get_relationships`, `check_symbols`, `index_status`. Earlier 15 → 17 → 19 → 20 tool amendments remain historical; specialized aliases are deferred.
 
-#### FR-21: Retrieval & symbol tools
-Implement `search_api`, `resolve_symbol`, `get_class`, `get_method`, `get_api_context` per §10 contracts. `→ brief §10`
-**Consequences (testable):**
-- `resolve_symbol` returns exact match, overload candidates, or `not_found` — never a guessed result.
-- `get_method` returns one exact overload or an explicit overload list; ambiguity stays visible.
+#### FR-21: Knowledge search, symbol resolution and record fetch
 
-#### FR-22: Relationship tools
-Implement `get_inheritance`, `get_type_relationships`, `find_implementations`, `find_subclasses` per §10, returning typed, cited edges within the documented SDK universe. `→ brief §10`
-**Consequences (testable):**
-- `find_implementations` marks abstract/deprecated/example-used/workflow-recommended candidates and never claims completeness beyond indexed docs.
-- Transitive traversal respects `transitive`, `concreteOnly`/`includeAbstract`, and `limit`.
+Expose search_knowledge, resolve_symbol and get_record. Search all eligible kinds with scoped filters and deterministic filter-only browse, returning stable IDs and available sections. Resolve returns exact/ambiguous/unresolved with version scope. Fetch supports bounded ID batches and optional sections with per-ID not-found/oversize outcomes. Never invent symbols or silently select an overload.
 
-#### FR-23: Example & workflow tools
-Implement `search_examples`, `find_examples_for_symbol`, `get_example`, `search_workflows` per §10. `→ brief §10`
-**Consequences (testable):**
-- `get_example` returns metadata + linked symbols + citation, and complete source only when requested.
-- Example results rank by current trust metadata.
+#### FR-22: Typed relationships through one tool
 
-#### FR-24: Validation & status tools
-Implement `check_symbols` (returns exact-valid / ambiguous-with-candidates / unknown arrays; catalog validation only, no compilation) and `index_status` (indexed SDK versions, record counts, ingestion timestamp, retrieval mode, model status, schema/index version). `→ brief §10`
-**Consequences (testable):**
-- `check_symbols` never marks an unknown symbol valid.
-- `index_status` reflects the active build's manifest.
+Expose get_relationships with edge-family/type, direction, depth and implementation/subclass filters, including concrete/abstract/deprecated/example-used/recipe-recommended context when supported. Enforce 2.7/2.8 budgets and return typed evidence/citations, scope and truncation. Distinguish SDK links from curated dependencies; no completeness claim beyond evidence or traversal budget.
 
-#### FR-38: Guide tools
-*(Added 2026-08-21, Sprint Change Proposal.)* Implement `search_guides` (natural-language/keyword query over the guide corpus, filterable, citation-bearing per FR-31) and `get_guide` (fetch a full guide record by stable ID with citation), both following the same structured-response conventions as the other retrieval tools.
-**Consequences (testable):**
-- `search_guides` returns citation-complete results ranked by relevance to a conceptual query.
-- `get_guide` returns the full guide record only via this explicit tool, never embedded inline elsewhere.
+#### FR-23: Example and workflow capabilities through common tools
 
-#### FR-41: Training tools
+Use search_knowledge, get_record and get_relationships for examples/workflows; expose no extra tool names. Preserve quality/provenance, linked symbols, parent/source retrieval and applicability. Full source is requested through bounded get_record; a method-sized hit can fetch its complete parent via sections/continuation within the response cap.
+
+#### FR-24: Bounded symbol checking and index status
+
+Expose check_symbols and index_status. Bounded batches return exact-valid, ambiguous-with-candidates or unknown for the bound SDK/build; neither unknown nor ambiguous is reported valid. Status reports active SDK/build/schema/fingerprint versions, counts/coverage, skips/errors, ingestion time, retrieval mode and available capabilities. No-model lexical operation is healthy. Neither tool compiles code.
+
+#### FR-38: Guide access through common tools; aliases deferred
+
+Selected guide search/fetch acceptance belongs to search_knowledge and get_record under 5.1/5.3. Return complete typed citations and bounded selected content, with not-found on unknown IDs. Dedicated search_guides/get_guide aliases (5.3b) are deferred, not exposed as placeholders.
+
+#### FR-41: Training tools [DEFERRED]
+
+**Disposition (2026-10-02):** Historical intent below is retained for reactivation only, not first-proof acceptance. No placeholder capability is exposed. Reactivation requires a diagnosed task gap, controlled benefit, preserved safety metrics and owner approval; training also requires provenance/governance/version decisions.
 *(Added 2026-08-21, Sprint Change Proposal.)* Implement `search_trainings` (natural-language/keyword query over the training-deck corpus, filterable, citation-bearing per FR-31) and `get_training` (fetch a full training record by stable ID with citation), both following the same structured-response conventions as the other retrieval tools.
 **Consequences (testable):**
 - `search_trainings` returns citation-complete results ranked by relevance to a conceptual query.
 - `get_training` returns the full training record only via this explicit tool, never embedded inline elsewhere.
 
-#### FR-43: Concept/technique search tool
+#### FR-43: Concept/technique search tool [DEFERRED]
+
+**Disposition (2026-10-02):** Historical intent below is retained for reactivation only, not first-proof acceptance. No placeholder capability is exposed. Reactivation requires a diagnosed task gap, controlled benefit, preserved safety metrics and owner approval; training also requires provenance/governance/version decisions.
 *(Added 2026-08-21, Sprint Change Proposal.)* Implement `search_concepts` (query by one or more technique tags — FR-42 — across `Example`, `Workflow`, `Guide`, and `Training` records in one federated, deduplicated, citation-complete result list, following the same fused-list convention as hybrid retrieval's FR-19). An unrecognized tag value is rejected with the valid vocabulary listed, never silently ignored.
 **Consequences (testable):**
 - `search_concepts` returns a single fused list spanning all four taggable record types, each entry citation-complete per FR-31.
 - A query naming an unrecognized technique tag returns a structured error listing valid tag values, never an empty or guessed result.
 
-#### FR-25: Transport, structured errors, bounded outputs
-Streamable HTTP at `/mcp` (optional stdio from the same binary); structured errors, timeouts, limits; full pages/complete examples only via explicit retrieval tools. `→ brief §3, §10`
-**Consequences (testable):**
-- Every tool enforces bounded output (default 10, cap 50; ≤1 MiB with truncation/continuation metadata — see NFR-10).
-- Errors are structured and typed, not free-text.
+#### FR-25: Six read-only tools with bounded contracts
+
+Streamable HTTP /mcp, optional stdio, shared versioned request/result/error codes and timeouts. Default page 10, hard cap 50, ≤1 MiB serialized response. Story 2.8 freezes finite query/input, ID/symbol batch, candidate, traversal, trace and time caps. Oversized content uses bounded sections/continuation or a structured size error. Cursors bind query/version/build and reject or explicitly restart stale scope. Agent inputs cannot accept credentials, host paths, endpoints, model/device settings or activation controls.
 
 ### F7. Index lifecycle: immutable build, validate, activate, roll back
 **Description:** Every index is an immutable per-SDK-version build; validation precedes atomic activation; rollback flips only the active pointer; incompatible indexes are rejected. `→ brief §12`
 
-#### FR-26: Immutable build + validate-before-activate + atomic activation
-Builds go to a new immutable directory (SDK version + build ID); `validate-index` runs before the active pointer changes; activation is atomic; the currently-served index is never mutated. `→ brief §12`
-**Consequences (testable):**
-- Activation swaps a pointer atomically; a validation failure blocks activation.
-- The serving index directory is never written during serve.
+#### FR-26: Shared validation and atomic activation
 
-#### FR-27: Compatibility rejection
-A schema, Lucene-major, canonical-symbol-format, embedding-model, dimension, tokenizer, or preprocessing-fingerprint change is treated as incompatible unless a tested migration exists; the server refuses to load a mismatched catalog, Lucene index, or model. `→ brief §12, §14`
-**Consequences (testable):**
-- The server rejects an incompatible catalog/Lucene/model at startup with a clear error.
-- Manifest fingerprint mismatch prevents mixing an index with a different model/preprocessing.
+One BuildValidator checks integrity, schema/version, identities, required dependencies and capability compatibility before publishing a sealed immutable build. BUILD_INVALIDATING outcomes, unknown/stub SDK versions, corrupt data, identity collisions and invalid required recipes reject activation. Legal unresolved/ambiguous source evidence remains explicit. Serialize competing writers and test interrupted staging/activation; active data is never mutated.
 
-#### FR-28: Rollback + retention + side-by-side versions
-Rollback changes only the active pointer and reloads the service (no rebuild); at least the current + previous validated build is retained where storage allows; side-by-side SDK versions are supported with an explicit configured default. `→ brief §12`
-**Consequences (testable):**
-- A previously-validated build reactivates without rebuilding data.
-- SDK versions remain isolated; no cross-version result unless explicitly requested.
+#### FR-27: One compatibility policy on every load path
 
-#### FR-29: Complete-set backup
-Backups cover manifest + catalog + Lucene dir + ingestion report + config + model artifacts + checksums together; a partial index is not a valid backup. `→ brief §12`
-**Consequences (testable):**
-- A restored backup contains all listed components and validates.
+CLI validation/activation and MCP startup/reload/rollback/restore use the same BuildValidator and rejection reasons. Unknown schemas/profiles or mismatched declared assets fail closed. Lexical requires no model; vector assets are checked only for an approved declared capability. A tested migration produces a separately validated new build; no bypass route.
+
+#### FR-28: Reader-safe rollback and isolated versions
+
+Retain current and previous builds where storage allows, preserve an explicit version default and pin each request to one immutable handle. Revalidate current runtime compatibility before rollback; no deletion while readers reference a build. Invalid replacement keeps the valid current handle serving; invalid cold start fails clearly. Cross-version migration/combined queries are unsupported in the first proof, never silently merged.
+
+#### FR-29: Manifest-complete backup and shared restore validation
+
+Back up manifest, catalog, Lucene, versioned report, configuration, checksums and all profile-declared assets together. Lexical explicitly declares no model and needs none; missing declared assets invalidate backup. Restore uses the shared BuildValidator and never trusts historical validation alone.
 
 ### F8. Agent guidance & citations
 **Description:** A shipped agent skill file enforcing mandatory retrieval behavior, plus universal citation on primary results. `→ brief §9, §11`
 
-#### FR-30: Agent instruction file (SKILL.md)
-Ship `agent/SKILL.md` with the mandatory retrieval policy (search workflow/examples → resolve every class → exact constructors/overloads → follow linked relationships → `find_implementations` before choosing a concrete class → only MCP-returned symbols → never infer from memory → prefer trusted examples → `check_symbols` before finalizing → state unresolved rather than invent → cite) plus one worked "display a point object" sequence. `→ brief §11`
-**Consequences (testable):**
-- `SKILL.md` contains all 11 policy points and the worked example.
-- It references tools by their exact §10 names.
+#### FR-30: Six-tool agent guidance and external truth boundary
 
-#### FR-31: Universal citation on primary results
-Every primary result includes SDK version, record type, relative source path, HTML anchor when available, and stable record ID; the canonical symbol/example ID is included when one is resolved for that record, and omitted — never fabricated — when it is not (e.g. a Guide or Training record with no resolved canonical-symbol link). *(Amended 2026-08-21, Sprint Change Proposal, fixing an AD-15 defect that made canonical symbol unconditionally required, which would have made any symbol-less record permanently unservable as a primary result.)* `→ brief §9`
-**Consequences (testable):**
-- Citation completeness is 100% of returned primary records on the gold set, including symbol-less records.
-- A symbol-less Guide or Training record is servable as a primary result with a complete citation that simply omits the canonical-symbol field.
+Ship agent/SKILL.md using only the six actual names: retrieve → resolve → fetch context/relationships → generate → batch-check → external compile/test → repair. Preserve exact constructors/overloads, implementation lookup, cited approved examples and applicability checks, no memory-invented APIs, and honest unresolved/untested reporting. Include one worked display-a-point sequence, build on 5.8 and make guidance usable for 10.2 evaluation. The MCP service proves catalog membership/evidence, not compilation/runtime/rendering/non-Luciad dependencies.
+
+#### FR-31: Typed citations on every primary content result
+
+Require SDK scope, record type, stable record ID, source identity and truthful typed locator: HTML page/anchor, source range, curated document/section, and later deck/slide. Canonical symbol is present only when resolved; missing anchors are represented honestly, never fabricated. Citation completeness is 100%, including symbol-less practices/guides and dependency evidence. Do not filter exact/ambiguous/unknown verdicts for absent content citations; optional diagnostic provenance is separate.
 
 ### F9. Packaging, deployment & offline/security posture
 **Description:** One Docker image with `ingest`/`validate-index`/`serve` modes, deployable on a shared internal host, air-gap transferable. `→ brief §3, §5, §13, §14`
 
-#### FR-32: One serving image, three modes, internal-host compose; separate ingest-time image for training materials
-The serving image runs `ingest` (Javadoc, examples, workflows, guides), `validate-index`, and `serve`; Compose separates one-shot ingestion from read-only serving; `pull_policy: never`, non-root, read-only root FS where practical, cap-drop ALL, `no-new-privileges`, proprietary inputs mounted read-only, MCP port bound to the internal host interface reachable by the trusted team (not the public internet). Training-material ingestion (docling, FR-39) runs from a **separate, ingest-time-only image**, never deployed alongside `serve`, never included in the served appliance, and not subject to NFR-9's appliance-footprint target. *(Amended 2026-08-21, Sprint Change Proposal — training-material ingestion; amended 2026-08-24 — v1 serves a small trusted internal team from a shared host: loopback bind and "hardened appliance" framing dropped, container-hygiene defaults retained.)* `→ brief §13, §14`
-**Consequences (testable):**
-- The serve container runs read-only, non-root, bound to the internal host interface (not the public internet), answers MCP requests, and contains no Python/docling/network-capable tooling.
-- Ingest (Javadoc/examples/workflows/guides) and serve make zero external calls during tests; only the separate training-ingest image is permitted network calls, and only while it is running.
-- The separate training-ingest image is absent from the air-gap bundle's serving artifacts (FR-33).
+#### FR-32: Internal-host serving image and offline deployment
 
-#### FR-33: Air-gap bundle & provenance
-Produce image tar (serving image only) + SHA256SUMS + SBOM + install docs + frozen index (which may already include training records ingested before transfer) + model artifacts; verify transferred artifacts by SHA-256; bundle model + tokenizer with documented licenses; support transferring a prebuilt combined index or rebuilding one combined index from approved inputs inside the air gap. Training-material ingestion, if used, must run before the air-gap boundary via the separate ingest-time image (FR-32) — it is never part of the transferred bundle. *(Amended 2026-08-21, Sprint Change Proposal.)* `→ brief §5, §14`
-**Consequences (testable):**
-- On a networking-disabled clean machine: image loads, fixture corpus ingests, MCP serves, smoke tests pass.
-- SHA-256 verification detects a tampered artifact.
-- The serving image tar contains no docling/Python training-ingest tooling.
+One serving image provides ingest/validate-index/serve; Compose separates ingestion and read-only serving, pull_policy: never, non-root, read-only root FS where practical, cap-drop ALL, no-new-privileges and read-only proprietary inputs. Bind the shared internal host for a trusted team of about five or fewer, never public internet. Retain zero egress; no new authentication/TLS/tenant scope. First-proof assets require no ONNX model or Docling/training image; 8.4 remains deferred.
 
-#### FR-34: CLI surface
-Provide `ingest`, `validate-index`, `serve`, `stats` with the documented options. `→ brief §12`
-**Consequences (testable):**
-- Each command runs headless with documented flags and exit codes.
+#### FR-33: Capability-complete air-gap release bundle
 
-### F10. Training-material ingestion via docling (scoped network/Python exception)
+Bundle serving image tar, SHA256SUMS, SBOM, install documentation, frozen index and exactly the profile-declared assets with licenses. No model or training image is required for lexical. Verify tamper detection and clean networking-disabled load/ingest/serve smoke tests; document prebuilt transfer and approved in-gap rebuild. Existing legal/provenance/NFR/release approvals remain required, not passed by the proof.
+
+#### FR-34: Headless CLI and shared diagnostics
+
+Retain ingest, validate-index, serve and stats with documented flags and exit codes. CLI diagnostics use the same application query/proof services as MCP under operator-owned configuration and bounded output. Freeze diagnostic spelling/CLI transition in 2.8. Story 6.5 delivers non-success for build-invalidating ingest and report-write failure semantics early; 8.3 completes help/headless/release documentation.
+
+### F10. Training-material ingestion [DEFERRED; historical design]
 **Description:** A separate, ingest-time-only path that uses the Python `docling` library (vision/layout models) to convert PPTX/PDF training slide decks into structured content, linked to the catalog like every other record type. This is the sole ingest path permitted network access and non-Java tooling execution — an explicit, scoped exception to AD-9/AD-10, carved out only for this input type and never extended to serving. *(Added 2026-08-21, Sprint Change Proposal.)*
 
-#### FR-39: Training-deck ingestion via docling
+#### FR-39: Training-deck ingestion via docling [DEFERRED]
+
+**Disposition (2026-10-02):** Historical intent below is retained for reactivation only, not first-proof acceptance. No placeholder capability is exposed. Reactivation requires a diagnosed task gap, controlled benefit, preserved safety metrics and owner approval; training also requires provenance/governance/version decisions.
 The ingester accepts a local training-materials dir (PPTX/PDF slide decks) as a sixth permitted input path. Training-deck ingestion is a single, explicitly-scoped exception to FR-1/AD-9 (zero egress) and AD-10 (parse-only): it invokes docling, which may reach the network to fetch/run vision-layout/table/OCR models, and executes non-Java tooling. This exception applies only within the separate training-ingest module/image (FR-32); no other ingest path or the `serve` path may perform network I/O or invoke non-Java tooling. Docling's structured output (slide/section title, ordered text blocks, tables, extracted figures/captions) is parsed into one `Training` record per logical deck section, mirroring FR-6's one-record-per-element discipline; malformed/unreadable decks degrade per the same `fail-fast | collect-and-continue` policy as FR-5.
 **Consequences (testable):**
 - Training-deck ingestion is the only scenario in the ingestion test suite permitted to observe network egress; every other ingestion test (Javadoc, examples, workflows, guides) still asserts zero egress.
 - A malformed/unreadable slide-deck fixture is handled per the configured `fail-fast | collect-and-continue` policy, never crashing the run silently.
 - A `Training` record is retrievable with its section title, ordered text blocks, and any extracted tables/figures intact.
 
-#### FR-40: Training reference extraction & catalog linking
+#### FR-40: Training reference extraction & catalog linking [DEFERRED]
+
+**Disposition (2026-10-02):** Historical intent below is retained for reactivation only, not first-proof acceptance. No placeholder capability is exposed. Reactivation requires a diagnosed task gap, controlled benefit, preserved safety metrics and owner approval; training also requires provenance/governance/version decisions.
 Luciad symbol/API references appearing in training-deck text and tables are resolved against the catalog using FR-7's canonical/normalized keys, run only after Javadocs are indexed; unresolved references stay explicitly unresolved per FR-10.
 **Consequences (testable):**
 - A resolvable reference in a training deck's text or table links to its catalog record.
 - An unresolvable reference is recorded as unresolved, never fabricated.
 
+### F11. Evidence contracts, governance and evaluation
+
+#### FR-44: Structured SDK identity and frozen portable contracts
+
+Structured SDK identity and frozen portable contracts. Versioned known-answer symbol/record/edge/build recipes; stable IDs unchanged by output-root relocation; unknown SDK version cannot activate.
+
+**Coverage:** 2.8; AD-3/12/17/18/22/32.
+
+#### FR-45: Governed compiled knowledge
+
+Governed compiled knowledge. Four knowledge kinds; schema-validated deterministic authoring; candidates outside active builds; practices require approval; required recipe dependencies resolve compatibly; inapplicable recipes are not recommended.
+
+**Coverage:** 2.8, 3.3/3.4/3.6, 6.1; AD-14/31.
+
+#### FR-46: Shared build validation
+
+Shared build validation. All startup/load/activation/reload/restore routes use one validation policy and return equivalent rejection reasons for the same invalid artifacts.
+
+**Coverage:** 2.8, 5.6, 6.1–6.5; AD-5/6/23/33.
+
+#### FR-47: Honest bounded interface
+
+Honest bounded interface. Six read-only tools share explicit proof, route, coverage, empty reason and continuation semantics; no bounded query claims exhaustive results without proof.
+
+**Coverage:** 2.8, 4.6, 5.1–5.7, 7.2; AD-11/15/19/20/24/35.
+
+#### FR-48: Controlled outcome evaluation and governed improvement
+
+Controlled outcome evaluation and governed improvement. Predeclared paired treatments, held-out protection and cost reporting; every accepted correction has human approval and a permanent regression before activation.
+
+**Coverage:** 10.1–10.4; AD-34.
+
+#### FR-49: Contract-change and verification gates
+
+Contract-change and verification gates. Schema/format changes have version/changelog or reviewed exemption; Windows/Linux known answers and selected mutations demonstrate critical tests can fail.
+
+**Coverage:** 2.8 and affected 6.x/10.x implementation; AD-32/34.
+
+#### FR-50: Shared application services
+
+Shared application services. CLI diagnostics and MCP produce equivalent logical proof/coverage results for identical build/query/scope, excluding transport-specific wrapping. Neither compiles generated code; evaluation does so externally.
+
+**Coverage:** 2.8, 6.5, 7.1, 10.2; AD-1/36.
+
 ## 5. Non-Goals (Explicit)
 
-- **No compiling or executing** generated Luciad applications or ingested samples. `→ brief §2, §18`
-- **No Maven/Gradle execution** against generated apps or samples (the appliance itself may use Maven/Gradle to build). `→ brief §2, §18`
-- **No hosting** of Maven deps / Nexus / Artifactory; **no SDK JARs** required for ingestion or validation. `→ brief §2`
-- **No running Luciad itself.** `→ brief §2`
-- **No LangChain/LlamaIndex** as mandatory dependencies; **no external vector DB** (Elasticsearch/OpenSearch/Qdrant/etc.); **no separate local LLM**; **no server-side answer generation.** `→ brief §2`
-- **No cloud embeddings, runtime internet, telemetry, or update checks** during serving or during ingestion of the four fully-offline record types (Javadoc, examples, workflows, guides). The sole exception is training-material ingestion via docling (FR-39), confined to its own separate ingest-time image and never extended to serving. *(Amended 2026-08-21, Sprint Change Proposal.)* `→ brief §2, §14`
-- **No public, cross-org, or authenticated multi-tenant deployment in v1** (a single trusted internal team on a shared internal host is in scope); **no public-base/private-overlay index design in v1.** `→ brief §3, §5`
-- **No HTTP crawler / portal client** in the production ingester, for any record type. Docling's own model-fetch (training-material ingestion only, FR-39, running in its separate ingest-time image) is the sole permitted model-downloader exception; it never runs inside the serving image. *(Amended 2026-08-21, Sprint Change Proposal.)* `→ brief §5, §12`
-- **No automated inference of coding techniques or best practices** from source code, prose, or file naming. Technique tags (FR-42) are governance-supplied only, via the same sidecar mechanism as quality labels (FR-14), never derived by static analysis or ML. *(Added 2026-08-21, Sprint Change Proposal.)* `→ brief §8, §14`
+No compilation/execution of generated apps or ingested samples, SDK JAR lookup, Maven/Gradle execution against samples, server-side generation, package hosting, separate LLM, external vector/graph database, new runtime or semantic-web platform. The evaluation harness compiles/tests externally with separately supplied SDK/build prerequisites.
+
+No public or authenticated multi-tenant deployment, no public-base/private-overlay layering, crawler, portal client, cloud embeddings, telemetry, update checks or runtime internet. No active Docling/Python/network ingestion exception. No inferred practice approval or autonomous knowledge promotion. Proprietary Luciad inputs are never committed; tests use synthetic fixtures.
 
 ## 6. MVP Scope
 
-### 6.1 In Scope
-Everything in the brief's §2 *Included* list and Definition of Done §18: file-only offline ingestion; structural Javadoc parsing; canonical catalog + relationship graph; example/workflow/guide/training-deck ingestion + linking; governance-supplied quality labels and cross-cutting technique tags (FR-42); hybrid (BM25+vector) retrieval with lexical fallback; the 20 MCP tools; immutable versioned indexes with validate/activate/rollback; shared internal-host deployment for a small trusted team (≤ ~5 developers); agent SKILL.md; air-gap packaging with SBOM/checksums/licenses. Guide-article support, training-deck (PPTX/PDF via docling) support, and technique-tag/`search_concepts` support all ship in MVP alongside the other original record types (decided 2026-08-20 and 2026-08-21, Sprint Change Proposals). `→ brief §2, §18`
+### 6.1 First product proof
 
-### 6.2 Out of Scope for MVP
-- Authenticated-TLS multi-tenant (cross-team / org-wide) profile — deferred (later deployment profile). `→ brief §3`
-- Public-base/private-overlay index layering — deferred until a demonstrated need. `→ brief §5`
-- Automated corpus acquisition/downloader — separate connected-environment release-engineering activity, never in the runtime image. `→ brief §5`
-- Python tooling (ONNX export, model comparison, retrieval eval) ships as release-engineering utilities only — never a runtime service/dependency — for the four fully-offline record types. Training-material ingestion (FR-39) is the sole exception: docling is a genuine ingest-time Python runtime dependency, network-enabled, confined to its own separate ingest-time image (FR-32) and never present in the serving image. *(Amended 2026-08-21, Sprint Change Proposal.)* `→ brief §2, §16`
+Contract freeze (2.8), version-bound exact/BM25 retrieval, the six tools, selected approved task-relevant content, initial guidance, immutable validation/atomic activation and controlled evaluation. Freeze 10.1 protocol and reserve held-out tasks before curation. Finish 2.5 review, then 2.6/2.7 → 2.8 → 4.1/4.2/4.6 + 6.1/6.2/6.5 + 5.7 → tools/content/guidance → 10.2/10.3/10.4. Minimum lifecycle cannot be bypassed for proof acceptance.
+
+### 6.2 Production release
+
+Complete lifecycle/rollback/backup, offline packaging, approved NFR evidence, corpus/legal/governance and release sign-offs. A successful product proof does not establish production release acceptance.
+
+### 6.3 Gated scope
+
+Vectors/fusion; full guide corpus; training/Docling/image/tools; broad technique vocabulary/concept tool; specialized aliases/migration tools; multi-SDK/plugin architecture; external-agent installer; conversation mining; autonomous promotion/self-repair; extra databases/runtimes/graph/semantic-web infrastructure. Reactivate only for a diagnosed gap, controlled benefit, preserved safeguards and owner approval. Task-relevant guide sections/practices/recipes remain in scope. Authenticated-TLS multi-tenancy and public/private overlays remain outside v1.
 
 ## 7. Success Metrics
 
 Derived from brief §15 key measures and §14 targets; each validates the noted FR(s)/NFR(s).
 
 **Primary**
-- **SM-1: Exact canonical lookup = 100%** on indexed fixtures (hybrid preserves this — no regression). Validates FR-16, FR-21. `→ brief §15`
+- **SM-1: Exact canonical lookup = 100%** on indexed fixtures (exact/lexical; deferred enhancements must preserve this). Validates FR-16, FR-21. `→ brief §15`
 - **SM-2: Unknown-symbol safety = never marked valid.** Validates FR-10, FR-24, FR-30. `→ brief §15`
-- **SM-3: Natural-language retrieval ≥ 90%** of approved conceptual gold queries return an expected workflow/example/API record in the top 5 (initial release acceptance threshold; per-query results retained; threshold frozen only after product-owner approval — see B2). Validates FR-16–FR-19. `→ brief §15, §18`
+- **SM-3: Natural-language retrieval ≥ 90%** of approved conceptual gold queries return an expected workflow/example/API record in the top 5 (provisional retrieval diagnostic; per-query results retained; B2 must explicitly reconcile and approve the threshold). Validates FR-16–FR-19. `→ brief §15, §18`
 - **SM-4: Citation completeness = 100%** of returned primary records. Validates FR-31. `→ brief §15`
-- **SM-5: Version isolation** — no cross-version result unless explicitly requested. Validates FR-28. `→ brief §15`
+- **SM-5: Version isolation** — no cross-version mixing; migration/combined queries are unsupported in the first proof. Validates FR-28. `→ brief §15`
 
 **Secondary**
 - **SM-6: Overload ambiguity always explicit.** Validates FR-6, FR-21. `→ brief §15`
 - **SM-7: Relationship integrity** — all resolvable synthetic links produce correct typed edges. Validates FR-9. `→ brief §15`
-- **SM-8: Ranking comparison** — the selected hybrid config materially outperforms/complements the lexical baseline on approved conceptual queries. Validates FR-18, FR-19. `→ brief §15`
+- **SM-8: Deferred vector-benefit gate** — a future hybrid configuration must demonstrate benefit over the lexical baseline before activation of that scope. Validates FR-18, FR-19. `→ brief §15`
 - **SM-9: Offline operation** — zero external calls during ingest/serve tests. Validates NFR-11, FR-1, FR-32. `→ brief §15`
 
 **Counter-metrics (do not optimize)**
-- **SM-C1: Do not raise SM-3 by weakening exact-symbol safeguards.** Counterbalances SM-3 against SM-1/SM-2 — if the candidate model misses the threshold, compare approved alternatives or improve semantic record construction; never hide the miss by relaxing exact validation. `→ brief §15`
+- **SM-C1: Do not raise SM-3 by weakening exact-symbol safeguards.** Counterbalances SM-3 against SM-1/SM-2 — if retrieval misses the diagnostic target, diagnose routing/content gaps and compare controlled treatments; never hide the miss by relaxing exact validation. `→ brief §15`
+
+- **SM-10: Agent outcomes.** Story 10.1 predeclares success rubric/improvement rule for 20–30 representative tasks, development/held-out separation, paired treatments, repeat policy and budgets. Report task completion, initial/final compile results, unknown/wrong-version/overload usage, citations/practice adherence, calls/tokens/time/repairs and build/indexing cost separately, including failures and uncertainty. Missing external SDK/build prerequisites are blocked/not-run, never passed.
+- **SM-11: Trust and portability.** Zero candidate/unapproved knowledge or invalid required dependencies in active builds; Windows/Linux logical known answers agree; selected critical mutations are detected; every corrupt/incompatible build entry path fails closed. No measured success is claimed by planning approval.
 
 ## Cross-Cutting NFRs
 
@@ -414,54 +400,58 @@ From brief §14. All are *initial v1 targets*; changes require product- and tech
 | ID | Requirement | Target | Provenance |
 |---|---|---|---|
 | NFR-1 | Exact lookup latency | p95 ≤ 250 ms | §14 |
-| NFR-2 | Hybrid search latency | p95 ≤ 2 s (warm model + index) | §14 |
+| NFR-2 | Lexical first-proof warm search latency | p95 ≤ 2 s; deferred hybrid requires separate approved hardware/corpus evidence | Approved change P07 |
 | NFR-3 | Concurrency | ≥ 4 simultaneous MCP requests, no errors / unbounded queue | §14 |
-| NFR-4 | Startup | ready to serve a prebuilt index ≤ 30 s | §14 |
+| NFR-4 | Startup | ready to serve a prebuilt index ≤ 30 s including active-profile assets | Approved change P07 |
 | NFR-5 | Serving memory | ≤ 8 GiB RSS on reference corpus | §14 |
 | NFR-6 | Ingestion memory | ≤ 16 GiB RSS on reference corpus | §14 |
 | NFR-7 | Full rebuild | ≤ 8 h on 8-core CPU workstation for reference corpus (throughput recorded) | §14 |
 | NFR-8 | Index footprint | ≤ 4× source corpus bytes (exceptions need a recorded trade-off) | §14 |
-| NFR-9 | Appliance footprint | image + model ≤ 1.5 GiB (excl. corpus/indexes); applies to the serving image only — the separate training-ingest image (FR-32) is a build-time-only artifact not subject to this target. *(Note added 2026-08-21, Sprint Change Proposal.)* | §14 |
+| NFR-9 | Appliance footprint | serving image + required profile assets ≤ 1.5 GiB (excl. corpus/indexes); lexical requires no model; training image deferred | Approved change P07 |
 | NFR-10 | Response bounds | default 10, cap 50 results; ≤ 1 MiB serialized with truncation/continuation metadata | §14 |
-| NFR-11 | Offline behavior | zero DNS/HTTP/telemetry/model-download/update-check during serve and during ingestion of the four fully-offline record types (Javadoc, examples, workflows, guides); training-material ingestion (FR-39) is the sole, explicitly-scoped exception, confined to its separate ingest-time image and never extended to serving. *(Amended 2026-08-21, Sprint Change Proposal.)* | §14 |
+| NFR-11 | Offline behavior | zero DNS/HTTP/telemetry/model-download/update-check for every active ingestion and serving path; no active training exception | Approved change P07 |
 | NFR-12 | Security posture | non-root, read-only root FS where practical, cap-drop, internal-host bind (no public exposure), no full-doc/source logging by default | §14 |
 | NFR-13 | Reproducibility | deterministic record IDs + content hashes for repeatable updates | §12 |
-| NFR-14 | Compatibility enforcement | reject any index whose fingerprint (schema/Lucene-major/symbol-format/model/dims/tokenizer/preprocessing) mismatches runtime. *Note (2026-08-21): the fingerprint is independent of which record types are indexed — adding the guide record type changes index content, not the fingerprint definition; a guide-inclusive index remains compatible with prior-fingerprint validation logic.* | §12, §14 |
+| NFR-14 | Compatibility enforcement | reject unknown/mismatched schema and capability-specific fingerprints; lexical explicitly has no model, deferred vector profiles validate all declared model/dims/tokenizer/preprocessing assets | Approved change P07 |
 
 ## Constraints and Guardrails
 
-- **Licensing:** treat the completed index and embeddings as derivative documentation artifacts; complete legal/license review before distributing documentation-derived indexes or model artifacts (blocker B3). `→ brief §14`
-- **Provenance:** public Javadocs acquired in a connected environment must record product/version + provenance and confirm redistribution/derivative-indexing permission before becoming a checksummed input dir. `→ brief §5`
-- **Governance (§14):** quality labels and technique tags are governance metadata, not parser/ML inference; five named roles (product owner, technical owner, corpus owner, security/legal reviewer, release operator) own the sign-offs (blocker B4). The technique-tag vocabulary's actual content is a corpus-owner decision, deferred (see the architecture doc's Deferred section) — the tagging mechanism and governance are already ratified. *(Amended 2026-08-21, Sprint Change Proposal.)* `→ brief §14`
-- **Human sign-offs (§19) — none auto-closed:** final SQLite schema · Lucene schema · canonical-symbol & relationship formats · MCP tool schemas · embedding model + license + tokenizer/preprocessing fingerprint + retrieval thresholds · NFR benchmark results · corpus provenance/license review · release activation. `→ brief §14, §19`
+Preserve derivative-documentation/proprietary-corpus handling and licensing review (B3), source product/version/provenance and read-only inputs. Five named governance roles remain product owner, technical owner, corpus owner, security/legal reviewer and release operator (B4). No approval is inferred from a quality label or scaffold.
+
+Story 2.8 owns human approval of SQLite, symbol/relationship/identity, lexical Lucene and MCP schemas before dependent work. Breaking contract changes require version/changelog updates or an explicit reviewed exemption. Model/KNN/tokenizer/licensing gates stay with deferred vectors. B1 NFR evidence and release activation approval remain mandatory.
 
 ## API Contracts / Public Surface
 
-The public surface is the 20 MCP tools (FR-21–FR-25, FR-38, FR-41, FR-43) whose input/output contracts are specified in brief §10 (FR-38 added 2026-08-21, FR-41 added 2026-08-21, and FR-43 added 2026-08-21, Sprint Change Proposals — contracts to be specified alongside the others at architecture sign-off). The **final tool schemas require sign-off** and are ratified in the architecture step, not here. Breaking changes to tool schemas or the canonical-symbol/relationship formats bump the compatibility fingerprint (NFR-14). `→ brief §10, §12`
+Exactly six read-only names: `search_knowledge`, `resolve_symbol`, `get_record`, `get_relationships`, `check_symbols`, `index_status`. Final schemas require separate Story 2.8 sign-off.
+
+Keep defaults of 10 results, hard cap 50 and ≤1 MiB; finite ID/symbol batch, query, traversal work and trace limits must be frozen in Story 2.8. Too-large records return explicit bounded sections/continuation or a structured size error, never an unbounded response. Cursors bind build/version/query so stale cursors are rejected or explicitly restarted, never silently mixed with a new build.
+
+Content results include stable ID, record type, knowledge kind, provenance/governance, citation, applicability, proof facts, `matchedBy`, scope/coverage, active build and SDK version. Empty results distinguish not-found, not-indexed, filtered/inapplicable and unavailable capability as applicable. Report total with an exact/lower-bound/unknown relation; never label a bounded ranked set exhaustive.
+
+Do not drop verdicts because a citation is absent. Optional diagnostic provenance may accompany them, but the schema must make absent/not-applicable distinct from a missing required content citation. Public inputs cannot accept credentials, host paths, endpoints, model/device settings or activation controls.
 
 ## 8. Open Questions
 
-Single registry; blockers must clear before the noted milestones (they do **not** block starting Epics 1–4).
-
-1. **B1 — Reference hardware + representative corpus undefined.** All of NFR-1…NFR-9 are unfalsifiable until fixed. *Owner:* product + technical owner. *Blocks:* NFR sign-off, Epic 8. `→ brief §14`
-2. **B2 — Gold retrieval dataset not yet built; 90% top-5 (SM-3) provisional.** *Owner:* product + corpus owner. *Blocks:* Epic 5 acceptance, Definition of Done. `→ brief §15, §18`
-3. **B3 — Legal/license review for redistributing docs-derived indexes + model artifact not done.** *Owner:* security/legal reviewer. *Blocks:* Epic 8 release. `→ brief §14`
-4. **B4 — Governance roles defined but not assigned to people.** *Owner:* product owner to assign. *Blocks:* every sign-off. `→ brief §14`
-5. **B5 — JDK pin undecided** ("Java 21 or org's approved current LTS"). *Owner:* technical owner. *Blocks:* Epic 1 skeleton + manifest. `→ brief §3`
-
-**Design questions to resolve in the architecture step (not blockers):**
-6. ONNX embedding-session concurrency/thread-safety strategy vs NFR-3 (session pooling?). `→ brief §3, §14`
-7. `get_method`/`get_class` `className` input: simple name vs FQN + ambiguity handling (folds into the MCP-schema sign-off). `→ brief §10`
-8. NFR-8 (≤4×) and NFR-9 (≤1.5 GiB) feasibility risks — vector bytes scale with record count, not source size; base-image digest choice matters.
-
-**Minor discrepancies (non-blocking):**
-9. Brief §19 says store the doc as `docs/luciad-knowledge-mcp-brief.md`, but the actual file is `docs/luciad-knowledge-mcp-implementation-brief.md`. Kickoff/SKILL references should use the real path.
-10. NFR-4 (30 s startup) must be read as "prebuilt index, model-load-inclusive on reference hardware," not cold-corpus.
+- **B1 — Reference hardware/corpus.** Product + technical owners define these before NFR sign-off/release; targets are not measured or waived.
+- **B2 — Retrieval gold set and provisional 90% top-5.** Product + corpus owners reconcile the diagnostic target under 10.1 before acceptance claims.
+- **B3 — Corpus/license/distribution approval.** Security/legal review gates release; model licensing waits with deferred vectors.
+- **B4 — Named governance owners.** Product owner assigns people; all human sign-offs remain open until recorded.
+- **B5 — Java pin.** Retain Java 21 direction, but technical owner must explicitly resolve formal 21 vs organizational LTS approval; completed scaffolding does not close this gate.
+- **B6 — Outcome decision protocol.** Product/technical/corpus owners approve 10.1 success rubric, improvement threshold, task partition/access controls, repeated-trial policy and budgets before trials or corpus tuning.
+- **Story 2.5 review.** Story is in-review while tracker is in-progress; reviewer reconciles through existing review process. Do not promote status or expand frozen intent.
+- **Story 2.8 contracts.** Exact serialization/schema/wire formats, finite budgets, recipe-cycle and lifecycle lock/recovery rules still need technical sign-offs before dependent work.
+- **Deferred capabilities.** ONNX concurrency/model/KNN settings, training provenance/governance/Docling pin and broad tag vocabulary require later reactivation decisions, not first-proof work.
 
 ## 9. Assumptions Index
 
-- [ASSUMPTION §0/§2.3] The only consumer interface is the MCP tool surface (no human UI); UX artifact intentionally skipped. `[NEEDS CONFIRM]`
-- [ASSUMPTION §6.2] Python evaluation tooling is release-engineering-only and excluded from the runtime image/dependency graph. (Directly from brief §2/§16 — high confidence.)
-- [ASSUMPTION NFR-1…9] "Reference corpus/hardware" will be supplied by owners during Epic 5/8; targets are placeholders until B1 closes.
-- [ASSUMPTION SM-3] The 90% top-5 threshold stays provisional until B2's gold set exists and the product owner approves the threshold.
-- [ASSUMPTION F6] Final MCP tool JSON schemas are deferred to the architecture step's sign-off; the §10 text is the contract until then.
+- The interface is agent-facing MCP; there is no human-screen UX contract.
+- External evaluation tooling and compile/test are outside the serving runtime.
+- Reference hardware/corpus and named owners remain pending B1/B4; no acceptance result is inferred here.
+- The 90% top-5 diagnostic is provisional under B2; outcome improvement is predeclared under B6/10.1.
+- Story 2.8 freezes and obtains approval for exact contracts; historical brief §10 is provenance, superseded where it conflicts with this six-tool amendment.
+- Planning application does not complete Story 2.5 review, authorize immediate source changes, close technical approvals, or pass proof/release gates.
+
+
+## Amendment provenance
+
+The August 21 guide/training/tag proposals, August 24 shared-host decision and August 25 structure-aware-example amendment remain historical provenance. This approved October 2 change retains shared hosting and structure-aware examples, narrows guides and defers training/tags/vectors. Original dated proposals and completed-story records are unchanged; the approved proposal and companion retain the OLD → NEW rationale. FR-37 remains intentionally unassigned.
