@@ -10,6 +10,7 @@ __pycache__/
 
 # --- Java build output ---
 *.class
+/app/*/bin/
 
 # --- Stale Maven output (build tool removed; kept ignored so leftovers never re-enter) ---
 target/
@@ -30,3 +31,6 @@ docs.zip
 review_diff_*.patch
 # Throwaway manual harness that points at a local Javadoc corpus (env-gated, skips in CI).
 **/ScratchRealDocsTest.java
+
+# graft's local graph cache — regenerable, not committed (run `graft build`).
+/graft/
