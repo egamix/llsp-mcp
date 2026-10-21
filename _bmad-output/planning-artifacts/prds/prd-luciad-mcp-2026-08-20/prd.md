@@ -170,11 +170,15 @@ No requirement carries this number. The gap is intentional; FR numbering jumps F
 - A `Guide` or `Training` record with no resolved canonical-symbol link remains discoverable via its technique tags (see FR-43), closing the symbol-less-content discoverability gap.
 
 ### F5. Exact and lexical retrieval with gated semantic enhancement
-**Description:** Version-bound exact resolution plus BM25 is the supported first-proof mode; vector search and fusion require later evaluation and approval.
+**Description:** Source-bound exact resolution with optional target context plus BM25 is the supported first-proof mode; vector search and fusion require later evaluation and approval.
 
-#### FR-16: Version-bound exact resolution
+### Approved SDK guidance policy — 2026-10-21
 
-Bind SDK version before catalog lookup. Known signatures resolve to exact proof or explicit ambiguity/unresolved state. Exact matches lead ranked candidates; BM25 relevance can never become identity or applicability proof. Canonical fixtures achieve 100% exact lookup with zero wrong-version or silently selected overloads.
+Default answers provide useful normal guidance with ordinary citations to the actual source version. A user on 2023.1 can use documentation from 2023.5 without a mandatory SDK prompt, mismatch error, automatic UNVERIFIED/incompatible warning or inferred API absence. Target labels, proximity and missing target documentation are not change evidence. Only concrete, cited introduction/removal/behavior-change evidence relevant to the supplied target may produce a specific notice. GENERAL guidance has explicit unrestricted target applicability while retaining approval/provenance. Exact source identity does not prove tested compatibility in the target. Missing all usable evidence is a source-availability/not-found outcome. Explicit source filters remain possible and are never derived automatically from target context. This policy is approved; technical schema/identity/interface sign-offs remain pending. read-tools/2 implements policy/contracts only; downstream retrieval/MCP integration remains required.
+
+#### FR-16: Source-bound exact resolution with optional target context
+
+Keep optional user target SDK separate from actual source SDK/build. Missing exact-target documentation must not block available-source retrieval, resolution or symbol checks. Known signatures resolve to exact cited-source identity or explicit ambiguity/unresolved state, without asserting tested target compatibility. Exact matches lead ranked candidates; BM25 relevance never proves identity or applicability. Canonical fixtures achieve 100% exact lookup with no foreign-source attribution or silently selected overloads.
 
 #### FR-17: BM25 and scoped knowledge filters
 
@@ -256,7 +260,7 @@ CLI validation/activation and MCP startup/reload/rollback/restore use the same B
 
 #### FR-28: Reader-safe rollback and isolated versions
 
-Retain current and previous builds where storage allows, preserve an explicit version default and pin each request to one immutable handle. Revalidate current runtime compatibility before rollback; no deletion while readers reference a build. Invalid replacement keeps the valid current handle serving; invalid cold start fails clearly. Cross-version migration/combined queries are unsupported in the first proof, never silently merged.
+Retain current and previous builds where storage allows, preserve an explicit source default and pin each request to one immutable source/build handle. Revalidate current runtime compatibility before rollback; no deletion while readers reference a build. Invalid replacement keeps the valid current handle serving; invalid cold start fails clearly. Optional target SDK context does not restrict source selection. Use one configured usable source within finite budgets unless an explicit source filter is supplied; preserve source isolation and never merge graph evidence across sources. Combined-source/migration engines remain deferred.
 
 #### FR-29: Manifest-complete backup and shared restore validation
 
@@ -362,7 +366,7 @@ No public or authenticated multi-tenant deployment, no public-base/private-overl
 
 ### 6.1 First product proof
 
-Contract freeze (2.8), version-bound exact/BM25 retrieval, the six tools, selected approved task-relevant content, initial guidance, immutable validation/atomic activation and controlled evaluation. Freeze 10.1 protocol and reserve held-out tasks before curation. Finish 2.5 review, then 2.6/2.7 → 2.8 → 4.1/4.2/4.6 + 6.1/6.2/6.5 + 5.7 → tools/content/guidance → 10.2/10.3/10.4. Minimum lifecycle cannot be bypassed for proof acceptance.
+Contract freeze (2.8), source-bound exact/BM25 retrieval with optional target context, the six tools, selected approved task-relevant content, initial guidance, immutable validation/atomic activation and controlled evaluation. Freeze 10.1 protocol and reserve held-out tasks before curation. Finish 2.5 review, then 2.6/2.7 → 2.8 → 4.1/4.2/4.6 + 6.1/6.2/6.5 + 5.7 → tools/content/guidance → 10.2/10.3/10.4. Minimum lifecycle cannot be bypassed for proof acceptance.
 
 ### 6.2 Production release
 
@@ -381,7 +385,7 @@ Derived from brief §15 key measures and §14 targets; each validates the noted 
 - **SM-2: Unknown-symbol safety = never marked valid.** Validates FR-10, FR-24, FR-30. `→ brief §15`
 - **SM-3: Natural-language retrieval ≥ 90%** of approved conceptual gold queries return an expected workflow/example/API record in the top 5 (provisional retrieval diagnostic; per-query results retained; B2 must explicitly reconcile and approve the threshold). Validates FR-16–FR-19. `→ brief §15, §18`
 - **SM-4: Citation completeness = 100%** of returned primary records. Validates FR-31. `→ brief §15`
-- **SM-5: Version isolation** — no cross-version mixing; migration/combined queries are unsupported in the first proof. Validates FR-28. `→ brief §15`
+- **SM-5: Source isolation** - no foreign records/edges in a pinned source; optional target context may differ from it. Missing target docs never imply target API absence; combined-source engines remain deferred. Validates FR-28.
 
 **Secondary**
 - **SM-6: Overload ambiguity always explicit.** Validates FR-6, FR-21. `→ brief §15`

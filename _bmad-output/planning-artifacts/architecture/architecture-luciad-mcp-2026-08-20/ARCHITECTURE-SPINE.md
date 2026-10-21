@@ -77,11 +77,11 @@ Solid arrows are compile-time dependencies; CLI/bootstrap constructs and injects
 
 ### AD-7 — Exact evidence cannot be replaced by relevance
 
-**Rule (approved planning amendment, 2026-10-02):** After SDK/build binding, resolve and check symbols against catalog facts. Exact proof ranks ahead of lexical candidates; relevance never proves identity or applicability. Unknown remains unknown; ambiguous overloads are never silently selected. Six-tool consumers use these same services.
+**Rule (approved planning amendment, 2026-10-02):** After source SDK/build pinning independently of optional target context, resolve and check symbols against catalog facts. Exact proof ranks ahead of lexical candidates; relevance never proves identity or applicability. Unknown remains unknown; ambiguous overloads are never silently selected. Six-tool consumers use these same services.
 
-### AD-7a — Bind one SDK version before every query
+### AD-7a - Separate optional target context from pinned source evidence
 
-**Rule (approved planning amendment, 2026-10-02):** Explicit caller SDK version or configured default binds before lookup. A symbol only in another version is unknown in the target version. First-proof cross-version migration/combined scopes return unsupported-operation; no opt-in can silently combine versions. A request pins one immutable build handle.
+**Rule (approved SDK guidance amendment, 2026-10-21):** Optional target SDK is guidance context only; no mandatory prompt or implicit restrictive source filter. Select one configured usable source deterministically within finite request budgets, respecting explicit source/build filters, and pin its immutable build. Missing exact-target docs do not block available-source retrieval, resolution or symbol checks. Exact identity is proven only in the cited source and does not claim tested target compatibility. Target 2023.1/source 2023.5 yields useful normal guidance with ordinary 2023.5 citations. No mismatch-only error, negative API-existence inference or automatic UNVERIFIED warning. Only concrete, cited target-relevant introduction/removal/behavior-change evidence supports a specific notice; labels/proximity/absence cannot. Preserve ambiguity and honest source limitations. Combined-source engines remain deferred; this amendment implements tested policy/contracts, with handlers downstream. User policy approval leaves technical sign-offs pending.
 
 ### AD-8 — Identical embedding fingerprint at index-time and query-time `[DEFERRED]`
 
@@ -102,9 +102,9 @@ Solid arrows are compile-time dependencies; CLI/bootstrap constructs and injects
 
 **Rule (approved planning amendment, 2026-10-02):** All six tools enforce default page 10, hard cap 50, ≤1 MiB serialized payload, plus finite input/query/candidate/ID-batch/symbol-batch/traversal/trace/time budgets frozen under 2.8. Full content only through bounded get_record sections/continuation or explicit size error. Limits apply before materializing unbounded intermediate sets; return work and payload truncation honestly.
 
-### AD-12 — SDK and build scope are mandatory
+### AD-12 - Actual source SDK and immutable build scope are mandatory
 
-**Rule (approved planning amendment, 2026-10-02):** Records, edges, index content and queries carry SDK scope. Bind one explicit/default version and immutable build per request and cursor. Side-by-side builds stay isolated; migration/combined queries are unsupported in the first proof.
+**Rule (approved SDK guidance amendment, 2026-10-21):** Records, edges and citations retain actual source SDK/build provenance and source-specific IDs. Pin one usable source/build per request; bind optional target context separately in cursors together with explicit filters and all budgets. Side-by-side builds stay isolated, edges require same-source evidence and foreign/corrupt data is rejected. GENERAL guidance may have unrestricted target applicability while keeping governance and source provenance. Never turn missing target docs into a source-integrity relaxation or API-absence claim. Combined-source/migration engines remain deferred.
 
 ### AD-13 — Bounded concurrent stateless serving
 
@@ -133,7 +133,7 @@ Solid arrows are compile-time dependencies; CLI/bootstrap constructs and injects
 
 ### AD-19 — Bounded retrieval pipeline and truthful counts
 
-**Rule (approved planning amendment, 2026-10-02):** Bind SDK/build → retrieve exact/lexical candidates within finite budgets → governance/applicability and primary-content citation checks → deterministic ordering → bounded page/enrichment. Retrieval owns bounded work/result assembly; transport cannot request a full unbounded candidate set. Return exact/lower-bound/unknown count relation plus work/payload truncation and continuation. Bounded ranked results never claim corpus exhaustiveness. Verdict/status paths bypass content-citation filtering; optional diagnostic provenance is distinct.
+**Rule (approved planning amendment, 2026-10-02):** Select and pin source/build independently of optional target context → retrieve exact/lexical candidates within finite budgets → governance/applicability and primary-content citation checks → deterministic ordering → bounded page/enrichment. Retrieval owns bounded work/result assembly; transport cannot request a full unbounded candidate set. Return exact/lower-bound/unknown count relation plus work/payload truncation and continuation. Bounded ranked results never claim corpus exhaustiveness. Verdict/status paths bypass content-citation filtering; optional diagnostic provenance is distinct.
 
 ### AD-20 — Deterministic ordering and continuation
 
@@ -236,7 +236,7 @@ Solid arrows are compile-time dependencies; CLI/bootstrap constructs and injects
 | SDK relations | 17 total: 13 Javadoc structural types, WORKFLOW_REQUIRES, USES_TYPE/CONSTRUCTS/CALLS. Knowledge dependency family/version frozen separately in 2.8. |
 | Identity/hashes | Domain pure ID recipes; separate source/content/build-recipe/runtime digests. No engine IDs, wall-clock, absolute paths or output-root identity. |
 | Evidence | SourceRange and explicit exact/ambiguous/unresolved status, reason, original token and candidates. Selected target only with exact proof. |
-| Dates/versions | ISO-8601 UTC operational timestamps; explicit SDK/build scope on records/queries. Operational timestamps/diagnostic absolute paths excluded from portable logical known answers. |
+| Dates/versions | ISO-8601 UTC operational timestamps; actual source SDK/build scope on records/evidence; optional user target context on requests. Operational timestamps/diagnostic absolute paths excluded from portable logical known answers. |
 | Envelope | Stable codes, IDs, record/knowledge kinds, proof/ambiguity, matchedBy, applicability/governance, citations when applicable, SDK/build, coverage/count relation, empty reason, truncation and continuation. Exact schema/finite bounds require 2.8 sign-off. |
 | Mutation | Build-scoped staging only; immutable sealed/validated active data; candidate learning remains outside active stores. |
 | Logging/config | application.yaml remains sole operator config, redacted logs, no proprietary bodies by default; agent schemas expose no administrative controls. |
