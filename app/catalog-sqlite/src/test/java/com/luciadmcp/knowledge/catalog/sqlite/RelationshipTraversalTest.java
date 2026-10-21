@@ -37,10 +37,9 @@ class RelationshipTraversalTest {
         return result;
     }
     @Test void chainDirectionsTypesIsolatedAndMissing() {
-        Path db = dir.resolve("chain.db"); nodes(db,"1","A","B","C","I"); nodes(db,"2","A","Z");
+        Path db = dir.resolve("chain.db"); nodes(db,"1","A","B","C","I");
         edges(db,"AB","BC");
         try (var old = new SqliteRelationshipStore(db)) {
-            old.put(new RelationshipEdge("A","Z",RelationshipType.SEE_ALSO,"2"));
             old.put(new RelationshipEdge("A","C",RelationshipType.RETURN_TYPE,"1"));
             assertThrows(IllegalStateException.class, () -> old.traverse(new TraversalRequest("A")));
         }
@@ -200,7 +199,7 @@ class RelationshipTraversalTest {
     }
 
     @Test void continuationAuthenticatesEveryQueryScopeAndRuntimeKey() {
-        Path db = dir.resolve("cursor.db"); nodes(db,"1","A","B","C"); nodes(db,"2","A","B","C"); edges(db,"AB","AC");
+        Path db = dir.resolve("cursor.db"); nodes(db,"1","A","B","C"); edges(db,"AB","AC");
         var bounded = limits(3,100,100,100,1,1_000_000);
         String token;
         try (var store = serving(db)) {

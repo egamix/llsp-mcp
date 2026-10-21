@@ -20,6 +20,28 @@ class FreezeContractTest {
         var unknown = new BuildValidator.Input("0.0.0-stub",0,"wrong",true,List.of(),List.of(),List.of());
         assertEquals(List.of(BuildValidator.Reason.UNKNOWN_SDK,BuildValidator.Reason.UNSUPPORTED_SCHEMA,BuildValidator.Reason.INCOMPATIBLE_RUNTIME,BuildValidator.Reason.BUILD_INVALIDATING_OUTCOME),validator.validate(unknown,BuildValidator.Operation.ACTIVATION).reasons());
     }
+    @Test void independentPracticeAndRecipeTypesRequireGovernanceEvenWhenMarkedAsFacts() {
+        var validator = new StandardBuildValidator();
+        for (var type : List.of(KnowledgeRecord.RecordType.PRACTICE, KnowledgeRecord.RecordType.RECIPE)) {
+            var record = new KnowledgeRecord("synthetic-" + type, "2024.0", type,
+                    KnowledgeRecord.KnowledgeKind.AUTHORITATIVE_FACT, Optional.empty(),
+                    new SourceLocator(SourceLocator.Kind.ABSENT, "", Optional.empty(), "synthetic specimen"),
+                    new KnowledgeRecord.Governance(KnowledgeRecord.Approval.APPROVED, "", "", ""),
+                    new KnowledgeRecord.Applicability("LuciadLightspeed", List.of("2024.0"), List.of()));
+            var input = new BuildValidator.Input("2024.0", ContractVersions.SCHEMA, ContentHashes.runtimeFingerprint(),
+                    false, List.of(), List.of(record), List.of());
+            for (var operation : BuildValidator.Operation.values())
+                assertEquals(List.of(BuildValidator.Reason.INVALID_GOVERNANCE), validator.validate(input, operation).reasons());
+        }
+        var fact = new KnowledgeRecord("synthetic-api-fact", "2024.0", KnowledgeRecord.RecordType.API,
+                KnowledgeRecord.KnowledgeKind.AUTHORITATIVE_FACT, Optional.empty(),
+                new SourceLocator(SourceLocator.Kind.SOURCE, "a/Fact.html", Optional.empty(), ""),
+                new KnowledgeRecord.Governance(KnowledgeRecord.Approval.APPROVED, "", "synthetic vendor source", ""),
+                new KnowledgeRecord.Applicability("LuciadLightspeed", List.of("2024.0"), List.of()));
+        assertTrue(validator.validate(new BuildValidator.Input("2024.0", ContractVersions.SCHEMA,
+                ContentHashes.runtimeFingerprint(), false, List.of(), List.of(fact), List.of()), BuildValidator.Operation.CLI).valid());
+    }
+
     @Test void structuredPayloadAndAbsentAnchorHaveIndependentHashes() {
         var absent = new SourceLocator(SourceLocator.Kind.SOURCE,"a/T.html",Optional.empty(),"source has no anchor");
         var external = new DocumentationPayload.Link("link","https://example.test/doc","2024.0",new SourceLocator(SourceLocator.Kind.EXTERNAL,"https://example.test/doc",Optional.empty(),""));

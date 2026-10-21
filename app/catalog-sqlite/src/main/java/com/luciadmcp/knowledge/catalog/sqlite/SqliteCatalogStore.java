@@ -201,7 +201,7 @@ public final class SqliteCatalogStore implements CatalogStore {
             }
             try(ResultSet r=statement.executeQuery("SELECT edge_id,sdk_version,source_id,type,target_id,evidence FROM edges LIMIT 200000")) {
                 while(r.next()) {
-                    if(!sdkVersion.equals(r.getString(2))) continue;
+                    if(!sdkVersion.equals(r.getString(2))) { reasons.add(com.luciadmcp.knowledge.domain.BuildValidator.Reason.INVALID_SCOPE); continue; }
                     try {
                         String id=com.luciadmcp.knowledge.domain.ContentHashes.relationshipHash(r.getString(2),r.getString(3),com.luciadmcp.knowledge.domain.RelationshipType.valueOf(r.getString(4)),r.getString(5),r.getString(6));
                         if(!id.equals(r.getString(1)) || !recordIds.contains(r.getString(3)) || !recordIds.contains(r.getString(5))) reasons.add(com.luciadmcp.knowledge.domain.BuildValidator.Reason.INVALID_IDENTITY);
