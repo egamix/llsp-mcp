@@ -80,7 +80,7 @@ public final class IdentityFields {
         List<String> values = new ArrayList<>(names.size());
         for (String name : names) {
             values.add(switch (name) {
-                case FIELD_CANONICAL_SYMBOL -> record.canonicalKey();
+                case FIELD_CANONICAL_SYMBOL -> SymbolCoordinate.from(record).serialize();
                 case FIELD_SDK_VERSION -> record.sdkVersion();
                 default -> throw new IllegalArgumentException("unknown identity field: " + name);
             });

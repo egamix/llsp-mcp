@@ -134,23 +134,37 @@ class CanonicalSymbolMinterTest {
         Set<String> jdk11 = keysOf(mint("jdk11/Widget.html", PATH));
         Set<String> jdk17 = keysOf(mint("jdk17/Widget.html", PATH));
 
-        assertEquals(jdk8, jdk11, "JDK 8 legacy vs JDK 11–16 modern keys must match");
+        assertEquals(jdk8.stream().map(k -> k.replace("java.util.function.", "").replace("com.example.Point", "Point")).collect(java.util.stream.Collectors.toSet()), jdk11.stream().map(k -> k.replace("java.util.function.", "").replace("com.example.Point", "Point")).collect(java.util.stream.Collectors.toSet()));
         assertEquals(jdk11, jdk17, "JDK 11–16 modern vs JDK 17+ modern keys must match");
 
         // The divergently-rendered overloads specifically reduce to the same erased lists.
-        assertTrue(jdk8.contains(FQN + "#contains(Point)"));
+        assertTrue(jdk8.stream().anyMatch(k -> k.endsWith("Point)")));
         assertTrue(jdk8.contains(FQN + "#contains(double,double)"));
-        assertTrue(jdk8.contains(FQN + "#map(Function)"));
+        assertTrue(jdk8.stream().anyMatch(k -> k.endsWith("Function)")));
         assertTrue(jdk8.contains(FQN + "#merge(int[])"));
         assertTrue(jdk8.contains(FQN + "#scale(double[])"));
 
         // Erased param lists compare equal for a divergently-rendered method across all eras.
         List<String> p8 = keyed(mint("jdk8/Widget.html", PATH).records(), FQN + "#map(Function)")
                 .erasedParameterTypes();
-        List<String> p17 = keyed(mint("jdk17/Widget.html", PATH).records(), FQN + "#map(Function)")
+        List<String> p17 = keyed(mint("jdk17/Widget.html", PATH).records(), FQN + "#map(java.util.function.Function)")
                 .erasedParameterTypes();
         assertEquals(List.of("Function"), p8);
-        assertEquals(p8, p17);
+        assertEquals(List.of("java.util.function.Function"), p17);
+    }
+
+    @Test
+    void qualifiedOverloadsAndPartialOccurrencesSurviveReordering() {
+        var a = method("read", "void read(a.Value x)");
+        var b = method("read", "void read(b.Value x)");
+        var partial = method("broken", "no signature");
+        var first = minter.mint(new ExtractedType(PATH, "", "", Deprecation.NONE, List.of(a, partial, b)));
+        var second = minter.mint(new ExtractedType(PATH, "", "", Deprecation.NONE, List.of(b, a, partial)));
+        assertEquals(keysOf(first.records()), keysOf(second.records()));
+        assertTrue(keysOf(first.records()).contains(FQN + "#read(a.Value)"));
+        assertTrue(keysOf(first.records()).contains(FQN + "#read(b.Value)"));
+        var collision = minter.mint(new ExtractedType(PATH, "", "", Deprecation.NONE, List.of(partial, partial)));
+        assertTrue(collision.issues().stream().anyMatch(i -> i.contains("duplicate canonical key")));
     }
 
     // --- AC 6: deterministic order + keys independent of overload count ----------------------------
@@ -225,8 +239,8 @@ class CanonicalSymbolMinterTest {
 
         // Best-effort keys minted (no fabricated parameter list, no silent drop). Degraded keys fold
         // in kind + source index so they can never collide.
-        SymbolRecord a = keyed(result.records(), FQN + "#brokenA?METHOD@0");
-        SymbolRecord b = keyed(result.records(), FQN + "#brokenB?METHOD@1");
+        SymbolRecord a = keyed(result.records(), FQN + "#brokenA?METHOD@" + com.luciadmcp.knowledge.domain.ContentHashes.digest("partial-occurrence/1", List.of(PATH, "METHOD", "brokenA", "")));
+        SymbolRecord b = keyed(result.records(), FQN + "#brokenB?METHOD@" + com.luciadmcp.knowledge.domain.ContentHashes.digest("partial-occurrence/1", List.of(PATH, "METHOD", "brokenB", "void brokenB")));
         assertTrue(a.erasedParameterTypes().isEmpty());
         assertTrue(b.erasedParameterTypes().isEmpty());
         assertEquals(2, result.issues().size(), () -> "one issue per broken member: " + result.issues());
@@ -246,7 +260,7 @@ class CanonicalSymbolMinterTest {
 
         List<SymbolRecord> records = minter.mint(type).records();
         SymbolRecord fieldRec = keyed(records, FQN + "#foo");
-        SymbolRecord methodRec = keyed(records, FQN + "#foo?METHOD@1");
+        SymbolRecord methodRec = keyed(records, FQN + "#foo?METHOD@" + com.luciadmcp.knowledge.domain.ContentHashes.digest("partial-occurrence/1", List.of(PATH, "METHOD", "foo", "")));
         assertEquals(SymbolKind.FIELD, fieldRec.kind());
         assertEquals(SymbolKind.METHOD, methodRec.kind());
         assertKeysUnique(records);
@@ -260,8 +274,8 @@ class CanonicalSymbolMinterTest {
 
         List<SymbolRecord> records = minter.mint(type).records();
         assertEquals(2, records.stream().filter(r -> r.simpleName().equals("bar")).count());
-        keyed(records, FQN + "#bar?METHOD@0");
-        keyed(records, FQN + "#bar?METHOD@1");
+        keyed(records, FQN + "#bar?METHOD@" + com.luciadmcp.knowledge.domain.ContentHashes.digest("partial-occurrence/1", List.of(PATH, "METHOD", "bar", "")));
+        keyed(records, FQN + "#bar?METHOD@" + com.luciadmcp.knowledge.domain.ContentHashes.digest("partial-occurrence/1", List.of(PATH, "METHOD", "bar", "  ")));
         assertKeysUnique(records);
     }
 

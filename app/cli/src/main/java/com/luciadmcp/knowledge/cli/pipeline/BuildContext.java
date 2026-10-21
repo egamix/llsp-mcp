@@ -95,29 +95,19 @@ public record BuildContext(String buildId, String sealedInputDigest, Path stagin
     /**
      * Computes the build identity deterministically from the ordered input set of one invocation.
      *
-     * <p>The digest folds two things, in fixed order: the input path structure (javadoc, samples,
-     * guides, model, out, then trainings or an explicit "absent" marker as normalized path strings),
-     * then the content of every input file under each input root — each file contributes its
-     * relative path and its {@link ContentHashes#sourceHash(byte[]) sourceHash}. So the {@code buildId}
-     * is a content hash over the complete build-input set (AD-17), not just the paths: changing one
-     * byte of one input file changes the {@code buildId} and therefore forces a fresh run rather than
-     * a resume (AD-25). Same inputs &rarr; same digest &rarr; same {@code buildId} and {@code stagingDir}.
-     *
-     * <p>Files are enumerated in sorted relative-path order so the digest is independent of filesystem
-     * walk order. The {@code out} directory is the build destination, not an input, so its contents are
-     * never folded in — only its path participates, as before.
+     * <p>Versioned framed hashing includes profile, governed selection, runtime, SDK version and
+     * sorted source-relative file paths/hashes. Absolute input/output roots are operational only.
+     * Relocation and enumeration order preserve identity; byte or recipe changes require a new build.
      *
      * @param args the validated six-path inputs
      * @return the coordinator-owned build context for this invocation
      */
     public static BuildContext forInputs(IngestArguments args) {
         List<String> ordered = new ArrayList<>();
-        ordered.add("javadoc=" + normalize(args.javadoc()));
-        ordered.add("samples=" + normalize(args.samples()));
-        ordered.add("guides=" + normalize(args.guides()));
-        ordered.add("model=" + normalize(args.model()));
-        ordered.add("out=" + normalize(args.out()));
-        ordered.add("trainings=" + args.trainings().map(BuildContext::normalize).orElse("<absent>"));
+        ordered.add("profile=" + com.luciadmcp.knowledge.domain.ContractVersions.PROFILE);
+        ordered.add("recipe=" + ContentHashes.recipeFingerprint(com.luciadmcp.knowledge.domain.ContractVersions.PROFILE, List.of()));
+        ordered.add("runtime=" + ContentHashes.runtimeFingerprint());
+        ordered.add("trainings=" + args.trainings().map(root -> "present").orElse("absent"));
         // The SDK version scopes the whole build (AD-12), so it is part of the sealed input set: a
         // different version is a different build, not a resume. The digest folds a distinct "<absent>"
         // marker when no version was supplied, so an explicit "--sdk-version 0.0.0-stub" and an absent
@@ -133,8 +123,8 @@ public record BuildContext(String buildId, String sealedInputDigest, Path stagin
         hashRootFiles(ordered, "model", args.model());
         args.trainings().ifPresent(root -> hashRootFiles(ordered, "trainings", root));
 
-        String digest = sha256Hex(String.join("\n", ordered));
-        String buildId = "b-" + digest.substring(0, 16);
+        String digest = ContentHashes.digest("build/1", ordered);
+        String buildId = "b-" + digest;
         Path stagingDir = args.out().resolve(".staging").resolve(buildId);
         return new BuildContext(buildId, digest, stagingDir, sdkVersion);
     }
@@ -175,24 +165,4 @@ public record BuildContext(String buildId, String sealedInputDigest, Path stagin
         }
     }
 
-    private static String normalize(Path path) {
-        return path.toAbsolutePath().normalize().toString();
-    }
-
-    private static String sha256Hex(String input) {
-        MessageDigest md;
-        try {
-            md = MessageDigest.getInstance("SHA-256");
-        } catch (NoSuchAlgorithmException e) {
-            // SHA-256 is a mandated JDK algorithm; its absence is not a recoverable condition.
-            throw new IllegalStateException("SHA-256 not available", e);
-        }
-        byte[] hash = md.digest(input.getBytes(StandardCharsets.UTF_8));
-        StringBuilder sb = new StringBuilder(hash.length * 2);
-        for (byte b : hash) {
-            sb.append(Character.forDigit((b >> 4) & 0xF, 16));
-            sb.append(Character.forDigit(b & 0xF, 16));
-        }
-        return sb.toString();
-    }
 }

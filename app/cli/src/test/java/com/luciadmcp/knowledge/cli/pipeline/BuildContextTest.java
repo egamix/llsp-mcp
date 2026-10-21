@@ -31,13 +31,13 @@ class BuildContextTest {
 
     /** AC 4: changing any input path changes the digest, buildId, and staging dir. */
     @Test
-    void changedInputChangesIdentity(@TempDir Path tmp) throws Exception {
+    void relocatedInputsPreserveLogicalIdentity(@TempDir Path tmp) throws Exception {
         IngestArguments base = PipelineTestSupport.argsIn(tmp.resolve("base"));
         IngestArguments changed = PipelineTestSupport.argsIn(tmp.resolve("other"));
         BuildContext a = BuildContext.forInputs(base);
         BuildContext b = BuildContext.forInputs(changed);
-        assertNotEquals(a.sealedInputDigest(), b.sealedInputDigest());
-        assertNotEquals(a.buildId(), b.buildId());
+        assertEquals(a.sealedInputDigest(), b.sealedInputDigest());
+        assertEquals(a.buildId(), b.buildId());
         assertNotEquals(a.stagingDir(), b.stagingDir());
     }
 
