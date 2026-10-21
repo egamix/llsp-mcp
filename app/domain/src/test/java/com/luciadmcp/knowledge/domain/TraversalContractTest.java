@@ -18,5 +18,17 @@ class TraversalContractTest {
         assertThrows(IllegalArgumentException.class, () -> new TraversalLimits(1,10001,1,1,1,1,1,65536));
         assertThrows(IllegalArgumentException.class, () -> new TraversalLimits(1,1,1,1,51,1,1,65536));
         assertThrows(IllegalArgumentException.class, () -> new TraversalLimits(1,1,1,1,1,1,1,1048577));
+        assertThrows(IllegalArgumentException.class, () -> new TraversalLimits(1,1,1,1,1,1,1,65535));
+        assertEquals(65536,new TraversalLimits(1,1,1,1,1,1,1,65536).responseBytes());
+        assertThrows(IllegalArgumentException.class, () -> new TraversalLimits(1,0,1,1,1,1,1,65536));
+        assertThrows(IllegalArgumentException.class, () -> new TraversalLimits(1,1,0,1,1,1,1,65536));
+        assertThrows(IllegalArgumentException.class, () -> new TraversalLimits(1,1,50001,1,1,1,1,65536));
+        assertThrows(IllegalArgumentException.class, () -> new TraversalLimits(1,1,1,0,1,1,1,65536));
+        assertThrows(IllegalArgumentException.class, () -> new TraversalLimits(1,1,1,10001,1,1,1,65536));
+        assertThrows(IllegalArgumentException.class, () -> new TraversalLimits(1,1,1,1,0,1,1,65536));
+        assertThrows(IllegalArgumentException.class, () -> new TraversalLimits(1,1,1,1,1,0,1,65536));
+        assertThrows(IllegalArgumentException.class, () -> new TraversalLimits(1,1,1,1,1,5000000001L,1,65536));
+        assertThrows(IllegalArgumentException.class, () -> new TraversalLimits(1,1,1,1,1,1,0,65536));
+        assertThrows(IllegalArgumentException.class, () -> new TraversalLimits(1,1,1,1,1,1,10000001,65536));
     }
 }

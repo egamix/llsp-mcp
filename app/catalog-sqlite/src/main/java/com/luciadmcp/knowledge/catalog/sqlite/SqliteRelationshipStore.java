@@ -90,13 +90,18 @@ public final class SqliteRelationshipStore implements RelationshipStore {
      */
     public SqliteRelationshipStore(Path dbPath, String buildId,
             com.luciadmcp.knowledge.domain.RelationshipScope scope, byte[] signingKey) {
-        this(requireExisting(dbPath, buildId, scope, signingKey));
+        this(requireExisting(dbPath, buildId, scope, signingKey), true);
         try {
             try (Statement stmt = connection.createStatement()) {
                 stmt.execute("PRAGMA query_only=ON");
                 stmt.execute("PRAGMA busy_timeout=0");
             }
             connection.setAutoCommit(false);
+            // Establish the snapshot at binding time, before any seed can be resolved.
+            try (Statement stmt = connection.createStatement();
+                    ResultSet ignored = stmt.executeQuery("SELECT 1 FROM records LIMIT 1")) {
+                ignored.next();
+            }
             traversal = new BoundedRelationshipTraversal(connection, buildId, scope, signingKey, System::nanoTime);
         } catch (SQLException | RuntimeException e) {
             closeQuietly(connection);
@@ -130,6 +135,10 @@ public final class SqliteRelationshipStore implements RelationshipStore {
      * @param dbPath the build-scoped SQLite file path (coordinator-owned; AD-25)
      */
     public SqliteRelationshipStore(Path dbPath) {
+        this(dbPath, false);
+    }
+
+    private SqliteRelationshipStore(Path dbPath, boolean readOnly) {
         if (dbPath == null) {
             throw new IllegalArgumentException("dbPath must not be null");
         }
@@ -144,8 +153,10 @@ public final class SqliteRelationshipStore implements RelationshipStore {
         }
         Connection opened = null;
         try {
-            opened = DriverManager.getConnection("jdbc:sqlite:" + absolute);
-            try (Statement stmt = opened.createStatement()) {
+            opened = DriverManager.getConnection(readOnly
+                    ? "jdbc:sqlite:" + absolute.toUri() + "?mode=ro"
+                    : "jdbc:sqlite:" + absolute);
+            if (!readOnly) try (Statement stmt = opened.createStatement()) {
                 stmt.execute(CREATE_EDGES_TABLE);
                 stmt.execute("CREATE INDEX IF NOT EXISTS edges_out ON edges(sdk_version,source_id,edge_id)");
                 stmt.execute("CREATE INDEX IF NOT EXISTS edges_in ON edges(sdk_version,target_id,edge_id)");
