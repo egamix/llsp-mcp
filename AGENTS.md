@@ -39,3 +39,9 @@ re-read whole files.
 After big code changes, refresh the graph with `graft build` (deterministic,
 no API key, $0).
 <!-- graft:end -->
+
+## Story commits
+
+- Work on the story's feature branch and commit each cohesive, substantial change separately as it is completed and verified.
+- Keep related tests with their implementation and order commits by dependency. Avoid both a single end-of-story commit and a commit for every tiny edit.
+- A build workflow's final commit records only remaining changes. Preserve the story's existing commits; do not squash them unless the user explicitly requests it.
