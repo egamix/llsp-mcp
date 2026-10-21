@@ -45,6 +45,20 @@ public interface RelationshipStore extends AutoCloseable {
     /** Every persisted edge, in a deterministic order (ascending edge ID). */
     List<StoredRelationshipEdge> allEdges();
 
+    /** Audit reads above retain all versions; consumer reads bind an explicit SDK scope. */
+    default List<StoredRelationshipEdge> edges(RelationshipScope scope) {
+        return allEdges().stream().filter(e -> e.edge().sdkVersion().equals(scope.sdkVersion())).toList();
+    }
+
+    /** Persist occurrence evidence atomically; identical retries are no-ops, conflicts are errors. */
+    default void putResolution(ReferenceResolution resolution) {
+        throw new UnsupportedOperationException("reference evidence storage is required");
+    }
+
+    default List<ReferenceResolution> resolutions(RelationshipScope scope) {
+        throw new UnsupportedOperationException("reference evidence storage is required");
+    }
+
     /** Closes the underlying store. Overridden to declare no checked exception for try-with-resources. */
     @Override
     void close();
