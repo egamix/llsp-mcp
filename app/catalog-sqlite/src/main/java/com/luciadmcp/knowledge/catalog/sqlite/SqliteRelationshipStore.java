@@ -1,6 +1,8 @@
 package com.luciadmcp.knowledge.catalog.sqlite;
 
 import com.luciadmcp.knowledge.domain.ContentHashes;
+import com.luciadmcp.knowledge.domain.ReferenceResolution;
+import com.luciadmcp.knowledge.domain.RelationshipScope;
 import com.luciadmcp.knowledge.domain.RelationshipEdge;
 import com.luciadmcp.knowledge.domain.RelationshipStore;
 import com.luciadmcp.knowledge.domain.RelationshipType;
@@ -106,6 +108,16 @@ public final class SqliteRelationshipStore implements RelationshipStore {
             opened = DriverManager.getConnection("jdbc:sqlite:" + absolute);
             try (Statement stmt = opened.createStatement()) {
                 stmt.execute(CREATE_EDGES_TABLE);
+                // Provisional Story 2.6 occurrence identity; outcome fields deliberately are not identity.
+                stmt.execute("CREATE TABLE IF NOT EXISTS reference_resolutions ("
+                        + "id INTEGER PRIMARY KEY, sdk_version TEXT NOT NULL, source_id TEXT NOT NULL, "
+                        + "source_path TEXT NOT NULL, source_anchor TEXT NOT NULL, type TEXT NOT NULL, "
+                        + "token TEXT NOT NULL, locator TEXT NOT NULL, status TEXT NOT NULL, kind TEXT NOT NULL, "
+                        + "reason TEXT NOT NULL, selected_id TEXT NOT NULL, "
+                        + "UNIQUE(sdk_version,source_id,type,token,locator))");
+                stmt.execute("CREATE TABLE IF NOT EXISTS reference_candidates ("
+                        + "resolution_id INTEGER NOT NULL, candidate_id TEXT NOT NULL, "
+                        + "PRIMARY KEY(resolution_id,candidate_id))");
             }
             this.connection = opened;
         } catch (SQLException e) {
@@ -210,6 +222,118 @@ public final class SqliteRelationshipStore implements RelationshipStore {
     }
 
     @Override
+    public List<StoredRelationshipEdge> edges(RelationshipScope scope) {
+        List<StoredRelationshipEdge> result = new ArrayList<>();
+        try (PreparedStatement ps = connection.prepareStatement(SELECT_EDGE_JOIN + " WHERE e.sdk_version=? ORDER BY e.edge_id")) {
+            ps.setString(1, scope.sdkVersion());
+            try (ResultSet rs = ps.executeQuery()) { while (rs.next()) result.add(read(rs)); }
+        } catch (SQLException e) { throw new IllegalStateException("could not read scoped edges", e); }
+        return List.copyOf(result);
+    }
+
+    @Override
+    public void putResolution(ReferenceResolution r) {
+        validateResolution(r);
+        try (PreparedStatement ps = connection.prepareStatement(
+                "SELECT * FROM reference_resolutions WHERE sdk_version=? AND source_id=? AND type=? AND token=? AND locator=?")) {
+            String[] identity = {r.sdkVersion(), r.sourceId(), r.relationshipType().name(), r.originalToken(), r.originalLocator()};
+            for (int i = 0; i < identity.length; i++) ps.setString(i + 1, identity[i]);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    if (!readResolution(rs, r.sdkVersion()).equals(r)) throw new IllegalStateException("conflicting reference evidence");
+                    return;
+                }
+            }
+        } catch (SQLException e) { throw new IllegalStateException("could not query reference occurrence", e); }
+        try {
+            connection.setAutoCommit(false);
+            try (PreparedStatement ps = connection.prepareStatement(
+                    "INSERT INTO reference_resolutions(sdk_version,source_id,source_path,source_anchor,type,token,locator,status,kind,reason,selected_id) VALUES(?,?,?,?,?,?,?,?,?,?,?)")) {
+                String[] values = {r.sdkVersion(), r.sourceId(), r.sourcePath(), r.sourceAnchor(),
+                        r.relationshipType().name(), r.originalToken(), r.originalLocator(),
+                        r.status().name(), r.kind().name(), r.reason().name(), r.selectedTargetId()};
+                for (int i = 0; i < values.length; i++) ps.setString(i + 1, values[i]);
+                ps.executeUpdate();
+            }
+            long id;
+            try (Statement st = connection.createStatement(); ResultSet rs = st.executeQuery("SELECT last_insert_rowid()")) {
+                rs.next(); id = rs.getLong(1);
+            }
+            try (PreparedStatement ps = connection.prepareStatement("INSERT INTO reference_candidates VALUES(?,?)")) {
+                for (String candidate : r.candidateIds()) {
+                    ps.setLong(1, id); ps.setString(2, candidate); ps.executeUpdate();
+                }
+            }
+            connection.commit();
+        } catch (SQLException e) {
+            try { connection.rollback(); } catch (SQLException rollback) { e.addSuppressed(rollback); }
+            throw new IllegalStateException("could not persist reference evidence", e);
+        } finally {
+            try { connection.setAutoCommit(true); }
+            catch (SQLException e) { throw new IllegalStateException("could not restore evidence transaction", e); }
+        }
+    }
+
+    private void validateResolution(ReferenceResolution r) {
+        if (r == null) throw new IllegalArgumentException("resolution must not be null");
+        String sql = "SELECT relative_path, anchor FROM records WHERE sdk_version=? AND record_id=?";
+        try (PreparedStatement ps = connection.prepareStatement(sql)) {
+            ps.setString(1, r.sdkVersion()); ps.setString(2, r.sourceId());
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next() || !r.sourcePath().equals(rs.getString(1)) || !r.sourceAnchor().equals(rs.getString(2)))
+                    throw new IllegalStateException("invalid reference source provenance");
+            }
+            for (String candidate : r.candidateIds()) {
+                ps.setString(2, candidate);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (!rs.next()) throw new IllegalStateException("candidate outside documented SDK scope");
+                }
+            }
+        } catch (SQLException e) { throw new IllegalStateException("could not validate reference provenance", e); }
+    }
+
+    @Override
+    public List<ReferenceResolution> resolutions(RelationshipScope scope) {
+        List<ReferenceResolution> result = new ArrayList<>();
+        String sql = "SELECT r.* FROM reference_resolutions r JOIN records s ON s.record_id=r.source_id "
+                + "AND s.sdk_version=r.sdk_version AND s.relative_path=r.source_path AND s.anchor=r.source_anchor "
+                + "WHERE r.sdk_version=? ORDER BY r.source_id,r.type,r.token,r.locator";
+        try (PreparedStatement ps = connection.prepareStatement(sql)) {
+            ps.setString(1, scope.sdkVersion());
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    result.add(readResolution(rs, scope.sdkVersion()));
+                }
+            }
+        } catch (SQLException e) { throw new IllegalStateException("could not read reference evidence", e); }
+        return List.copyOf(result);
+    }
+
+    private ReferenceResolution readResolution(ResultSet rs, String version) throws SQLException {
+        List<String> candidates = new ArrayList<>();
+        try (PreparedStatement cp = connection.prepareStatement(
+                "SELECT c.candidate_id,t.record_id AS verified_id FROM reference_candidates c "
+                + "LEFT JOIN records t ON t.record_id=c.candidate_id AND t.sdk_version=? "
+                + "WHERE c.resolution_id=? ORDER BY c.candidate_id")) {
+            cp.setString(1, version);
+            cp.setLong(2, rs.getLong("id"));
+            try (ResultSet cr = cp.executeQuery()) {
+                while (cr.next()) {
+                    if (cr.getString("verified_id") == null)
+                        throw new IllegalStateException("stored candidate outside SDK scope");
+                    candidates.add(cr.getString(1));
+                }
+            }
+        }
+        return new ReferenceResolution(rs.getString("sdk_version"), rs.getString("source_id"),
+                rs.getString("source_path"), rs.getString("source_anchor"),
+                RelationshipType.valueOf(rs.getString("type")), rs.getString("token"), rs.getString("locator"),
+                ReferenceResolution.Status.valueOf(rs.getString("status")),
+                ReferenceResolution.Kind.valueOf(rs.getString("kind")),
+                ReferenceResolution.Reason.valueOf(rs.getString("reason")), candidates, rs.getString("selected_id"));
+    }
+
+    @Override
     public void close() {
         try {
             connection.close();
@@ -225,8 +349,8 @@ public final class SqliteRelationshipStore implements RelationshipStore {
             "SELECT e.edge_id AS edge_id, e.sdk_version AS sdk_version, e.type AS type, "
                     + "s.canonical_key AS source_key, t.canonical_key AS target_key "
                     + "FROM edges e "
-                    + "JOIN records s ON s.record_id = e.source_id "
-                    + "JOIN records t ON t.record_id = e.target_id";
+                    + "JOIN records s ON s.record_id = e.source_id AND s.sdk_version = e.sdk_version "
+                    + "JOIN records t ON t.record_id = e.target_id AND t.sdk_version = e.sdk_version";
 
     private static StoredRelationshipEdge read(ResultSet rs) throws SQLException {
         String edgeId = rs.getString("edge_id");

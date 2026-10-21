@@ -67,6 +67,22 @@ record IngestionReport(
             cells = List.copyOf(cells);
         }
 
+        static ResolutionSummary from(java.util.List<com.luciadmcp.knowledge.domain.ReferenceResolution> resolutions) {
+            java.util.Map<String, long[]> counts = new java.util.TreeMap<>();
+            long[] totals = new long[3];
+            for (var r : resolutions) {
+                int status = switch (r.status()) { case EXACT -> 0; case AMBIGUOUS -> 1; case UNRESOLVED -> 2; };
+                totals[status]++;
+                counts.computeIfAbsent(r.relationshipType().name() + ":" + r.kind().name(), key -> new long[3])[status]++;
+            }
+            java.util.List<ResolutionCell> cells = new java.util.ArrayList<>();
+            counts.forEach((key, values) -> {
+                String[] parts = key.split(":");
+                cells.add(new ResolutionCell(parts[0], parts[1], values[0], values[1], values[2]));
+            });
+            return new ResolutionSummary(totals[0], totals[1], totals[2], cells);
+        }
+
         /** The zero summary used while stages are stubs and no relationships exist yet. */
         static ResolutionSummary empty() {
             return new ResolutionSummary(0, 0, 0, List.of());
@@ -93,6 +109,7 @@ record IngestionReport(
         sb.append("{\n");
         field(sb, "  ", "buildId", buildId).append(",\n");
         field(sb, "  ", "sdkVersion", sdkVersion).append(",\n");
+        field(sb, "  ", "relationshipScope", new com.luciadmcp.knowledge.domain.RelationshipScope(sdkVersion).boundary()).append(",\n");
         field(sb, "  ", "toolchainFingerprint", toolchainFingerprint).append(",\n");
         sb.append("  \"aborted\": ").append(aborted).append(",\n");
         sb.append("  \"activationOccurred\": ").append(activationOccurred).append(",\n");
@@ -118,12 +135,16 @@ record IngestionReport(
         sb.append(failures.isEmpty() ? "],\n" : "\n  ],\n");
 
         ResolutionSummary r = relationshipResolution;
-        sb.append("  \"relationshipResolution\": {\n");
-        sb.append("    \"exact\": ").append(r.exact()).append(",\n");
-        sb.append("    \"ambiguous\": ").append(r.ambiguous()).append(",\n");
-        sb.append("    \"unresolved\": ").append(r.unresolved()).append(",\n");
-        cells(sb, r.cells()).append("\n");
-        sb.append("  }\n");
+        if (r == null) {
+            sb.append("  \"relationshipResolution\": null\n");
+        } else {
+            sb.append("  \"relationshipResolution\": {\n");
+            sb.append("    \"exact\": ").append(r.exact()).append(",\n");
+            sb.append("    \"ambiguous\": ").append(r.ambiguous()).append(",\n");
+            sb.append("    \"unresolved\": ").append(r.unresolved()).append(",\n");
+            cells(sb, r.cells()).append("\n");
+            sb.append("  }\n");
+        }
 
         sb.append("}\n");
         return sb.toString();

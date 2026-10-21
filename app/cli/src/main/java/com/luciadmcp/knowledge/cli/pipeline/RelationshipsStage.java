@@ -2,6 +2,7 @@ package com.luciadmcp.knowledge.cli.pipeline;
 
 import com.luciadmcp.knowledge.domain.CatalogStore;
 import com.luciadmcp.knowledge.domain.RelationshipEdge;
+import com.luciadmcp.knowledge.domain.ReferenceResolution;
 import com.luciadmcp.knowledge.domain.RelationshipStore;
 import com.luciadmcp.knowledge.domain.RelationshipType;
 import com.luciadmcp.knowledge.domain.StoredCatalogRecord;
@@ -10,7 +11,6 @@ import com.luciadmcp.knowledge.ingest.javadoc.ExtractedType;
 import com.luciadmcp.knowledge.ingest.javadoc.JavadocCatalogSource;
 import com.luciadmcp.knowledge.ingest.javadoc.SymbolKind;
 import com.luciadmcp.knowledge.ingest.javadoc.SymbolRecord;
-import com.luciadmcp.knowledge.ingest.javadoc.ThrownException;
 import com.luciadmcp.knowledge.ingest.javadoc.TypeRef;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -31,15 +31,16 @@ import java.util.function.Function;
  * <p><b>Two-pass, never fabricate (AD-4).</b> Pass one is the persisted catalog (Story 2.4); pass two
  * resolves references against the <em>completed</em> catalog only. An edge is emitted only when both
  * endpoints are catalog symbols in the same SDK version (AD-12). A reference that does not resolve is
- * surfaced as a {@link FailureSeverity#RECOVERABLE} failure — never fabricated, never silently dropped;
- * the first-class stored unresolved-reference model and traversal-scope reporting are Story 2.6.
+ * persisted with its original token and locator, outcome, reason and sorted scoped candidate IDs.
+ * Ordinary unresolved or ambiguous source references are evidence, so neither failure policy aborts.
+ * Explicit external, escaping or dead locators never fall back to display-name resolution.
  *
  * <p><b>Why re-parse.</b> The catalog persists only identity + {@code (relativePath, anchor)}, not
  * supertype/param/see-also facts, so pass two re-parses the tree (deterministic) for the <em>source</em>
  * references and resolves <em>targets</em> against the completed catalog. This is the AD-4 two-pass
  * shape, not a parse of convenience.
  *
- * <p><b>Resolution ladder (minimal, Story 2.5).</b> (1) a reference carrying an href into the ingested
+ * <p><b>Resolution within the documented SDK.</b> (1) a reference carrying an href into the ingested
  * tree resolves via the catalog's persisted {@code (relativePath, anchor)} — reliable and
  * member-precise (this is how {@code OVERRIDES}/{@code SPECIFIED_BY} reach a specific supertype method);
  * (2) otherwise a plain type name resolves by fully-qualified name, else by a <em>unique</em>
@@ -58,7 +59,7 @@ import java.util.function.Function;
  *
  * <h2>Failure mapping</h2>
  * <ul>
- *   <li><b>Unresolved reference</b> &rarr; {@link FailureSeverity#RECOVERABLE} (per the failure policy).</li>
+ *   <li><b>Unresolved or ambiguous reference</b> &rarr; stored evidence, with no selected edge endpoint.</li>
  *   <li><b>Store open/close, re-parse, or persistence integrity failure, and an edge identity clash</b>
  *       &rarr; {@link FailureSeverity#BUILD_INVALIDATING}: relationship-graph integrity is compromised.</li>
  * </ul>
@@ -160,6 +161,13 @@ public final class RelationshipsStage implements Stage {
             Consumer<StageFailure> failures) {
         Path file = javadocRoot.resolve(page.relativePath());
         ExtractedType type = page.type();
+        for (SymbolRecord record : page.records()) {
+            StoredCatalogRecord stored = index.byKey.get(record.canonicalKey());
+            if (stored == null || !stored.record().relativePath().equals(record.relativePath())
+                    || !stored.record().anchor().equals(CatalogStage.anchorFor(record))) {
+                throw new IllegalStateException("reference source provenance differs from completed catalog: " + record.canonicalKey());
+            }
+        }
 
         // The type-level record (memberIndex == -1) is the source for the type-header + type see-also
         // edges; member records supply their own source keys and line up with type.members() by index.
@@ -173,36 +181,13 @@ public final class RelationshipsStage implements Stage {
 
         if (typeRecord != null && type != null) {
             String typeKey = typeRecord.canonicalKey();
-            // EXTENDS_CLASS + derived DIRECT_SUBCLASS (inverse).
-            resolveType(type.superclass(), index).ifPresentOrElse(
-                    target -> {
-                        submit(store, version, typeKey, target, RelationshipType.EXTENDS_CLASS, file, failures);
-                        submit(store, version, target, typeKey, RelationshipType.DIRECT_SUBCLASS, file, failures);
-                    },
-                    () -> unresolved(type.superclass(), "EXTENDS_CLASS", typeKey, file, failures));
-            // EXTENDS_INTERFACE (single direction).
-            for (TypeRef ref : type.superInterfaces()) {
-                resolveType(ref, index).ifPresentOrElse(
-                        target -> submit(store, version, typeKey, target,
-                                RelationshipType.EXTENDS_INTERFACE, file, failures),
-                        () -> unresolved(ref, "EXTENDS_INTERFACE", typeKey, file, failures));
-            }
-            // IMPLEMENTS + derived IMPLEMENTED_BY (inverse).
-            for (TypeRef ref : type.implementedInterfaces()) {
-                resolveType(ref, index).ifPresentOrElse(
-                        target -> {
-                            submit(store, version, typeKey, target, RelationshipType.IMPLEMENTS, file, failures);
-                            submit(store, version, target, typeKey, RelationshipType.IMPLEMENTED_BY, file, failures);
-                        },
-                        () -> unresolved(ref, "IMPLEMENTS", typeKey, file, failures));
-            }
-            // Type-level SEE_ALSO (single direction; may target a type or a member).
-            for (TypeRef ref : type.seeAlso()) {
-                resolveAny(ref, index).ifPresentOrElse(
-                        target -> submit(store, version, typeKey, target,
-                                RelationshipType.SEE_ALSO, file, failures),
-                        () -> unresolved(ref, "SEE_ALSO", typeKey, file, failures));
-            }
+            emitTypeRef(version, typeKey, type.superclass(), RelationshipType.EXTENDS_CLASS, index, store, file, failures);
+            for (TypeRef ref : type.superInterfaces())
+                emitTypeRef(version, typeKey, ref, RelationshipType.EXTENDS_INTERFACE, index, store, file, failures);
+            for (TypeRef ref : type.implementedInterfaces())
+                emitTypeRef(version, typeKey, ref, RelationshipType.IMPLEMENTS, index, store, file, failures);
+            for (TypeRef ref : type.seeAlso())
+                emitTypeRef(version, typeKey, ref, RelationshipType.SEE_ALSO, index, store, file, failures);
         }
 
         List<ExtractedMember> members = type == null ? List.of() : type.members();
@@ -239,14 +224,12 @@ public final class RelationshipsStage implements Stage {
         RelationshipType paramType = record.kind() == SymbolKind.CONSTRUCTOR
                 ? RelationshipType.CONSTRUCTOR_PARAMETER_TYPE
                 : RelationshipType.PARAMETER_TYPE;
-        for (String erased : record.erasedParameterTypes()) {
-            emitNameRef(version, sourceKey, erased, paramType, index, store, file, failures);
+        // Qualified extracted references are independent of the unchanged canonical identity recipe.
+        for (TypeRef ref : member.parameterRefs()) {
+            emitTypeRef(version, sourceKey, ref, paramType, index, store, file, failures);
         }
-
-        // THROWS_TYPE — from the documented @throws type names.
-        for (ThrownException thrown : member.throwsTypes()) {
-            emitNameRef(version, sourceKey, thrown.type(), RelationshipType.THROWS_TYPE,
-                    index, store, file, failures);
+        for (TypeRef ref : member.throwsRefs()) {
+            emitTypeRef(version, sourceKey, ref, RelationshipType.THROWS_TYPE, index, store, file, failures);
         }
 
         // OVERRIDES / SPECIFIED_BY — member-precise; resolved by href only, never guessed by name.
@@ -255,80 +238,30 @@ public final class RelationshipsStage implements Stage {
         emitMemberPrecise(version, sourceKey, member.specifiedBy(), RelationshipType.SPECIFIED_BY,
                 index, store, file, failures);
 
-        // Member-level SEE_ALSO (may target a type or a member).
         for (TypeRef ref : member.seeAlso()) {
-            resolveAny(ref, index).ifPresentOrElse(
-                    target -> submit(store, version, sourceKey, target,
-                            RelationshipType.SEE_ALSO, file, failures),
-                    () -> unresolved(ref, "SEE_ALSO", sourceKey, file, failures));
+            emitTypeRef(version, sourceKey, ref, RelationshipType.SEE_ALSO, index, store, file, failures);
         }
     }
 
-    /** Emits a type-target edge from a {@link TypeRef} (href then name), or records it unresolved. */
     private void emitTypeRef(
             String version, String sourceKey, TypeRef ref, RelationshipType type,
             ResolutionIndex index, RelationshipStore store, Path file, Consumer<StageFailure> failures) {
-        if (ref == null || isPrimitiveOrVoid(ref.name())) {
-            return; // no reference (constructor/void) or a primitive — never an edge, never a failure
-        }
-        resolveType(ref, index).ifPresentOrElse(
-                target -> submit(store, version, sourceKey, target, type, file, failures),
-                () -> unresolved(ref, type.name(), sourceKey, file, failures));
+        if (ref == null || (ref.name().isBlank() && !ref.hasHref()) || isPrimitiveOrVoid(ref.name())) return;
+        ReferenceResolution evidence = index.resolve(sourceKey, ref, type, version);
+        store.putResolution(evidence);
+        if (evidence.status() != ReferenceResolution.Status.EXACT) return;
+        String target = index.byId.get(evidence.selectedTargetId()).record().canonicalKey();
+        submit(store, version, sourceKey, target, type, file, failures);
+        if (type == RelationshipType.EXTENDS_CLASS)
+            submit(store, version, target, sourceKey, RelationshipType.DIRECT_SUBCLASS, file, failures);
+        if (type == RelationshipType.IMPLEMENTS)
+            submit(store, version, target, sourceKey, RelationshipType.IMPLEMENTED_BY, file, failures);
     }
 
-    /** Emits a type-target edge from a plain erased/documented name, or records it unresolved. */
-    private void emitNameRef(
-            String version, String sourceKey, String name, RelationshipType type,
-            ResolutionIndex index, RelationshipStore store, Path file, Consumer<StageFailure> failures) {
-        if (name == null || name.isBlank() || isPrimitiveOrVoid(name)) {
-            return;
-        }
-        String target = index.resolveTypeByName(name);
-        if (target != null) {
-            submit(store, version, sourceKey, target, type, file, failures);
-        } else {
-            unresolvedName(name, type.name(), sourceKey, file, failures);
-        }
-    }
-
-    /** Emits a member-precise edge (href only); an unlinked or unmatched target stays unresolved. */
     private void emitMemberPrecise(
             String version, String sourceKey, TypeRef ref, RelationshipType type,
             ResolutionIndex index, RelationshipStore store, Path file, Consumer<StageFailure> failures) {
-        if (ref == null) {
-            return;
-        }
-        String target = index.resolveByHref(ref);
-        if (target != null) {
-            submit(store, version, sourceKey, target, type, file, failures);
-        } else {
-            unresolved(ref, type.name(), sourceKey, file, failures);
-        }
-    }
-
-    /** Resolves a type target: href into the tree, else FQN, else a unique simple name. */
-    private static java.util.Optional<String> resolveType(TypeRef ref, ResolutionIndex index) {
-        if (ref == null) {
-            return java.util.Optional.empty();
-        }
-        String byHref = index.resolveByHref(ref);
-        if (byHref != null) {
-            return java.util.Optional.of(byHref);
-        }
-        String byName = index.resolveTypeByName(ref.name());
-        return java.util.Optional.ofNullable(byName);
-    }
-
-    /** Resolves a see-also target: href (type or member) into the tree, else a type by name. */
-    private static java.util.Optional<String> resolveAny(TypeRef ref, ResolutionIndex index) {
-        if (ref == null) {
-            return java.util.Optional.empty();
-        }
-        String byHref = index.resolveByHref(ref);
-        if (byHref != null) {
-            return java.util.Optional.of(byHref);
-        }
-        return java.util.Optional.ofNullable(index.resolveTypeByName(ref.name()));
+        emitTypeRef(version, sourceKey, ref, type, index, store, file, failures);
     }
 
     private void submit(
@@ -345,33 +278,6 @@ public final class RelationshipsStage implements Stage {
                     "identity clash persisting " + type + " edge " + sourceKey + " -> " + targetKey
                             + " (SDK version " + version + "); computed edge id " + result.edgeId()));
         }
-    }
-
-    private void unresolved(
-            TypeRef ref, String type, String sourceKey, Path file, Consumer<StageFailure> failures) {
-        if (ref == null) {
-            return;
-        }
-        String detail = ref.hasHref()
-                ? "'" + ref.name() + "' (link " + ref.relativePath()
-                        + (ref.anchor().isBlank() ? "" : "#" + ref.anchor()) + ")"
-                : "'" + ref.name() + "'";
-        failures.accept(StageFailure.ofFile(
-                PipelineStage.RELATIONSHIPS,
-                FailureSeverity.RECOVERABLE,
-                file,
-                "unresolved " + type + " reference " + detail + " from " + sourceKey
-                        + "; no edge emitted (explicit unresolved model deferred to Story 2.6)"));
-    }
-
-    private void unresolvedName(
-            String name, String type, String sourceKey, Path file, Consumer<StageFailure> failures) {
-        failures.accept(StageFailure.ofFile(
-                PipelineStage.RELATIONSHIPS,
-                FailureSeverity.RECOVERABLE,
-                file,
-                "unresolved " + type + " reference '" + name + "' from " + sourceKey
-                        + "; no edge emitted (explicit unresolved model deferred to Story 2.6)"));
     }
 
     /** Language primitives and {@code void} — never documented types, so never references to resolve. */
@@ -396,62 +302,71 @@ public final class RelationshipsStage implements Stage {
      * for plain-name resolution. Built once per run from {@code allRecords()} (deterministic).
      */
     static final class ResolutionIndex {
-
-        private final Map<String, String> byPathAnchor;
-        private final Map<String, String> byFqnType;
-        private final Map<String, List<String>> bySimpleType;
-
-        private ResolutionIndex(
-                Map<String, String> byPathAnchor,
-                Map<String, String> byFqnType,
-                Map<String, List<String>> bySimpleType) {
-            this.byPathAnchor = byPathAnchor;
-            this.byFqnType = byFqnType;
-            this.bySimpleType = bySimpleType;
-        }
+        private final Map<String, List<StoredCatalogRecord>> byPathAnchor = new HashMap<>();
+        private final Map<String, List<StoredCatalogRecord>> byFqnType = new HashMap<>();
+        private final Map<String, List<StoredCatalogRecord>> bySimpleType = new HashMap<>();
+        private final Map<String, StoredCatalogRecord> byKey = new HashMap<>();
+        private final Map<String, StoredCatalogRecord> byId = new HashMap<>();
 
         static ResolutionIndex build(List<StoredCatalogRecord> records, String version) {
-            Map<String, String> byPathAnchor = new HashMap<>();
-            Map<String, String> byFqnType = new HashMap<>();
-            Map<String, List<String>> bySimpleType = new HashMap<>();
+            ResolutionIndex index = new ResolutionIndex();
             for (StoredCatalogRecord stored : records) {
                 var record = stored.record();
-                if (!record.sdkVersion().equals(version)) {
-                    continue; // edges connect only same-version symbols (AD-12)
-                }
-                byPathAnchor.put(
-                        pathAnchorKey(record.relativePath(), record.anchor()), record.canonicalKey());
+                if (!record.sdkVersion().equals(version)) continue;
+                index.byKey.put(record.canonicalKey(), stored);
+                index.byId.put(stored.recordId(), stored);
+                index.byPathAnchor.computeIfAbsent(pathAnchorKey(record.relativePath(), record.anchor()), k -> new ArrayList<>()).add(stored);
                 if ("TYPE".equals(record.kind())) {
-                    byFqnType.put(record.typeFqn(), record.canonicalKey());
-                    if (!record.simpleName().isBlank()) {
-                        bySimpleType.computeIfAbsent(record.simpleName(), k -> new ArrayList<>())
-                                .add(record.canonicalKey());
-                    }
+                    index.byFqnType.computeIfAbsent(record.typeFqn(), k -> new ArrayList<>()).add(stored);
+                    index.bySimpleType.computeIfAbsent(record.simpleName(), k -> new ArrayList<>()).add(stored);
                 }
             }
-            return new ResolutionIndex(byPathAnchor, byFqnType, bySimpleType);
+            return index;
         }
 
-        /** The canonical key at a link's {@code (relativePath, anchor)}, or {@code null} if none. */
-        String resolveByHref(TypeRef ref) {
-            if (ref == null || !ref.hasHref()) {
-                return null;
+        ReferenceResolution resolve(String sourceKey, TypeRef ref, RelationshipType type, String version) {
+            StoredCatalogRecord source = byKey.get(sourceKey);
+            if (source == null) throw new IllegalStateException("reference source is absent from scoped catalog");
+            boolean member = type == RelationshipType.OVERRIDES || type == RelationshipType.SPECIFIED_BY;
+            ReferenceResolution.Kind kind;
+            ReferenceResolution.Reason reason;
+            List<StoredCatalogRecord> matches = List.of();
+            String name = ref.name().replace("[]", "").replace("...", "");
+            if (ref.hasHref()) {
+                kind = member ? ReferenceResolution.Kind.MEMBER_LOCATOR : ReferenceResolution.Kind.LOCAL_LOCATOR;
+                reason = switch (ref.locatorKind()) {
+                    case EXTERNAL -> ReferenceResolution.Reason.EXTERNAL_LOCATOR;
+                    case ROOT_ESCAPE -> ReferenceResolution.Reason.ROOT_ESCAPE;
+                    default -> ReferenceResolution.Reason.MISSING_LOCATOR;
+                };
+                if (ref.locatorKind() == TypeRef.LocatorKind.EXTERNAL) kind = ReferenceResolution.Kind.EXTERNAL_LOCATOR;
+                if (ref.locatorKind() == TypeRef.LocatorKind.ROOT_ESCAPE) kind = ReferenceResolution.Kind.ROOT_ESCAPE;
+                if (ref.locatorKind() == TypeRef.LocatorKind.LOCAL) {
+                    matches = byPathAnchor.getOrDefault(pathAnchorKey(ref.relativePath(), ref.anchor()), List.of());
+                    if (member) matches = matches.stream().filter(r -> !r.record().kind().equals("TYPE")).toList();
+                    else if (type != RelationshipType.SEE_ALSO)
+                        matches = matches.stream().filter(r -> r.record().kind().equals("TYPE")).toList();
+                }
+            } else if (member) {
+                kind = ReferenceResolution.Kind.MEMBER_LOCATOR;
+                reason = ReferenceResolution.Reason.LOCATOR_REQUIRED;
+            } else if (name.contains(".")) {
+                kind = ReferenceResolution.Kind.QUALIFIED_NAME;
+                reason = ReferenceResolution.Reason.MISSING_QUALIFIED_NAME;
+                matches = byFqnType.getOrDefault(name, List.of());
+            } else {
+                kind = ReferenceResolution.Kind.SIMPLE_NAME;
+                reason = ReferenceResolution.Reason.MISSING_NAME;
+                matches = bySimpleType.getOrDefault(name, List.of());
             }
-            return byPathAnchor.get(pathAnchorKey(ref.relativePath(), ref.anchor()));
-        }
-
-        /** The canonical key for a type by FQN, else by a unique simple name; {@code null} otherwise. */
-        String resolveTypeByName(String name) {
-            if (name == null || name.isBlank()) {
-                return null;
-            }
-            if (name.indexOf('.') >= 0) {
-                // A qualified name names one specific type; if it is not in the catalog it is outside
-                // the ingested tree. Never fall back to a same-simple-name type in another package.
-                return byFqnType.get(name);
-            }
-            List<String> candidates = bySimpleType.get(name);
-            return (candidates != null && candidates.size() == 1) ? candidates.get(0) : null;
+            List<String> ids = matches.stream().map(StoredCatalogRecord::recordId).distinct().sorted().toList();
+            ReferenceResolution.Status status = ids.isEmpty() ? ReferenceResolution.Status.UNRESOLVED
+                    : ids.size() == 1 ? ReferenceResolution.Status.EXACT : ReferenceResolution.Status.AMBIGUOUS;
+            if (status == ReferenceResolution.Status.EXACT) reason = ReferenceResolution.Reason.MATCHED;
+            if (status == ReferenceResolution.Status.AMBIGUOUS) reason = ReferenceResolution.Reason.COMPETING_CANDIDATES;
+            return new ReferenceResolution(version, source.recordId(), source.record().relativePath(),
+                    source.record().anchor(), type, ref.name(), ref.originalLocator(), status, kind, reason,
+                    ids, status == ReferenceResolution.Status.EXACT ? ids.get(0) : "");
         }
 
         private static String pathAnchorKey(String relativePath, String anchor) {
