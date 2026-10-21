@@ -258,4 +258,36 @@ class IngestPipelineRunnerTest {
         assertEquals(EnumSet.allOf(PipelineStage.class), result.completedStages(),
                 "the eight production no-op stages should all complete");
     }
+    @Test
+    void corruptDatabaseDoesNotMaskHandledInvalidatingFailureOrAbortReport(@TempDir Path tmp) throws Exception {
+        var args = PipelineTestSupport.argsIn(tmp);
+        var context = BuildContext.forInputs(args);
+        java.nio.file.Files.createDirectories(context.catalogDbPath().getParent());
+        java.nio.file.Files.writeString(context.catalogDbPath(), "not a SQLite database");
+        var original = StageFailure.of(PipelineStage.CATALOG, FailureSeverity.BUILD_INVALIDATING,
+                "catalog storage failed before report");
+        var stages = PipelineTestSupport.recordingStages(new ArrayList<>());
+        PipelineTestSupport.injectFailure(stages, PipelineStage.CATALOG, original);
+        var result = new IngestPipelineRunner(stages, FailurePolicy.FAIL_FAST).runToResult(args);
+        assertTrue(result.aborted());
+        assertFalse(result.activationOccurred());
+        assertEquals(List.of(original), result.failures());
+        var report = java.nio.file.Files.readString(args.out().resolve(context.buildId()).resolve("ingestion-report.json"));
+        assertTrue(report.contains("\"aborted\": true"), report);
+        assertTrue(report.contains("catalog storage failed before report"), report);
+        assertTrue(report.contains("\"relationshipResolution\": null"), report);
+        assertTrue(report.contains("\"severity\": \"BUILD_INVALIDATING\""), report);
+    }
+
+    @Test
+    void unreadableResolutionSummaryCannotReturnSuccessfulResult(@TempDir Path tmp) throws Exception {
+        var args = PipelineTestSupport.argsIn(tmp);
+        var context = BuildContext.forInputs(args);
+        java.nio.file.Files.createDirectories(context.catalogDbPath().getParent());
+        java.nio.file.Files.writeString(context.catalogDbPath(), "not a SQLite database");
+        var runner = IngestPipelineRunner.withDefaultStages();
+        assertThrows(IllegalStateException.class, () -> runner.runToResult(args));
+        assertFalse(java.nio.file.Files.exists(args.out().resolve(context.buildId()).resolve("ingestion-report.json")));
+    }
+
 }

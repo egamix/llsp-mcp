@@ -250,6 +250,19 @@ public final class IngestPipelineRunner implements IngestPipeline {
                     f.stage(), f.severity(), file, f.message()));
         }
 
+        IngestionReport.ResolutionSummary resolutionSummary = IngestionReport.ResolutionSummary.empty();
+        Path catalogPath = args.out().resolve(".staging").resolve(manifest.buildId()).resolve(manifest.sdkVersion()).resolve(BuildContext.CATALOG_DB_FILE);
+        if (java.nio.file.Files.exists(catalogPath)) {
+            try (var store = new SqliteRelationshipStore(catalogPath)) {
+                resolutionSummary = IngestionReport.ResolutionSummary.from(store.resolutions(
+                        new com.luciadmcp.knowledge.domain.RelationshipScope(manifest.sdkVersion())));
+            } catch (RuntimeException e) {
+                if (!aborted) throw e;
+                // Keep the original handled failure and aborted result even when storage cannot reopen.
+                // Null distinguishes unavailable counts from a successfully read empty evidence set.
+                resolutionSummary = null;
+            }
+        }
         IngestionReport report = new IngestionReport(
                 manifest.buildId(),
                 manifest.sdkVersion(),
@@ -258,7 +271,7 @@ public final class IngestPipelineRunner implements IngestPipeline {
                 activationOccurred,
                 stageEntries,
                 failureEntries,
-                IngestionReport.ResolutionSummary.empty());
+                resolutionSummary);
 
         Path reportPath = args.out().resolve(manifest.buildId()).resolve(REPORT_FILE);
         try {
