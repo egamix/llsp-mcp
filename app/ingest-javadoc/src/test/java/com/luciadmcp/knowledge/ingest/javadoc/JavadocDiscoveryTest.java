@@ -174,6 +174,21 @@ class JavadocDiscoveryTest {
         assertEquals(PageType.EXCLUDED, byPath.get("deprecated-list.html"));
     }
 
+    @Test
+    void legacyHelpAndCustomOverviewUseStructureDespiteTypeLikeNames(@TempDir Path tmp) throws Exception {
+        Files.copy(legacyFixture().resolve("help-doc.html"), tmp.resolve("Helper.html"));
+        Files.copy(legacyFixture().resolve("overview-summary.html"), tmp.resolve("Sdk.html"));
+
+        DiscoveryResult result = discovery.classify(tmp);
+        Map<String, PageType> byPath = toMap(result);
+        assertEquals(PageType.EXCLUDED, byPath.get("Helper.html"),
+                "JDK 8 help has blockList containers but is not a member-bearing page");
+        assertEquals(PageType.OVERVIEW, byPath.get("Sdk.html"),
+                "a custom -doctitle must not hide the overview's package-summary table");
+        assertTrue(result.memberPages().isEmpty());
+        assertEquals(List.of(new ClassifiedPage("Sdk.html", PageType.OVERVIEW)), result.narrativePages());
+    }
+
     // --- Search-index cross-check ---------------------------------------------------------------
 
     @Test
