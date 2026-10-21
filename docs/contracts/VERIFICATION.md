@@ -1,4 +1,6 @@
-# Story 2.8 verification evidence
+# Story 2.8 verification evidence (historical read-tools/1)
+
+Current SDK guidance amendment uses read-tools/2. See SDK-VERSION-GUIDANCE-VERIFICATION.md for current executed checks. All original digests, counts, Windows/Linux parity and mutation evidence below belong to the earlier read-tools/1 candidate; they do not certify the amended interface.
 
 Implementation candidate dated 2026-10-21. Technical schema/identity/interface sign-offs remain pending; downstream gates remain closed. Synthetic screening and portable recipe fixtures are separate from Story 10.1 controlled acceptance/private-corpus evaluation, which was not run.
 
@@ -41,7 +43,7 @@ Local Gradle process environment: `GRADLE_USER_HOME=C:/Users/UserAdmin/.gradle`,
 
 ## Semantic checks beyond JSON Schema
 
-Request normalization binds operator-default SDK before lookup and one immutable build per request. Byte limits use serialized UTF-8, not JSON Schema character counts. Validate inclusive line range last>=first; table rows have header width; nesting <=32 and aggregate block/byte budgets before materialization. Citation SDK/build and record/section association must match returned content; absent source locations never imply an anchor. Exact selected IDs require exact proof; ambiguity/unresolved have no selected target. Batch output preserves each input's order and includes every admitted item, with per-item status. Count relation UNKNOWN carries null; EXACT/LOWER_BOUND carry nonnegative integers. Cursor authentication binds all normalized query/filter/order/bound/version/build fields. These runtime rules are contract obligations for future handlers; the synthetic runner exercises representative cross-field negatives, not complete handler behavior.
+Historical v1 normalization bound an operator-default SDK. Current read-tools/2 separates optional target context from actual pinned source selection; see README.md. Byte limits use serialized UTF-8, not JSON Schema character counts. Validate inclusive line range last>=first; table rows have header width; nesting <=32 and aggregate block/byte budgets before materialization. Citation SDK/build and record/section association must match returned content; absent source locations never imply an anchor. Exact selected IDs require exact proof; ambiguity/unresolved have no selected target. Batch output preserves each input's order and includes every admitted item, with per-item status. Count relation UNKNOWN carries null; EXACT/LOWER_BOUND carry nonnegative integers. Cursor authentication binds all normalized query/filter/order/bound/version/build fields. These runtime rules are contract obligations for future handlers; the synthetic runner exercises representative cross-field negatives, not complete handler behavior.
 
 ## Independent review and final rerun
 

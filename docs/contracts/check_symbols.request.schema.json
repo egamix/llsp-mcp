@@ -4,12 +4,7 @@
   "type": "object",
   "properties": {
     "contractVersion": {
-      "const": "read-tools/1"
-    },
-    "sdkVersion": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 2048
+      "const": "read-tools/2"
     },
     "buildId": {
       "anyOf": [
@@ -57,11 +52,22 @@
     "includeCandidates": {
       "type": "boolean",
       "default": true
+    },
+    "targetSdkVersion": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2048,
+      "description": "Optional user context; never an implicit source filter or compatibility claim."
+    },
+    "sourceSdkVersion": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2048,
+      "description": "Explicit restrictive source filter; absent selects one configured usable source within bounded work."
     }
   },
   "required": [
     "contractVersion",
-    "sdkVersion",
     "symbols"
   ],
   "additionalProperties": false

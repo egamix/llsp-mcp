@@ -1,14 +1,14 @@
 {
   "request": {
-    "contractVersion": "read-tools/1",
-    "sdkVersion": "2024.0",
+    "contractVersion": "read-tools/2",
     "mode": "BROWSE",
     "kinds": [
       "AUTHORITATIVE_FACT"
-    ]
+    ],
+    "targetSdkVersion": "2024.0"
   },
   "response": {
-    "contractVersion": "read-tools/1",
+    "contractVersion": "read-tools/2",
     "tool": "search_knowledge",
     "sdkVersion": "2024.0",
     "buildId": "synthetic-build",
@@ -27,7 +27,8 @@
             "sdkVersions": [
               "2024.0"
             ],
-            "conditions": []
+            "conditions": [],
+            "scope": "VERSION_SCOPED"
           },
           "governance": {
             "approval": "APPROVED",
@@ -75,6 +76,8 @@
       "candidatesExamined": 0,
       "workCharged": 0,
       "capabilityFingerprint": "0000000000000000000000000000000000000000000000000000000000000000"
-    }
+    },
+    "targetSdkVersion": "2024.0",
+    "versionNotices": []
   }
 }

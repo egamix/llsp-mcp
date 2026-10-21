@@ -1,0 +1,50 @@
+{
+  "request": {
+    "contractVersion": "read-tools/2",
+    "symbols": [
+      "com.example.Widget"
+    ],
+    "targetSdkVersion": "2023.1"
+  },
+  "response": {
+    "contractVersion": "read-tools/2",
+    "tool": "check_symbols",
+    "sdkVersion": "2023.5",
+    "buildId": "synthetic-build",
+    "proof": "EXACT",
+    "data": {
+      "verdicts": [
+        {
+          "input": "com.example.Widget",
+          "proof": "EXACT",
+          "selectedRecordId": "synthetic-record",
+          "candidateRecordIds": [
+            "synthetic-record"
+          ],
+          "reason": "Identity proven in pinned 2023.5 source; no claim of tested target compatibility."
+        }
+      ]
+    },
+    "error": null,
+    "counts": {
+      "value": 1,
+      "relation": "EXACT"
+    },
+    "coverage": {
+      "complete": false,
+      "reason": "Synthetic contract specimen; no corpus acceptance claim"
+    },
+    "emptyReason": null,
+    "truncated": false,
+    "continuation": null,
+    "trace": {
+      "normalizedQuery": "synthetic",
+      "matchedBy": [],
+      "candidatesExamined": 0,
+      "workCharged": 0,
+      "capabilityFingerprint": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    "targetSdkVersion": "2023.1",
+    "versionNotices": []
+  }
+}

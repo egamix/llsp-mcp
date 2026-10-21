@@ -1,5 +1,5 @@
 {
-  "contractVersion": "read-tools/1",
+  "contractVersion": "read-tools/2",
   "planningAuthorization": {
     "date": "2026-10-21",
     "status": "APPROVED",
@@ -30,5 +30,11 @@
   ],
   "dependentStoryGate": "CLOSED_PENDING_TECHNICAL_RATIFICATION",
   "story10Acceptance": "NOT_RUN",
-  "reviewedExemptions": []
+  "reviewedExemptions": [],
+  "sdkGuidancePolicyApproval": {
+    "date": "2026-10-21",
+    "status": "APPROVED",
+    "evidence": "User approved normal useful guidance with source-version citations for target 2023.1/source 2023.5; no automatic mismatch warning.",
+    "scope": "SDK target/source guidance policy only; technical sign-offs remain pending"
+  }
 }

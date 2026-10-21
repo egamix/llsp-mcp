@@ -1,11 +1,11 @@
 {
   "request": {
-    "contractVersion": "read-tools/1",
-    "sdkVersion": "2024.0",
-    "symbol": "com.example.Widget"
+    "contractVersion": "read-tools/2",
+    "symbol": "com.example.Widget",
+    "targetSdkVersion": "2024.0"
   },
   "response": {
-    "contractVersion": "read-tools/1",
+    "contractVersion": "read-tools/2",
     "tool": "resolve_symbol",
     "sdkVersion": "2024.0",
     "buildId": "synthetic-build",
@@ -31,6 +31,8 @@
       "candidatesExamined": 0,
       "workCharged": 0,
       "capabilityFingerprint": "0000000000000000000000000000000000000000000000000000000000000000"
-    }
+    },
+    "targetSdkVersion": "2024.0",
+    "versionNotices": []
   }
 }

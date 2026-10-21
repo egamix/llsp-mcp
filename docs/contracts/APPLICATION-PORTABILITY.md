@@ -1,3 +1,5 @@
+> Historical read-tools/1 snapshot evidence. The SDK guidance amendment changes the runtime/build digest; these hashes are not current read-tools/2 parity claims.
+
 # Application portability snapshot
 
 `com.luciadmcp.knowledge.cli.pipeline.ApplicationPortabilitySnapshotTest.realPipelineProducesPortableLogicalSnapshot` runs the real production catalog, relationship and validation stages against two compact synthetic Javadoc pages. It includes distinct qualified overloads, resolved inheritance with inverse edges, and legal unresolved parameter evidence. It asserts a clean validated result, four persisted records, two edges, preserved uncertainty and truthful skipped activation.

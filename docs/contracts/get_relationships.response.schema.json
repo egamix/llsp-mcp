@@ -4,15 +4,23 @@
   "type": "object",
   "properties": {
     "contractVersion": {
-      "const": "read-tools/1"
+      "const": "read-tools/2"
     },
     "tool": {
       "const": "get_relationships"
     },
     "sdkVersion": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 2048
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Actual pinned source SDK, never inferred from target context; null before source binding."
     },
     "buildId": {
       "anyOf": [
@@ -309,6 +317,25 @@
         "capabilityFingerprint"
       ],
       "additionalProperties": false
+    },
+    "targetSdkVersion": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "versionNotices": {
+      "type": "array",
+      "maxItems": 50,
+      "items": {
+        "$ref": "common.schema.json#/$defs/versionNotice"
+      }
     }
   },
   "required": [
@@ -324,7 +351,9 @@
     "emptyReason",
     "truncated",
     "continuation",
-    "trace"
+    "trace",
+    "targetSdkVersion",
+    "versionNotices"
   ],
   "additionalProperties": false,
   "allOf": [
@@ -354,6 +383,11 @@
                 "maxLength": 64
               }
             }
+          },
+          "sdkVersion": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2048
           }
         }
       },
@@ -390,6 +424,12 @@
                 "type": "null"
               }
             }
+          },
+          "sdkVersion": {
+            "type": "null"
+          },
+          "versionNotices": {
+            "maxItems": 0
           }
         }
       },
@@ -403,6 +443,11 @@
                 "maxLength": 64
               }
             }
+          },
+          "sdkVersion": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2048
           }
         }
       }

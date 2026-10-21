@@ -1,13 +1,13 @@
 {
   "request": {
-    "contractVersion": "read-tools/1",
-    "sdkVersion": "2024.0",
-    "query": "Widget"
+    "contractVersion": "read-tools/2",
+    "query": "Widget",
+    "targetSdkVersion": "2024.0"
   },
   "response": {
-    "contractVersion": "read-tools/1",
+    "contractVersion": "read-tools/2",
     "tool": "search_knowledge",
-    "sdkVersion": "2024.0",
+    "sdkVersion": null,
     "buildId": null,
     "proof": "NOT_APPLICABLE",
     "data": null,
@@ -33,6 +33,8 @@
       "candidatesExamined": 0,
       "workCharged": 0,
       "capabilityFingerprint": null
-    }
+    },
+    "targetSdkVersion": "2024.0",
+    "versionNotices": []
   }
 }

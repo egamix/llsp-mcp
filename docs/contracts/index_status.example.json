@@ -1,10 +1,10 @@
 {
   "request": {
-    "contractVersion": "read-tools/1",
-    "sdkVersion": "2024.0"
+    "contractVersion": "read-tools/2",
+    "targetSdkVersion": "2024.0"
   },
   "response": {
-    "contractVersion": "read-tools/1",
+    "contractVersion": "read-tools/2",
     "tool": "index_status",
     "sdkVersion": "2024.0",
     "buildId": "synthetic-build",
@@ -51,6 +51,8 @@
       "candidatesExamined": 0,
       "workCharged": 0,
       "capabilityFingerprint": "0000000000000000000000000000000000000000000000000000000000000000"
-    }
+    },
+    "targetSdkVersion": "2024.0",
+    "versionNotices": []
   }
 }

@@ -1,16 +1,16 @@
 {
   "request": {
-    "contractVersion": "read-tools/1",
-    "sdkVersion": "2024.0",
+    "contractVersion": "read-tools/2",
     "recordIds": [
       "synthetic-record",
       "missing",
       "huge",
       "outside"
-    ]
+    ],
+    "targetSdkVersion": "2024.0"
   },
   "response": {
-    "contractVersion": "read-tools/1",
+    "contractVersion": "read-tools/2",
     "tool": "get_record",
     "sdkVersion": "2024.0",
     "buildId": "synthetic-build",
@@ -32,7 +32,8 @@
               "sdkVersions": [
                 "2024.0"
               ],
-              "conditions": []
+              "conditions": [],
+              "scope": "VERSION_SCOPED"
             },
             "governance": {
               "approval": "APPROVED",
@@ -100,7 +101,7 @@
         {
           "inputRecordId": "outside",
           "status": "INAPPLICABLE",
-          "reason": "synthetic specimen"
+          "reason": "Explicit non-version applicability condition is unmet in this synthetic specimen; no inference from target/source version mismatch."
         }
       ]
     },
@@ -122,6 +123,8 @@
       "candidatesExamined": 0,
       "workCharged": 0,
       "capabilityFingerprint": "0000000000000000000000000000000000000000000000000000000000000000"
-    }
+    },
+    "targetSdkVersion": "2024.0",
+    "versionNotices": []
   }
 }

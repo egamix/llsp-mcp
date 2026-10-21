@@ -1,19 +1,20 @@
 {
   "request": {
-    "contractVersion": "read-tools/1",
-    "sdkVersion": "unknown-sdk",
-    "query": "Widget"
+    "contractVersion": "read-tools/2",
+    "query": "Widget",
+    "targetSdkVersion": "unknown-sdk",
+    "sourceSdkVersion": "unconfigured-source"
   },
   "response": {
-    "contractVersion": "read-tools/1",
+    "contractVersion": "read-tools/2",
     "tool": "search_knowledge",
-    "sdkVersion": "unknown-sdk",
+    "sdkVersion": null,
     "buildId": null,
     "proof": "NOT_APPLICABLE",
     "data": null,
     "error": {
       "code": "UNKNOWN_SDK",
-      "message": "Requested SDK has no configured binding",
+      "message": "Explicit source filter has no configured source; target API availability is unknown.",
       "retryable": false
     },
     "counts": {
@@ -33,6 +34,8 @@
       "candidatesExamined": 0,
       "workCharged": 0,
       "capabilityFingerprint": null
-    }
+    },
+    "targetSdkVersion": "unknown-sdk",
+    "versionNotices": []
   }
 }
