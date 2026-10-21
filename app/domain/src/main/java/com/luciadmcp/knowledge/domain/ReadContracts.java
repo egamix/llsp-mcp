@@ -11,7 +11,11 @@ public final class ReadContracts {
         PAYLOAD_TOO_LARGE, WORK_LIMIT, DEADLINE, CANCELLED, INTERNAL_ERROR }
     public enum Proof { EXACT, AMBIGUOUS, UNKNOWN_IN_SCOPE, INCOMPLETE_EVIDENCE, NOT_APPLICABLE }
     public static String cursorBinding(String tool,String normalizedQuery,String sdk,String build,List<String> filters) {
-        java.util.ArrayList<String> fields=new java.util.ArrayList<>(List.of(ContractVersions.INTERFACE,ContractVersions.IDENTITY,tool,normalizedQuery,sdk,build));
-        fields.addAll(filters.stream().sorted().toList()); return ContentHashes.digest("cursor-binding/1",fields);
+        return cursorBinding(tool, normalizedQuery, java.util.Optional.empty(), sdk, build, filters);
+    }
+    public static String cursorBinding(String tool,String normalizedQuery,java.util.Optional<String> targetSdkVersion,String sourceSdkVersion,String build,List<String> filters) {
+        java.util.ArrayList<String> fields=new java.util.ArrayList<>(List.of(ContractVersions.INTERFACE,ContractVersions.IDENTITY,tool,normalizedQuery,sourceSdkVersion,build));
+        fields.add(targetSdkVersion.orElse(null));
+        fields.addAll(filters.stream().sorted().toList()); return ContentHashes.digest("cursor-binding/2",fields);
     }
 }

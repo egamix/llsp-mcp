@@ -12,7 +12,7 @@ def digest(domain,fields):
     return hashlib.sha256(data).hexdigest()
 def fixture():
     wire="symbol:1:"+".".join(base64.urlsafe_b64encode(f.encode()).decode().rstrip("=") for f in ["p","1","java","a","a.T","m","METHOD","2","x.Value[]","y.Value"])
-    return {"symbol":wire,"recordId":digest("identity/1/record",["MethodElement",wire,"1"]),"edgeId":digest("identity/1/relationship",["1","source","SEE_ALSO","target",""]),"contentHash":digest("content/1",["paragraph","synthetic"]),"recipeDigest":digest("javadoc-lexical/1",["javadoc-lexical"]),"runtimeDigest":digest("catalog-runtime/1",["1","identity/1","read-tools/1"]),"capabilityFingerprint":digest("capabilities/1",["catalog","relationships"]),"manifestVersion":"1","reportVersion":"1","profile":"javadoc-lexical","technicalRatification":"PENDING"}
+    return {"symbol":wire,"recordId":digest("identity/1/record",["MethodElement",wire,"1"]),"edgeId":digest("identity/1/relationship",["1","source","SEE_ALSO","target",""]),"contentHash":digest("content/1",["paragraph","synthetic"]),"recipeDigest":digest("javadoc-lexical/1",["javadoc-lexical"]),"runtimeDigest":digest("catalog-runtime/1",["1","identity/1","read-tools/2"]),"capabilityFingerprint":digest("capabilities/1",["catalog","relationships"]),"manifestVersion":"1","reportVersion":"1","profile":"javadoc-lexical","technicalRatification":"PENDING"}
 if __name__=="__main__":
     expected=dict(line.split("=",1) for line in (ROOT/"docs/contracts/fixtures/portable.properties").read_text().splitlines())
     actual=fixture();assert expected==actual

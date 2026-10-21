@@ -9,5 +9,5 @@ public final class ContractVersions {
     public static final String RECIPE = "javadoc-lexical/1";
     public static final String RUNTIME = "catalog-runtime/1";
     public static final String PROFILE = "javadoc-lexical";
-    public static final String INTERFACE = "read-tools/1";
+    public static final String INTERFACE = "read-tools/2";
 }
