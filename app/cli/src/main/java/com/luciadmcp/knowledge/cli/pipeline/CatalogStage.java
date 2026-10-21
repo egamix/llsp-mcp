@@ -124,7 +124,7 @@ public final class CatalogStage implements Stage {
 
         for (String issue : page.issues()) {
             failures.accept(StageFailure.ofFile(
-                    PipelineStage.CATALOG, FailureSeverity.RECOVERABLE, file, issue));
+                    PipelineStage.CATALOG, issue.contains("duplicate canonical key") ? FailureSeverity.BUILD_INVALIDATING : FailureSeverity.RECOVERABLE, file, issue));
         }
 
         for (SymbolRecord record : page.records()) {

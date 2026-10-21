@@ -1,0 +1,23 @@
+package com.luciadmcp.knowledge.domain;
+import java.util.List;
+import java.util.Optional;
+/** Symbol-less narratives and governed practices share a stable domain ID, never an engine ID. */
+public record KnowledgeRecord(String id, String sdkVersion, RecordType recordType, KnowledgeKind knowledgeKind,
+        Optional<SymbolCoordinate> symbol, SourceLocator locator, Governance governance, Applicability applicability) {
+    public enum RecordType { API, NARRATIVE, RECIPE, PRACTICE }
+    public enum KnowledgeKind { REFERENCE, EXAMPLE, GUIDANCE, WORKFLOW }
+    public enum Approval { CANDIDATE, APPROVED }
+    public record Governance(Approval approval, String owner, String provenance, String approvalEvidence) {
+        public Governance { if (approval == null || owner == null || provenance == null || approvalEvidence == null) throw new IllegalArgumentException("governance required"); }
+    }
+    public record Applicability(String product, List<String> sdkVersions, List<String> conditions) {
+        public Applicability { if (product == null || product.isBlank() || sdkVersions == null || conditions == null) throw new IllegalArgumentException("applicability required"); sdkVersions = List.copyOf(sdkVersions); conditions = List.copyOf(conditions); }
+    }
+    public KnowledgeRecord {
+        if (id == null || id.isBlank() || sdkVersion == null || sdkVersion.isBlank() || recordType == null || knowledgeKind == null || symbol == null || locator == null || governance == null || applicability == null) throw new IllegalArgumentException("record fields required");
+        if (symbol.isPresent() && !sdkVersion.equals(symbol.get().sdkVersion())) throw new IllegalArgumentException("symbol scope mismatch");
+    }
+    public static String narrativeId(String sdkVersion, String relativePath, String narrativeKind) {
+        return ContentHashes.digest("narrative/1", List.of("LuciadLightspeed", sdkVersion, relativePath, narrativeKind));
+    }
+}

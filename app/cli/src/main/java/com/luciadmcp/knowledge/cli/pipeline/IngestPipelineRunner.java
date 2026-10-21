@@ -132,6 +132,7 @@ public final class IngestPipelineRunner implements IngestPipeline {
             stages.add(switch (stage) {
                 case CATALOG -> catalog;
                 case RELATIONSHIPS -> relationships;
+                case VALIDATION -> new BuildValidationStage(new com.luciadmcp.knowledge.domain.StandardBuildValidator(), ctx -> new SqliteCatalogStore(ctx.catalogDbPath()));
                 default -> Stage.noOp();
             });
         }

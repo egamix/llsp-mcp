@@ -98,9 +98,11 @@ public final class SqliteCatalogStore implements CatalogStore {
                 throw new UncheckedIOException("could not create catalog directory " + parent, e);
             }
         }
+        SchemaCompatibility.check(absolute);
         Connection opened = null;
         try {
             opened = DriverManager.getConnection("jdbc:sqlite:" + absolute);
+            SchemaCompatibility.initialize(opened);
             try (Statement stmt = opened.createStatement()) {
                 stmt.execute(CREATE_RECORDS_TABLE);
             }

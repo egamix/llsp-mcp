@@ -199,7 +199,9 @@ class CatalogStageTest {
         PipelineResult result =
                 IngestPipelineRunner.withCatalogStage(FailurePolicy.FAIL_FAST, args).runToResult(args);
 
-        assertFalse(result.aborted(), () -> "an absent version must not abort the build: " + result.failures());
+        assertTrue(result.aborted());
+        assertFalse(result.activationOccurred());
+        assertTrue(result.failures().stream().anyMatch(f -> f.message().equals("UNKNOWN_SDK")));
         String defaultLabel = IngestPipelineRunner.STUB_SDK_VERSION;
         assertEquals(defaultLabel, result.manifest().sdkVersion(), "absent version resolves to the default label");
 
@@ -210,6 +212,18 @@ class CatalogStageTest {
                     "records are still version-scoped, under the default label");
             assertEquals(2, store.allRecords().size());
         }
+    }
+
+    @Test
+    void identicalPartialOccurrencesInvalidateContinueBuild(@TempDir Path tmp) throws Exception {
+        Path javadoc = Files.createDirectories(tmp.resolve("javadoc"));
+        String member = "<section class='detail'><h3>broken</h3><div class='member-signature'>public void broken</div></section>";
+        writeType(javadoc, "com/example/Widget.html", "<html><body class='class-declaration-page'><main><h1 class='title'>Class Widget</h1><section class='class-description'><div class='block'>type</div></section><section class='method-details' id='method-detail'><ul class='member-list'><li>" + member + "</li><li>" + member + "</li></ul></section></main></body></html>");
+        var args = new IngestArguments(javadoc,Files.createDirectories(tmp.resolve("samples")),Files.createDirectories(tmp.resolve("guides")),Files.createDirectories(tmp.resolve("model")),tmp.resolve("out"),Optional.empty(),Optional.of("2024.0"));
+        var result = IngestPipelineRunner.withCatalogStage(FailurePolicy.COLLECT_AND_CONTINUE,args).runToResult(args);
+        assertTrue(result.aborted());
+        assertFalse(result.activationOccurred());
+        assertTrue(result.failures().stream().anyMatch(f -> f.severity()==FailureSeverity.BUILD_INVALIDATING && f.message().contains("duplicate canonical key")));
     }
 
     /** Matrix row "Minting issue from 2.3": an extraction/mint issue maps to a recoverable failure. */
