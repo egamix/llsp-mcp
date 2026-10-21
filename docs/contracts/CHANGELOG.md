@@ -7,3 +7,7 @@ Breaking rebuild-only change from provisional schema 0 to SQLite schema 1; ident
 Added optional-symbol knowledge/governance/applicability/dependency and durable section/block/locator/storage contracts; shared validation operations/reasons with persisted build metadata; manifest/report v1 and read-tools/1 schemas for all six read-only tools. Lexical operation no longer requires or hashes a model. Unsupported capabilities remain skipped and cannot simulate activation.
 
 No reviewed exemptions are claimed. Human schema, identity and interface approvals remain pending in sign-offs.json. Synthetic checks do not establish evaluation acceptance or approval.
+
+## v1 implementation-candidate edge-case corrections - 2026-10-21
+
+Pre-binding error envelopes now explicitly permit paired null build/capability binding while successful responses require both. Added missing-build and unknown-SDK specimens. FOUND section content requires citations independently of snippets. Search mode defaults to LEXICAL with an explicit nonblank query; explicitly selected BROWSE permits an omitted/empty query and kind-only filters. Added positive/adverse schema checks for each case. This remains an unratified v1 candidate; no approval or product-handler behavior is implied.

@@ -69,5 +69,31 @@ def main():
     assert list(validator("get_record","response").iter_errors(bad));checked+=1
     error=json.loads((DIRECTORY/"search_knowledge.error.example.json").read_text())
     validator("search_knowledge","response").validate(error["response"]);semantic(error["response"]);checked+=1
+    for name in ("search_knowledge.missing-build.example.json","search_knowledge.unknown-sdk.example.json","search_knowledge.browse.example.json"):
+        specimen=json.loads((DIRECTORY/name).read_text())
+        validator("search_knowledge","request").validate(specimen["request"])
+        validator("search_knowledge","response").validate(specimen["response"]);semantic(specimen["response"]);checked+=2
+    # Absence is explicit only before binding; successful envelopes cannot invent missing build metadata.
+    for tool in TOOLS:
+        bad=json.loads((DIRECTORY/f"{tool}.example.json").read_text())["response"]
+        bad["buildId"]=None;bad["trace"]["capabilityFingerprint"]=None
+        assert list(validator(tool,"response").iter_errors(bad));checked+=1
+    for tool in TOOLS:
+        unavailable=json.loads((DIRECTORY/f"{tool}.example.json").read_text())["response"]
+        unavailable.update(buildId=None,data=None,proof="NOT_APPLICABLE",error={"code":"BUILD_UNAVAILABLE","message":"No immutable build is available","retryable":True},counts={"value":None,"relation":"UNKNOWN"},continuation=None)
+        unavailable["trace"]["capabilityFingerprint"]=None
+        validator(tool,"response").validate(unavailable);semantic(unavailable);checked+=1
+        unavailable["trace"]["capabilityFingerprint"]="invented-sentinel"
+        assert list(validator(tool,"response").iter_errors(unavailable));checked+=1
+    bad=copy.deepcopy(populated["response"]);bad["data"]["records"][0]["record"]["snippet"]=None
+    bad["data"]["records"][0]["record"]["citations"]=[]
+    assert list(validator("get_record","response").iter_errors(bad));checked+=1
+    for request in (
+        {"contractVersion":"read-tools/1","sdkVersion":"2024.0"},
+        {"contractVersion":"read-tools/1","sdkVersion":"2024.0","mode":"LEXICAL","query":""},
+        {"contractVersion":"read-tools/1","sdkVersion":"2024.0","query":"   "},
+        {"contractVersion":"read-tools/1","sdkVersion":"2024.0","mode":"BROWSE","query":"dummy"}):
+        assert list(validator("search_knowledge","request").iter_errors(request));checked+=1
+    validator("search_knowledge","request").validate({"contractVersion":"read-tools/1","sdkVersion":"2024.0","mode":"BROWSE","query":""});checked+=1
     print(f"PASS: {checked} synthetic schema/example/adverse checks; no Story 10.1 acceptance claim")
 if __name__=="__main__":main()

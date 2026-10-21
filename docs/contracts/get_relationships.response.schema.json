@@ -15,9 +15,16 @@
       "maxLength": 2048
     },
     "buildId": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 2048
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        {
+          "type": "null"
+        }
+      ]
     },
     "proof": {
       "$ref": "common.schema.json#/$defs/proof"
@@ -282,9 +289,16 @@
           "maximum": 50000
         },
         "capabilityFingerprint": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 64
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
@@ -326,6 +340,20 @@
         "properties": {
           "data": {
             "type": "object"
+          },
+          "buildId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2048
+          },
+          "trace": {
+            "properties": {
+              "capabilityFingerprint": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64
+              }
+            }
           }
         }
       },
@@ -339,6 +367,42 @@
           },
           "continuation": {
             "type": "null"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "buildId": {
+            "type": "null"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "error": {
+            "type": "object"
+          },
+          "trace": {
+            "properties": {
+              "capabilityFingerprint": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "trace": {
+            "properties": {
+              "capabilityFingerprint": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64
+              }
+            }
           }
         }
       }

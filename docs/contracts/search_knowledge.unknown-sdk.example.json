@@ -1,0 +1,38 @@
+{
+  "request": {
+    "contractVersion": "read-tools/1",
+    "sdkVersion": "unknown-sdk",
+    "query": "Widget"
+  },
+  "response": {
+    "contractVersion": "read-tools/1",
+    "tool": "search_knowledge",
+    "sdkVersion": "unknown-sdk",
+    "buildId": null,
+    "proof": "NOT_APPLICABLE",
+    "data": null,
+    "error": {
+      "code": "UNKNOWN_SDK",
+      "message": "Requested SDK has no configured binding",
+      "retryable": false
+    },
+    "counts": {
+      "value": null,
+      "relation": "UNKNOWN"
+    },
+    "coverage": {
+      "complete": false,
+      "reason": "Synthetic contract specimen; no corpus acceptance claim"
+    },
+    "emptyReason": null,
+    "truncated": false,
+    "continuation": null,
+    "trace": {
+      "normalizedQuery": "synthetic",
+      "matchedBy": [],
+      "candidatesExamined": 0,
+      "workCharged": 0,
+      "capabilityFingerprint": null
+    }
+  }
+}
