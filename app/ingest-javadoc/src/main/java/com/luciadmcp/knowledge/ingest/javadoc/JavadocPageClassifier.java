@@ -108,6 +108,11 @@ final class JavadocPageClassifier {
             }
         }
 
+        // Legacy overview titles are customizable with -doctitle; the package table is stable.
+        if (doc.selectFirst("table.overviewSummary") != null) {
+            return new Analysis(PageType.OVERVIEW, "overview-summary", heading, hasMembers);
+        }
+
         // Legacy / body-class-less path: decide from the primary heading, then member structure.
         PageType byHeading = classifyByHeading(heading);
         if (byHeading != null) {
@@ -139,7 +144,8 @@ final class JavadocPageClassifier {
         if (heading.contains("hierarchy")) { // "Hierarchy For Package ...", "Class Hierarchy"
             return PageType.EXCLUDED;
         }
-        if (heading.equals("api help") || heading.startsWith("help")) {
+        if (heading.equals("api help") || heading.startsWith("help")
+                || heading.equals("how this api document is organized")) {
             return PageType.EXCLUDED;
         }
         if (heading.startsWith("deprecated")) {

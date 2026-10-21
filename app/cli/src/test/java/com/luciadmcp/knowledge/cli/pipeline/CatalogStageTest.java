@@ -99,6 +99,47 @@ class CatalogStageTest {
         assertEquals("doThing(int)", method.anchor(), "a method anchors on its modern member id");
     }
 
+    @Test
+    void constructorAndClassNamedMethodPersistWithDistinctSourceLocators(@TempDir Path tmp) throws Exception {
+        Path javadoc = Files.createDirectories(tmp.resolve("javadoc"));
+        writeType(javadoc, "com/example/Widget.html", """
+                <!DOCTYPE html><html><body class="class-declaration-page"><main>
+                <h1 class="title">Class Widget</h1>
+                <section class="class-description"><div class="block">A widget.</div></section>
+                <section class="constructor-details" id="constructor-detail"><ul class="member-list"><li>
+                <section class="detail" id="&lt;init&gt;(int)"><h3>Widget</h3>
+                <div class="member-signature">public Widget(int n)</div>
+                <div class="block">Creates a widget.</div></section></li></ul></section>
+                <section class="method-details" id="method-detail"><ul class="member-list"><li>
+                <section class="detail" id="Widget(int)"><h3>Widget</h3>
+                <div class="member-signature">public void Widget(int n)</div>
+                <div class="block">Updates a widget.</div></section></li></ul></section>
+                </main></body></html>
+                """);
+        Path db = tmp.resolve("catalog.sqlite");
+        List<StageFailure> failures = new ArrayList<>();
+        new CatalogStage(javadoc, new JavadocCatalogSource(), ctx -> new SqliteCatalogStore(db))
+                .execute(context(tmp), failures::add);
+        assertTrue(failures.isEmpty(), () -> failures.toString());
+        try (SqliteCatalogStore store = new SqliteCatalogStore(db)) {
+            assertEquals(3, store.allRecords().size());
+            StoredCatalogRecord constructor = store.findByKey("2024.0", "com.example.Widget#Widget(int)").orElseThrow();
+            StoredCatalogRecord method = store.findByKey("2024.0", "com.example.Widget#method:Widget(int)").orElseThrow();
+            assertEquals("<init>(int)", constructor.record().anchor());
+            assertEquals("Widget(int)", method.record().anchor());
+            org.junit.jupiter.api.Assertions.assertNotEquals(constructor.recordId(), method.recordId());
+            var index = RelationshipsStage.ResolutionIndex.build(store.allRecords(), "2024.0");
+            for (StoredCatalogRecord member : List.of(constructor, method)) {
+                var reference = new com.luciadmcp.knowledge.ingest.javadoc.TypeRef(
+                        "Widget", "com/example/Widget.html", member.record().anchor());
+                var resolution = index.resolve("com.example.Widget", reference,
+                        com.luciadmcp.knowledge.domain.RelationshipType.SEE_ALSO, "2024.0");
+                assertEquals(com.luciadmcp.knowledge.domain.ReferenceResolution.Status.EXACT, resolution.status());
+                assertEquals(member.recordId(), resolution.selectedTargetId());
+            }
+        }
+    }
+
     /**
      * AC 1 end-to-end: two SDK-version trees sharing a simple name, ingested through the real store
      * into one catalog, produce two version-scoped rows with distinct ids and no cross-version

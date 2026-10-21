@@ -164,8 +164,8 @@ public final class CatalogStage implements Stage {
      * The on-page HTML fragment locating this element, derived deterministically from the record. A
      * type-level record has no member fragment (the page itself is the location), so its anchor is
      * empty. A field / enum constant anchors on its bare name; a method / constructor anchors on the
-     * modern Javadoc member id {@code name(ErasedParam,ErasedParam)} — exactly the erased-generic
-     * variant the minter already computed. With {@code relativePath}, this reconstructs the source
+     * modern Javadoc member id {@code name(ErasedParam,ErasedParam)}, with {@code <init>} as the
+     * constructor name. With {@code relativePath}, this reconstructs the source
      * location (matrix row "Resolvable to source").
      */
     static String anchorFor(SymbolRecord record) {
@@ -175,6 +175,9 @@ public final class CatalogStage implements Stage {
         if (record.kind() == SymbolKind.FIELD || record.kind() == SymbolKind.ENUM_CONSTANT) {
             return record.simpleName();
         }
-        return record.simpleName() + "(" + String.join(",", record.erasedParameterTypes()) + ")";
+        // Modern doclets distinguish constructors from legal same-named methods in their locators.
+        // Keep locator spelling independent of the provisional identity's method: discriminator.
+        String locatorName = record.kind() == SymbolKind.CONSTRUCTOR ? "<init>" : record.simpleName();
+        return locatorName + "(" + String.join(",", record.erasedParameterTypes()) + ")";
     }
 }

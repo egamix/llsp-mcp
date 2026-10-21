@@ -230,9 +230,18 @@ final class SignatureNormalizer {
             if (j < n && s.charAt(j) == '(') {
                 int depth = 0;
                 int k = j;
+                char quote = 0;
                 for (; k < n; k++) {
                     char cc = s.charAt(k);
-                    if (cc == '(') {
+                    if (quote != 0) {
+                        if (cc == '\\') {
+                            k++; // escaped quote/backslash (or any escaped literal character)
+                        } else if (cc == quote) {
+                            quote = 0;
+                        }
+                    } else if (cc == '"' || cc == '\'') {
+                        quote = cc;
+                    } else if (cc == '(') {
                         depth++;
                     } else if (cc == ')') {
                         depth--;

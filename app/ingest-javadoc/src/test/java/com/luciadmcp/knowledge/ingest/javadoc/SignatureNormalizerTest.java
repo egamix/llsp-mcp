@@ -87,6 +87,15 @@ class SignatureNormalizerTest {
         assertEquals(List.of("String"), types("void f(@Size(max=5) String s)"));
     }
 
+    @Test
+    void annotationQuotedDelimitersAndEscapesDoNotAffectParameterParsing() {
+        assertEquals(List.of("int"), types("@Example(\"(\") void f(int x)"));
+        assertEquals(List.of("String"), types("void f(@Example(\")\") String s)"));
+        assertEquals(List.of("int"), types("@Example('(') void f(int x)"));
+        assertEquals(List.of("int"), types("@Example(\"escaped \\\" (\") void f(int x)"));
+        assertEquals(List.of("int"), types("@Example(\"backslash \\\\\") void f(int x)"));
+    }
+
     // --- Review item 4: unbalanced generics / parens are flagged, not silently truncated ----------
 
     @Test

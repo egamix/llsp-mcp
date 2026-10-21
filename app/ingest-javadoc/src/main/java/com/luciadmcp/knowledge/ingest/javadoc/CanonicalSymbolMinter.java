@@ -24,6 +24,8 @@ import java.util.Set;
  *   <li>type — {@code com.luciad.shape.ILcdShape}</li>
  *   <li>method / constructor — {@code com.luciad.shape.ILcdShape#contains(ILcdPoint)} (erased param
  *       types joined by {@code ,} with no spaces; a no-arg element renders {@code name()})</li>
+ *   <li>a method named after its enclosing type uses {@code #method:TypeName(...)} so it cannot
+ *       collide with a constructor; lookup variants retain the original member name</li>
  *   <li>field / enum constant — {@code com.luciad.shape.ILcdShape#SIZE}</li>
  *   <li>degraded method/constructor (unparseable signature) —
  *       {@code com.luciad.shape.ILcdShape#name?METHOD@3} (a best-effort key that folds in the kind
@@ -133,7 +135,11 @@ public final class CanonicalSymbolMinter {
 
         List<String> erased = params.get();
         String paramList = "(" + String.join(",", erased) + ")";
-        String key = typeName.fqn() + "#" + name + paramList;
+        // Java permits a method with the same name and parameters as its constructor. Reserve a
+        // non-identifier prefix only for these methods, independent of the other members present.
+        String identityName = kind == SymbolKind.METHOD && name.equals(typeName.simpleName())
+                ? "method:" + name : name;
+        String key = typeName.fqn() + "#" + identityName + paramList;
         String erasedGeneric = name + paramList;
         return new SymbolRecord(key, kind, typeName.fqn(), name, erased,
                 memberVariants(typeName.simpleName(), name, erasedGeneric), relativePath, index);
