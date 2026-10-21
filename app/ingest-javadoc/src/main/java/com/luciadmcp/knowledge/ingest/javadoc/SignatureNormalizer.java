@@ -129,6 +129,25 @@ final class SignatureNormalizer {
      * @return the parse outcome (never null)
      */
     static Parsed parse(String signature) {
+        return parse(signature, false);
+    }
+
+    static List<String> qualifiedParameterTypes(String signature) {
+        return parse(signature, true).parameterTypes().orElse(List.of());
+    }
+
+    static List<String> qualifiedThrowsTypes(String signature) {
+        if (signature == null) return List.of();
+        String cleaned = stripAnnotations(collapse(signature));
+        int close = cleaned.indexOf(')');
+        if (close < 0) return List.of();
+        String tail = cleaned.substring(close + 1).trim();
+        if (!tail.startsWith("throws ")) return List.of();
+        return splitTopLevel(eraseGenerics(tail.substring(7)).text()).stream()
+                .map(String::trim).filter(token -> !token.isEmpty()).toList();
+    }
+
+    private static Parsed parse(String signature, boolean preserveQualification) {
         if (signature == null) {
             return new Parsed(Optional.empty(), List.of());
         }
@@ -164,7 +183,7 @@ final class SignatureNormalizer {
                 problems.add("has an empty parameter slot in its signature");
                 continue;
             }
-            String type = parameterType(raw);
+            String type = parameterType(raw, preserveQualification);
             if (type.isEmpty()) {
                 problems.add("has a parameter that reduced to no type name in its signature");
                 continue;
@@ -302,7 +321,7 @@ final class SignatureNormalizer {
      * consistent bracket form, and reduces a fully-qualified type to its last dotted segment. Returns
      * {@code ""} if nothing type-like remains (caller records a problem, never fabricates a type).
      */
-    private static String parameterType(String erasedParam) {
+    private static String parameterType(String erasedParam, boolean preserveQualification) {
         String[] tokens = erasedParam.trim().split("\\s+");
         List<String> kept = new ArrayList<>();
         for (String t : tokens) {
@@ -334,7 +353,7 @@ final class SignatureNormalizer {
 
         // Reduce a fully-qualified type to its last dotted segment.
         int lastDot = base.lastIndexOf('.');
-        if (lastDot >= 0) {
+        if (!preserveQualification && lastDot >= 0) {
             base = base.substring(lastDot + 1);
         }
         if (base.isEmpty()) {

@@ -193,14 +193,16 @@ public final class JavadocFieldExtractor {
 
         return new ExtractedMember(kind, name, signature, description,
                 notes.params, notes.returns, notes.throwsTypes, notes.since, deprecation,
-                returnType, fieldType, notes.overrides, notes.specifiedBy, List.copyOf(notes.seeAlso));
+                returnType, fieldType, notes.overrides, notes.specifiedBy, List.copyOf(notes.seeAlso),
+                parameterReferences(sig, signature, relativePath),
+                throwsReferences(sig, signature, relativePath, notes.throwsRefs));
     }
 
     /**
      * The erased leading-type reference of a member: the return type (method) or declared type
      * (field/enum constant). The name is {@link SignatureNormalizer#leadingType(String) the erased
-     * simple type}; the href, when present, is the first link in the signature element (Javadoc links
-     * the return/field type first, before the element name). Returns {@code null} when no leading type
+     * type}; its href comes from that position in the signature, independently of annotation links.
+     * Returns {@code null} when no leading type
      * is recoverable (a constructor, {@code void}, or a bare declaration) — pass two additionally
      * ignores primitives, which name no documented type.
      */
@@ -209,14 +211,71 @@ public final class JavadocFieldExtractor {
         if (type.isEmpty() || isPrimitiveOrVoid(type.get())) {
             return null; // a constructor, void, or a primitive names no documented type reference
         }
-        Element firstLink = sig == null ? null : sig.selectFirst("a[href]");
-        if (firstLink != null) {
-            return makeRef(type.get(), firstLink.attr("href"), relativePath);
-        }
-        return TypeRef.ofName(type.get());
+        return positionedSignatureRef(sig, type.get(), relativePath, -1);
     }
 
     /** Language primitives and {@code void} — never documented types, so never a type reference. */
+    private static List<TypeRef> parameterReferences(Element sig, String signature, String relativePath) {
+        List<String> tokens = SignatureNormalizer.qualifiedParameterTypes(signature);
+        List<TypeRef> result = new ArrayList<>();
+        for (int i = 0; i < tokens.size(); i++) result.add(positionedSignatureRef(sig, tokens.get(i), relativePath, i));
+        return List.copyOf(result);
+    }
+
+    private static List<TypeRef> throwsReferences(Element sig, String signature, String relativePath, List<TypeRef> notes) {
+        List<TypeRef> result = new ArrayList<>();
+        List<String> tokens = SignatureNormalizer.qualifiedThrowsTypes(signature);
+        for (int i = 0; i < tokens.size(); i++) result.add(positionedSignatureRef(sig, tokens.get(i), relativePath, -2 - i));
+        for (TypeRef note : notes) {
+            boolean matched = result.stream().anyMatch(ref -> ref.name().equals(note.name())
+                    || (!note.name().contains(".") && lastDotSegment(ref.name()).equals(note.name())));
+            if (note.hasHref()) {
+                result.removeIf(ref -> !ref.hasHref() && ref.name().equals(note.name()));
+                result.add(note);
+            } else if (!matched) result.add(note);
+        }
+        return List.copyOf(result);
+    }
+
+    /** Mask links before parsing so return, annotation and repeated parameter names cannot steal hrefs. */
+    private static TypeRef positionedSignatureRef(Element sig, String token, String relativePath, int slot) {
+        if (sig == null) return TypeRef.ofName(token);
+        Element masked = sig.clone();
+        List<Element> links = new ArrayList<>(sig.select("a[href]"));
+        List<Element> maskedLinks = new ArrayList<>(masked.select("a[href]"));
+        for (int i = 0; i < maskedLinks.size(); i++) maskedLinks.get(i).text("__linkedType" + i + "__");
+        String maskedToken;
+        if (slot == -1) maskedToken = SignatureNormalizer.leadingType(norm(masked)).orElse("");
+        else if (slot < -1) {
+            List<String> thrown = SignatureNormalizer.qualifiedThrowsTypes(norm(masked));
+            int index = -2 - slot;
+            maskedToken = index < thrown.size() ? thrown.get(index) : "";
+        } else {
+            List<String> parameters = SignatureNormalizer.qualifiedParameterTypes(norm(masked));
+            maskedToken = slot < parameters.size() ? parameters.get(slot) : "";
+        }
+        String base = maskedToken.replace("[]", "").replace("...", "");
+        for (int i = 0; i < links.size(); i++) {
+            if (base.equals("__linkedType" + i + "__")) return makeRef(token, links.get(i).attr("href"), relativePath);
+        }
+        return TypeRef.ofName(token);
+    }
+
+    private static TypeRef signatureTypeRef(Element sig, String token, String relativePath) {
+        String base = token.replace("[]", "").replace("...", "");
+        if (sig != null) {
+            for (Element a : sig.select("a[href]")) {
+                if (a.closest(".annotations") != null) continue;
+                if (a.previousSibling() != null && a.previousSibling().toString().stripTrailing().endsWith("@")) continue;
+                String text = a.text().trim();
+                if (text.equals(base) || text.equals(lastDotSegment(base))) {
+                    return makeRef(token, a.attr("href"), relativePath);
+                }
+            }
+        }
+        return TypeRef.ofName(token);
+    }
+
     private static boolean isPrimitiveOrVoid(String name) {
         String base = name;
         while (base.endsWith("[]")) {
@@ -358,8 +417,11 @@ public final class JavadocFieldExtractor {
             // separate concept and must not land in the positional param list — ignored this story.
             case "parameters" -> notes.params.add(splitNameProse(dd, Param::new));
             case "returns" -> notes.returns = norm(dd);
-            case "throws", "exceptions" ->
-                    notes.throwsTypes.add(splitNameProse(dd, ThrownException::new));
+            case "throws", "exceptions" -> {
+                ThrownException thrown = splitNameProse(dd, ThrownException::new);
+                notes.throwsTypes.add(thrown);
+                notes.throwsRefs.add(signatureTypeRef(dd, thrown.type(), relativePath));
+            }
             case "since" -> notes.since = norm(dd);
             // Story 2.5 relationship-source references. Overrides/Specified By target a specific
             // supertype method — its member link is the first anchor in the dd; both are member-precise
@@ -498,6 +560,7 @@ public final class JavadocFieldExtractor {
 
     /** Mutable accumulator for a member's tag notes while parsing a {@code dl}. */
     private static final class Notes {
+        final List<TypeRef> throwsRefs = new ArrayList<>();
         final List<Param> params = new ArrayList<>();
         final List<ThrownException> throwsTypes = new ArrayList<>();
         final List<TypeRef> seeAlso = new ArrayList<>();
@@ -657,15 +720,18 @@ public final class JavadocFieldExtractor {
     /**
      * Builds a reference from a documented name and its (possibly absent) href, resolving the href to
      * a root-relative path against the referring {@code pageRelativePath} so it matches the path the
-     * catalog persists. An absent or external ({@code scheme://}) href yields a name-only reference; a
-     * pure {@code #fragment} targets the referring page itself.
+     * catalog persists. External and escaping hrefs keep their original locators and classification;
+     * a pure {@code #fragment} targets the referring page itself.
      */
     private static TypeRef makeRef(String name, String href, String pageRelativePath) {
         if (href == null || href.isBlank()) {
             return TypeRef.ofName(name);
         }
-        if (href.contains("://") || href.startsWith("//") || href.startsWith("mailto:")) {
-            return TypeRef.ofName(name); // outside the ingested tree — resolve (or fail) by name
+        if (href.matches("^[a-zA-Z][a-zA-Z0-9+.-]*:.*") || href.startsWith("//")) {
+            return new TypeRef(name, "", "", href, TypeRef.LocatorKind.EXTERNAL);
+        }
+        if (href.startsWith("/") || href.contains("\\")) {
+            return new TypeRef(name, "", "", href, TypeRef.LocatorKind.ROOT_ESCAPE);
         }
         int hash = href.indexOf('#');
         String pathPart = hash >= 0 ? href.substring(0, hash) : href;
@@ -673,7 +739,8 @@ public final class JavadocFieldExtractor {
         String targetPath = pathPart.isEmpty()
                 ? pageRelativePath
                 : resolveRelative(parentDir(pageRelativePath), pathPart);
-        return new TypeRef(name, targetPath, anchor);
+        return new TypeRef(name, targetPath, anchor, href,
+                (targetPath.equals("..") || targetPath.startsWith("../")) ? TypeRef.LocatorKind.ROOT_ESCAPE : TypeRef.LocatorKind.LOCAL);
     }
 
     /** The parent directory of a {@code /}-separated relative path, or {@code ""} for a top-level path. */
@@ -701,8 +768,10 @@ public final class JavadocFieldExtractor {
                 continue;
             }
             if (s.equals("..")) {
-                if (!segments.isEmpty()) {
+                if (!segments.isEmpty() && !segments.get(segments.size() - 1).equals("..")) {
                     segments.remove(segments.size() - 1);
+                } else {
+                    segments.add("..");
                 }
             } else {
                 segments.add(s);

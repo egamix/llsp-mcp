@@ -54,7 +54,9 @@ public record ExtractedMember(
         TypeRef fieldType,
         TypeRef overrides,
         TypeRef specifiedBy,
-        List<TypeRef> seeAlso) {
+        List<TypeRef> seeAlso,
+        List<TypeRef> parameterRefs,
+        List<TypeRef> throwsRefs) {
 
     public ExtractedMember {
         if (kind == null) {
@@ -69,6 +71,17 @@ public record ExtractedMember(
         since = since == null ? "" : since;
         deprecation = deprecation == null ? Deprecation.NONE : deprecation;
         seeAlso = seeAlso == null ? List.of() : List.copyOf(seeAlso);
+        parameterRefs = parameterRefs == null ? List.of() : List.copyOf(parameterRefs);
+        throwsRefs = throwsRefs == null ? List.of() : List.copyOf(throwsRefs);
+    }
+
+    /** Compatibility for callers without independently extracted qualified references. */
+    public ExtractedMember(MemberKind kind, String name, String signature, String description,
+            List<Param> params, String returns, List<ThrownException> throwsTypes, String since,
+            Deprecation deprecation, TypeRef returnType, TypeRef fieldType, TypeRef overrides,
+            TypeRef specifiedBy, List<TypeRef> seeAlso) {
+        this(kind, name, signature, description, params, returns, throwsTypes, since, deprecation,
+                returnType, fieldType, overrides, specifiedBy, seeAlso, List.of(), List.of());
     }
 
     /**
