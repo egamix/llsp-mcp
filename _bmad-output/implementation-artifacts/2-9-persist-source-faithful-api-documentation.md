@@ -4,39 +4,69 @@ type: 'feature'
 status: 'draft'
 route: 'dispatch'
 created: '2026-10-21'
+review_loop_iteration: 0
 story_key: '2-9-persist-source-faithful-api-documentation'
 after: ['2-8-contract-and-verification-freeze']
 context:
-  - '{project-root}/_bmad-output/planning-artifacts/epics.md'
-  - '{project-root}/_bmad-output/implementation-artifacts/story-2-8-source-content-contract-input.md'
+  - D:/workspace/luciad-mcp/AGENTS.md
+  - D:/workspace/luciad-mcp/_bmad-output/implementation-artifacts/epic-2-context.md
 ---
+
+<frozen-after-approval reason="human-owned intent — do not modify unless human renegotiates">
 
 ## Intent
 
-Implement the first complete path from extracted type/member documentation through domain ports and SQLite to a bounded fetch by stable ID. This is a persistence delivery, not a search or MCP implementation.
+Persist extracted API documentation with its stable symbol identity so bounded fetches still work after restart and removal of original Javadocs. Connect extraction through domain ports to atomic SQLite storage; retain the existing useful-guidance policy when user and source SDK versions differ.
 
-## Prerequisites and uncertainty
+## Boundaries & Constraints
 
-Implementation waits for the relevant 2.8 payload/locator/schema/identity/limits ratification. Wire formats, narrative identity recipes and finite caps are consumed from those contracts; draft status is not permission to invent them. No human approver is assigned or assumed by this story.
+**Always:** Retain signatures, normalized descriptions, parameter/type-parameter docs, returns, exceptions, since/deprecation and truthful anchors. Keep domain-owned IDs, independent source/content hashes, source SDK/build pinning, overload/ambiguity and governance rules. Atomically associate catalog, knowledge metadata and payload; bound reads before materialization. Commit verified substantial slices separately; preserve unrelated edits.
 
-## Execution
+**Approval decision:** Adopt identity/1, DocumentationPayload, typed locators and bounded DocumentationStore for this delivery, preserving read-tools/2 guidance. Authorize the missing storage extension as schema/2. Old stores require rebuild and are rejected unchanged, without automatic migration/deletion. Stable IDs stay unchanged; version schema/runtime/build fingerprints and content capability. Record only this approval scope; unrelated interface/evaluation/release gates remain pending.
 
-- Extend the approved domain documentation-content values and catalog ports; keep identity separate from mutable content digests.
-- Connect `JavadocFieldExtractor`/`JavadocCatalogSource` output to `CatalogStage` without discarding documented semantic fields.
-- Implement atomic record/content association and bounded fetch/enumeration in `SqliteCatalogStore`; reject unsupported schemas before mutation.
-- Establish the shared synthetic ingestion/reopen fixture harness used by 2.10/2.11. Tests and necessary cleanup ship with the implementation.
+**Never:** Reparse HTML during fetch or add search/MCP/lifecycle handlers. Full block/link fidelity and narratives remain 2.10; coverage remains 2.11. No private-corpus acceptance claim, fabricated source locators or mismatch-only SDK warnings.
 
-## Acceptance
+## I/O & Edge-Case Matrix
 
-- Given paired modern/legacy type/member fixtures, when ingestion completes and SQLite reopens after source removal, then signature, descriptions, parameter/type-parameter docs, returns, throws, since/deprecation and citation metadata are recoverable.
-- Given overloads and two SDK versions, when fetched by stable ID, then payloads remain attached to the correct symbols/scope without silent ambiguity resolution.
-- Given a content-only edit or root relocation, when rebuilt, then appropriate content digests change and unaffected logical identity stays stable.
-- Given an interrupted transaction or unsupported format, when writing/opening, then no orphan content or partial association is visible and existing files are not silently migrated/deleted.
+| Input/state | Expected behavior | Failure handling |
+| --- | --- | --- |
+| Modern/legacy type and members; sources removed | Equivalent semantic fields fetch after SQLite reopen | No source-file fallback |
+| Overloads, constructors, two source SDKs | Correct stable-ID association and actual locators | No ambiguous selection or foreign-source content |
+| Type parameters or absent/legacy anchors | Retain docs and actual anchor, or explicit absence | Never synthesize citation anchors |
+| Retry, content-only edit, relocated root | Identical retry; changed content/source digests; stable IDs | Conflicting identity cannot overwrite |
+| Failed write between catalog/metadata/content | Entire association rolls back | No orphan or partial record |
+| Missing ID, wrong build/source, invalid offset/limit, continuation | Deterministic bounded result or explicit rejection | No scope bypass or unlimited scan |
+| Oversize/corrupt persisted content, old schema | Bounded rejection before content allocation/DDL | Preserve existing file on unsupported open |
 
-## Code map and verification
+</frozen-after-approval>
 
-Use the existing packages in `app/domain`, `app/ingest-javadoc`, `app/catalog-sqlite`, and `app/cli`. Primary touchpoints are `CatalogStore`, the approved documentation DTOs, `JavadocCatalogSource`, `CatalogStage`, and `SqliteCatalogStore`. Extend domain/extractor/store/pipeline tests with known-answer content and real SQLite reopen/rollback checks. Do not add a second persistence engine or source-reparse fetch path.
+## Code Map
 
-## Done when
+Module paths are under `app/`, using existing packages.
 
-The above checks pass, the scoped changes are independently reviewed and committed on a feature branch, and required 2.8 approvals are cited. This draft remains backlog until those gates clear; it does not reopen Story 2.4.
+- `domain`: DocumentationPayload:7-128, DocumentationStore:7-23, CatalogStore:22-89 own contracts, hashes and limits.
+- `ingest-javadoc`: JavadocFieldExtractor:68-80,106-198,414-432 has prose but ignores type parameters; ExtractedMember lacks actual anchors. Hash bytes parsed with charset detection. JavadocCatalogSource:31-69 retains fields; SymbolRecord.memberIndex associates members.
+- `cli/CatalogStage:118-182` discards prose; anchorFor is lookup metadata, not citation proof. Reuse runner/failure policy.
+- `catalog-sqlite`: SqliteCatalogStore:88-214,227-315; SchemaCompatibility:9-39. Preserve read-only preflight/byte guards; replace blanket knowledge-row rejection with supported API-content validation.
+- Reuse `ingest-javadoc/src/test/resources/javadoc-fixtures/extract` modern/legacy fixtures and catalog/schema/application tests.
+
+## Tasks & Acceptance
+
+- [ ] `domain`, `docs/contracts`: document schema/2 encoding and atomic integration ports. Preserve structured DTO roundtrip, source/document/page hashes, 256 sections, 4096 blocks, 1 MiB canonical bytes and page limit 1..50. Bound encoded/returned bytes; version runtime/capability/oracle fixtures and scoped approvals.
+- [ ] `catalog-sqlite`: implement atomic catalog/metadata/content writes, idempotence/clashes, scoped enumeration and section paging. Validate supported persisted payloads on CLI/startup; test corruption, preflight and injected transaction rollback.
+- [ ] `ingest-javadoc`, `cli`: carry original-byte hash, actual anchors and type-parameter docs; assemble deterministic sections and wire production atomic persistence. Unsupported or failed content writes cannot report tuple-only success.
+- [ ] Tests/evidence: shared modern/legacy reopen harness, every matrix row, fresh portability snapshots, tracker/graph refresh and independent complete-diff review.
+
+**Acceptance:** Given synthetic Javadocs, when ingested and removed, then reopened fetches retain every expected field under its original stable ID. Given corrupt content, CLI and pinned startup both reject it. Given relocated builds on Windows/Linux, logical IDs/content match excluding operational paths/timestamps.
+
+## Implementation Notes
+
+Planning until approval of this spec and its scoped contract adoption. Preserve unrelated docs/README/diagrams. No merge, push or squash.
+
+## Spec Change Log
+
+## Review Triage Log
+
+## Verification
+
+Focused tests per slice, Python contract verifier/oracle, full `app/gradlew.bat --no-daemon check`, fresh Windows/Linux snapshots. Audit matrix tests actually ran. Scoped diff checks, Graft refresh and independent review. Reuse process-local Gradle workarounds.
