@@ -9,6 +9,8 @@ class TraversalContractTest {
         assertEquals(TraversalRequest.Mode.DIRECT, query.mode());
         assertEquals(TraversalRequest.Direction.OUT, query.direction());
         assertEquals(10, query.limits().pageItems());
+        assertEquals(1, query.limits().depth());
+        assertThrows(IllegalArgumentException.class, () -> new TraversalRequest("seed",null,null,null,null,"界".repeat(1500)));
         assertThrows(IllegalArgumentException.class, () -> new TraversalRequest("x".repeat(2049)));
         assertThrows(IllegalArgumentException.class, () -> new TraversalRequest("界".repeat(700)));
         assertThrows(IllegalArgumentException.class, () -> new TraversalLimits(0,1,1,1,1,1,1,65536));

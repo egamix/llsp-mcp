@@ -15,8 +15,12 @@ public record TraversalRequest(String seedKey, Mode mode, Direction direction,
         direction = direction == null ? Direction.OUT : direction;
         types = types == null ? Set.of() : Set.copyOf(types);
         limits = limits == null ? TraversalLimits.DEFAULT : limits;
+        if (mode == Mode.DIRECT && limits.depth() != 1) limits = new TraversalLimits(1,
+                limits.visitedNodes(), limits.adjacencyRows(), limits.resultItems(), limits.pageItems(),
+                limits.executionNanos(), limits.sqlSteps(), limits.responseBytes());
         continuation = continuation == null ? "" : continuation;
-        if (continuation.length() > 4096) throw new IllegalArgumentException("continuation exceeds 4 KiB");
+        if (continuation.length() > 4096 || continuation.getBytes(StandardCharsets.UTF_8).length > 4096)
+            throw new IllegalArgumentException("continuation exceeds 4 KiB");
     }
     public static void boundedText(String value) {
         if (value == null || value.isBlank() || value.length() > 2048
