@@ -496,6 +496,38 @@ class RelationshipsStageTest {
     }
 
     @Test
+    void typeHeaderLinksKeepTheirScopeAndOriginalLocators(@TempDir Path tmp) throws Exception {
+        Path javadoc = Files.createDirectories(tmp.resolve("javadoc"));
+        write(javadoc, "com/example/Point.html", POINT);
+        write(javadoc, "com/example/Marker.html", page("interface-declaration-page", "Interface Marker",
+                "<section class='class-description'><div class='type-signature'>public interface Marker</div>"
+                + "<div class='block'>Marker.</div></section>"));
+        String[] prefixes = {"https://external/", "/outside/", "../../../", "missing/"};
+        ReferenceResolution.Reason[] reasons = {ReferenceResolution.Reason.EXTERNAL_LOCATOR,
+                ReferenceResolution.Reason.ROOT_ESCAPE, ReferenceResolution.Reason.ROOT_ESCAPE,
+                ReferenceResolution.Reason.MISSING_LOCATOR};
+        for (int i = 0; i < prefixes.length; i++) {
+            write(javadoc, "com/example/Child" + i + ".html", page("class-declaration-page", "Class Child" + i,
+                    "<section class='class-description'><div class='type-signature'>public class Child" + i
+                    + " extends <a href='" + prefixes[i] + "Point.html'>Point</a> implements "
+                    + "<a href='" + prefixes[i] + "Marker.html'>Marker</a></div>"
+                    + "<div class='block'>Child.</div></section>"));
+        }
+        BuildContext ctx = context(tmp);
+        assertTrue(runBothPasses(javadoc, ctx).isEmpty());
+        assertTrue(readEdges(ctx).isEmpty(), "explicit out-of-scope or dead headers must not create edges or inverses");
+        var evidence = readResolutions(ctx);
+        assertEquals(8, evidence.size());
+        for (int i = 0; i < prefixes.length; i++) {
+            final int n = i;
+            for (String target : List.of("Point.html", "Marker.html")) {
+                assertTrue(evidence.stream().anyMatch(r -> r.originalLocator().equals(prefixes[n] + target)
+                        && r.reason() == reasons[n] && r.status() == ReferenceResolution.Status.UNRESOLVED));
+            }
+        }
+    }
+
+    @Test
     void locatorCollisionsRemainAmbiguousAndVersionScoped() {
         var source = new StoredCatalogRecord("source", new com.luciadmcp.knowledge.domain.CatalogRecord(
                 VERSION, "User", "TYPE", "User", "User", "User.html", ""));

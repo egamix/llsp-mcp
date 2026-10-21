@@ -130,9 +130,12 @@ class JavadocRelationshipExtractionTest {
         assertEquals("Base", type.superclass().name());
         assertEquals("com/example/Base.html", type.superclass().relativePath());
         assertEquals("", type.superclass().anchor());
+        assertEquals("Base.html", type.superclass().originalLocator());
+        assertEquals(TypeRef.LocatorKind.LOCAL, type.superclass().locatorKind());
 
         assertEquals(1, type.implementedInterfaces().size());
         assertEquals("com/example/Drawable.html", type.implementedInterfaces().get(0).relativePath());
+        assertEquals("Drawable.html", type.implementedInterfaces().get(0).originalLocator());
         assertTrue(type.superInterfaces().isEmpty(), "a class has no super-interfaces");
 
         assertEquals(1, type.seeAlso().size());

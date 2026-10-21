@@ -639,7 +639,8 @@ public final class JavadocFieldExtractor {
             if (linked == null) {
                 linked = links.get(simple);
             }
-            refs.add(linked != null ? new TypeRef(name, linked.relativePath(), linked.anchor())
+            refs.add(linked != null ? new TypeRef(name, linked.relativePath(), linked.anchor(),
+                    linked.originalLocator(), linked.locatorKind())
                     : TypeRef.ofName(name));
         }
         return refs;
