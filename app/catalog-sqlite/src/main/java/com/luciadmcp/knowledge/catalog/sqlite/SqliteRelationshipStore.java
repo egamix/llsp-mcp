@@ -102,6 +102,13 @@ public final class SqliteRelationshipStore implements RelationshipStore {
                     ResultSet ignored = stmt.executeQuery("SELECT 1 FROM records LIMIT 1")) {
                 ignored.next();
             }
+            java.util.List<com.luciadmcp.knowledge.domain.StoredCatalogRecord> records = new java.util.ArrayList<>();
+            try (var query=connection.prepareStatement("SELECT record_id,sdk_version,canonical_key,kind,type_fqn,simple_name,relative_path,anchor FROM records WHERE sdk_version=?")) {
+                query.setString(1,scope.sdkVersion());
+                try(var r=query.executeQuery()) { while(r.next()) records.add(new com.luciadmcp.knowledge.domain.StoredCatalogRecord(r.getString(1),new com.luciadmcp.knowledge.domain.CatalogRecord(r.getString(2),r.getString(3),r.getString(4),r.getString(5),r.getString(6),r.getString(7),r.getString(8)))); }
+            }
+            var validation=SqliteCatalogStore.validatePersisted(connection,new com.luciadmcp.knowledge.domain.StandardBuildValidator(),com.luciadmcp.knowledge.domain.BuildValidator.Operation.STARTUP,buildId,scope.sdkVersion(),records);
+            if(!validation.valid()) throw new IllegalStateException("BUILD_INVALID: "+validation.reasons());
             traversal = new BoundedRelationshipTraversal(connection, buildId, scope, signingKey, System::nanoTime);
         } catch (SQLException | RuntimeException e) {
             closeQuietly(connection);

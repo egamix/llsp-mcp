@@ -120,7 +120,7 @@ public record BuildContext(String buildId, String sealedInputDigest, Path stagin
         hashRootFiles(ordered, "javadoc", args.javadoc());
         hashRootFiles(ordered, "samples", args.samples());
         hashRootFiles(ordered, "guides", args.guides());
-        hashRootFiles(ordered, "model", args.model());
+        // Lexical profile has no embedding model dependency.
         args.trainings().ifPresent(root -> hashRootFiles(ordered, "trainings", root));
 
         String digest = ContentHashes.digest("build/1", ordered);

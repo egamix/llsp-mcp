@@ -23,4 +23,21 @@ class SchemaCompatibilityTest {
         try(var ignored=new SqliteCatalogStore(file)) {}
         try(var ignored=new SqliteCatalogStore(file);var edges=new SqliteRelationshipStore(file)) {}
     }
+    @Test void persistedMetadataCorruptionBlocksCliAndPinnedServing(@TempDir Path root) throws Exception {
+        Path file=root.resolve("build.sqlite");
+        String build="b-"+"a".repeat(64);
+        try(var catalog=new SqliteCatalogStore(file)) {
+            catalog.bindManifest(new com.luciadmcp.knowledge.domain.IndexManifest(build,"2024.0",com.luciadmcp.knowledge.domain.ContentHashes.runtimeFingerprint()));
+            catalog.put(new com.luciadmcp.knowledge.domain.CatalogRecord("2024.0","a.T","TYPE","a.T","T","a/T.html",""));
+        }
+        try(var edges=new SqliteRelationshipStore(file)) {}
+        try(var db=DriverManager.getConnection("jdbc:sqlite:"+file);var s=db.createStatement()) { s.execute("UPDATE build_metadata SET runtime_digest='corrupt'"); }
+        try(var catalog=new SqliteCatalogStore(file)) {
+            var validation=catalog.validateBuild(new com.luciadmcp.knowledge.domain.StandardBuildValidator(),com.luciadmcp.knowledge.domain.BuildValidator.Operation.CLI,build,"2024.0");
+            assertFalse(validation.valid());
+            assertTrue(validation.reasons().contains(com.luciadmcp.knowledge.domain.BuildValidator.Reason.INCOMPATIBLE_RUNTIME));
+            assertThrows(IllegalStateException.class,()->catalog.bindManifest(new com.luciadmcp.knowledge.domain.IndexManifest(build,"2024.0","runtime")));
+        }
+        assertThrows(IllegalStateException.class,()->new SqliteRelationshipStore(file,build,new com.luciadmcp.knowledge.domain.RelationshipScope("2024.0"),new byte[32]));
+    }
 }

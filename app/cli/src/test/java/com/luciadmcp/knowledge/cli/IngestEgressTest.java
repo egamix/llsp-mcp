@@ -72,7 +72,8 @@ class IngestEgressTest {
                     "--samples", samples.toString(),
                     "--guides", guides.toString(),
                     "--model", model.toString(),
-                    "--out", out.toString()
+                    "--sdk-version", "2024.0",
+                "--out", out.toString()
             }, o, e);
         } finally {
             EgressGuard.disarm();

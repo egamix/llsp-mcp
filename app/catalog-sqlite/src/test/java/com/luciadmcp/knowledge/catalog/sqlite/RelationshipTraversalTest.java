@@ -17,6 +17,7 @@ class RelationshipTraversalTest {
     private final byte[] key = new byte[32];
     private void nodes(Path db, String sdk, String... keys) {
         try (var catalog = new SqliteCatalogStore(db)) {
+            catalog.bindManifest(new IndexManifest("b-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","1",ContentHashes.runtimeFingerprint()));
             for (String name : keys) catalog.put(new CatalogRecord(sdk,name,"TYPE",name,name,"Synthetic.html",""));
         }
     }
@@ -25,7 +26,7 @@ class RelationshipTraversalTest {
             for (String pair : pairs) store.put(new RelationshipEdge(pair.substring(0,1),pair.substring(1),RelationshipType.SEE_ALSO,"1"));
         }
     }
-    private SqliteRelationshipStore serving(Path db) { return new SqliteRelationshipStore(db,"trusted-build",new RelationshipScope("1"),key); }
+    private SqliteRelationshipStore serving(Path db) { return new SqliteRelationshipStore(db,"b-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",new RelationshipScope("1"),key); }
     private TraversalLimits limits(int depth, int nodes, int rows, int items, int page, int steps) {
         return new TraversalLimits(depth,nodes,rows,items,page,5_000_000_000L,steps,1_048_576);
     }
@@ -191,7 +192,7 @@ class RelationshipTraversalTest {
         }
         try (var connection = DriverManager.getConnection("jdbc:sqlite:" + db)) {
             AtomicLong clock = new AtomicLong();
-            var replay = new BoundedRelationshipTraversal(connection,"trusted-build",new RelationshipScope("1"),key,
+            var replay = new BoundedRelationshipTraversal(connection,"b-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",new RelationshipScope("1"),key,
                     () -> clock.getAndAdd(1_000_000_000L));
             var failed = replay.traverse(new TraversalRequest("A",Mode.RECURSIVE,Direction.OUT,null,bounded,firstToken));
             assertEquals(Status.EXECUTION_LIMIT,failed.status()); assertEquals("",failed.continuation());
@@ -220,13 +221,10 @@ class RelationshipTraversalTest {
             }
         }
         var resume = new TraversalRequest("A",Mode.RECURSIVE,Direction.OUT,null,bounded,token);
-        try (var otherBuild = new SqliteRelationshipStore(db,"another-build",new RelationshipScope("1"),key);
-                var otherSdk = new SqliteRelationshipStore(db,"trusted-build",new RelationshipScope("2"),key)) {
-            assertEquals(Status.INVALID_CONTINUATION,otherBuild.traverse(resume).status());
-            assertEquals(Status.INVALID_CONTINUATION,otherSdk.traverse(resume).status());
-        }
-        byte[] rotated = key.clone(); rotated[0] = 1;
-        try (var newRuntime = new SqliteRelationshipStore(db,"trusted-build",new RelationshipScope("1"),rotated)) {
+        assertThrows(IllegalStateException.class, () -> new SqliteRelationshipStore(db,"another-build",new RelationshipScope("1"),key));
+        assertThrows(IllegalStateException.class, () -> new SqliteRelationshipStore(db,"b-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",new RelationshipScope("2"),key));
+        byte[] rotated = new byte[32]; rotated[0]=1;
+        try (var newRuntime = new SqliteRelationshipStore(db,"b-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",new RelationshipScope("1"),rotated)) {
             assertEquals(Status.INVALID_CONTINUATION,newRuntime.traverse(resume).status());
         }
         assertThrows(IllegalArgumentException.class, () -> new SqliteRelationshipStore(db,"build",new RelationshipScope("1"),new byte[31]));

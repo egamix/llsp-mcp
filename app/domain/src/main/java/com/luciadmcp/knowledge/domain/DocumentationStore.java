@@ -7,7 +7,11 @@ import java.util.Optional;
 public interface DocumentationStore extends AutoCloseable {
     enum WriteStatus { INSERTED, IDENTICAL, IDENTITY_CLASH }
     WriteStatus putAtomically(KnowledgeRecord record, DocumentationPayload payload);
-    Optional<DocumentationPayload> readSections(String recordId, String buildId, String sdkVersion, int firstSection, int limit);
+    Optional<SectionPage> readSections(String recordId, String buildId, String sdkVersion, int firstSection, int limit);
+    record SectionPage(String recordId, String documentContentHash, String pageContentHash,
+            List<DocumentationPayload.Section> sections, Optional<String> continuation) {
+        public SectionPage { if(recordId==null || documentContentHash==null || pageContentHash==null || sections==null || continuation==null) throw new IllegalArgumentException("section page fields required"); checkLimit(sections.size()); sections=List.copyOf(sections); if(!pageContentHash.equals(ContentHashes.contentHash(DocumentationPayload.canonicalFields(sections)))) throw new IllegalArgumentException("page hash mismatch"); }
+    }
     List<String> enumerateIds(String buildId, String sdkVersion, String afterId, int limit);
     @Override void close();
     static void checkLimit(int limit) { if (limit < 1 || limit > 50) throw new IllegalArgumentException("INVALID_LIMIT"); }

@@ -46,6 +46,7 @@ class IngestArgumentContractTest {
                 "--samples", samples.toString(),
                 "--guides", guides.toString(),
                 "--model", model.toString(),
+                "--sdk-version", "2024.0",
                 "--out", out.toString()
         };
     }
@@ -249,6 +250,7 @@ class IngestArgumentContractTest {
                 "--samples", Files.createDirectories(tmp.resolve("samples")).toString(),
                 "--guides", Files.createDirectories(tmp.resolve("guides")).toString(),
                 "--model", Files.createDirectories(tmp.resolve("model")).toString(),
+                "--sdk-version", "2024.0",
                 "--out", out.toString());
         assertEquals(CliMain.EXIT_USAGE_ERROR, r.exit());
         assertTrue(r.err().contains(CliErrorCode.NOT_A_DIRECTORY.name()), () -> r.err());

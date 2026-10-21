@@ -23,8 +23,8 @@ public final class StandardBuildValidator implements BuildValidator {
         for (KnowledgeRecord k : input.knowledge()) {
             if (!ids.add(k.id()) || knowledge.put(k.id(), k) != null) reasons.add(Reason.INVALID_IDENTITY);
             if (!sdk.equals(k.sdkVersion()) || !k.applicability().sdkVersions().contains(sdk) || !"LuciadLightspeed".equals(k.applicability().product())) reasons.add(Reason.INVALID_SCOPE);
-            if (k.governance().approval() != KnowledgeRecord.Approval.APPROVED) reasons.add(Reason.UNAPPROVED_KNOWLEDGE);
-            if (k.recordType() == KnowledgeRecord.RecordType.PRACTICE && (k.governance().owner().isBlank() || k.governance().provenance().isBlank() || k.governance().approvalEvidence().isBlank())) reasons.add(Reason.INVALID_GOVERNANCE);
+            if (k.knowledgeKind() == KnowledgeRecord.KnowledgeKind.CANDIDATE_LEARNING || k.governance().approval() != KnowledgeRecord.Approval.APPROVED) reasons.add(Reason.UNAPPROVED_KNOWLEDGE);
+            if ((k.knowledgeKind() == KnowledgeRecord.KnowledgeKind.EXPERT_APPROVED_PRACTICE || k.knowledgeKind() == KnowledgeRecord.KnowledgeKind.RECIPE) && (k.governance().owner().isBlank() || k.governance().provenance().isBlank() || k.governance().approvalEvidence().isBlank())) reasons.add(Reason.INVALID_GOVERNANCE);
         }
         Map<String, List<String>> graph = new HashMap<>(); Map<String, Integer> indegree = new HashMap<>();
         for (KnowledgeDependency d : input.dependencies()) {

@@ -16,17 +16,24 @@ package com.luciadmcp.knowledge.domain;
  * @param sdkVersion           SDK version this build was produced from (AD-12)
  * @param toolchainFingerprint compatibility fingerprint over the toolchain component versions (AD-6)
  */
-public record IndexManifest(String buildId, String sdkVersion, String toolchainFingerprint) {
-
+public record IndexManifest(String buildId, String sdkVersion, String toolchainFingerprint,
+        int manifestVersion, String profile, String inputDigest, String recipeDigest, String runtimeDigest,
+        java.util.List<String> capabilities, String capabilityFingerprint) {
+    public IndexManifest(String buildId, String sdkVersion, String toolchainFingerprint) {
+        this(buildId, sdkVersion, toolchainFingerprint, 1, ContractVersions.PROFILE,
+                buildId.startsWith("b-") ? buildId.substring(2) : buildId,
+                ContentHashes.recipeFingerprint(ContractVersions.PROFILE, java.util.List.of()),
+                ContentHashes.runtimeFingerprint(), java.util.List.of("catalog", "relationships"),
+                ContentHashes.digest("capabilities/1", java.util.List.of("catalog", "relationships")));
+    }
     public IndexManifest {
-        if (buildId == null || buildId.isBlank()) {
-            throw new IllegalArgumentException("buildId must not be blank");
-        }
-        if (sdkVersion == null || sdkVersion.isBlank()) {
-            throw new IllegalArgumentException("sdkVersion must not be blank");
-        }
-        if (toolchainFingerprint == null || toolchainFingerprint.isBlank()) {
-            throw new IllegalArgumentException("toolchainFingerprint must not be blank");
-        }
+        if (buildId == null || buildId.isBlank() || sdkVersion == null || sdkVersion.isBlank()
+                || toolchainFingerprint == null || toolchainFingerprint.isBlank() || manifestVersion != 1
+                || profile == null || profile.isBlank() || inputDigest == null || recipeDigest == null
+                || runtimeDigest == null || capabilities == null || capabilityFingerprint == null)
+            throw new IllegalArgumentException("complete versioned manifest required");
+        capabilities = capabilities.stream().distinct().sorted().toList();
+        if (!ContentHashes.digest("capabilities/1", capabilities).equals(capabilityFingerprint))
+            throw new IllegalArgumentException("capability fingerprint mismatch");
     }
 }

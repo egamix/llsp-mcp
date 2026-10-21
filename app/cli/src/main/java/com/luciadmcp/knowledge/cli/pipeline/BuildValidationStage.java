@@ -10,8 +10,7 @@ public final class BuildValidationStage implements Stage {
     public BuildValidationStage(BuildValidator validator, Function<BuildContext, CatalogStore> stores) { this.validator = validator; this.stores = stores; }
     public void execute(BuildContext context, Consumer<StageFailure> failures) {
         try (CatalogStore store = stores.apply(context)) {
-            var result = validator.validate(new BuildValidator.Input(context.sdkVersion(), ContractVersions.SCHEMA,
-                    ContentHashes.runtimeFingerprint(), false, store.allRecords(), List.of(), List.of()), BuildValidator.Operation.CLI);
+            var result = store.validateBuild(validator, BuildValidator.Operation.CLI, context.buildId(), context.sdkVersion());
             for (var reason : result.reasons()) failures.accept(StageFailure.of(PipelineStage.VALIDATION, FailureSeverity.BUILD_INVALIDATING, reason.name()));
         } catch (RuntimeException e) { failures.accept(StageFailure.of(PipelineStage.VALIDATION, FailureSeverity.BUILD_INVALIDATING, "BUILD_VALIDATION_FAILED: " + e.getMessage())); }
     }

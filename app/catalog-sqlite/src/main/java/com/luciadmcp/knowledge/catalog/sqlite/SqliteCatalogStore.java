@@ -115,6 +115,59 @@ public final class SqliteCatalogStore implements CatalogStore {
         }
     }
 
+    @Override public void markInvalid() {
+        try(Statement s=connection.createStatement()) { s.executeUpdate("UPDATE build_metadata SET validation_reasons='[\"BUILD_INVALIDATING_OUTCOME\"]'"); }
+        catch(SQLException e) { throw new IllegalStateException("could not preserve validation failure",e); }
+    }
+    @Override
+    public void bindManifest(com.luciadmcp.knowledge.domain.IndexManifest m) {
+        try (PreparedStatement check = connection.prepareStatement("SELECT build_id,sdk_version,input_digest,recipe_digest,runtime_digest,profile,capabilities FROM build_metadata")) {
+            try (ResultSet r = check.executeQuery()) {
+                if (r.next()) {
+                    if (!m.buildId().equals(r.getString(1)) || !m.sdkVersion().equals(r.getString(2)) || !m.inputDigest().equals(r.getString(3)) || !m.recipeDigest().equals(r.getString(4)) || !m.runtimeDigest().equals(r.getString(5)) || !m.profile().equals(r.getString(6)) || !m.capabilityFingerprint().equals(r.getString(7))) throw new IllegalStateException("INCOMPATIBLE_BUILD_METADATA: rebuild required");
+                    return;
+                }
+            }
+        } catch (SQLException e) { throw new IllegalStateException("could not read build metadata",e); }
+        try (PreparedStatement p = connection.prepareStatement("INSERT INTO build_metadata VALUES(?,?,?,?,?,?,?,?,?)")) {
+            p.setString(1,m.buildId()); p.setString(2,"LuciadLightspeed"); p.setString(3,m.sdkVersion()); p.setString(4,m.profile()); p.setString(5,m.inputDigest()); p.setString(6,m.recipeDigest()); p.setString(7,m.runtimeDigest()); p.setString(8,m.capabilityFingerprint()); p.setString(9,"[]"); p.executeUpdate();
+        } catch (SQLException e) { throw new IllegalStateException("could not persist build metadata",e); }
+    }
+    @Override
+    public com.luciadmcp.knowledge.domain.BuildValidator.Result validateBuild(com.luciadmcp.knowledge.domain.BuildValidator validator,
+            com.luciadmcp.knowledge.domain.BuildValidator.Operation operation, String buildId, String sdkVersion) {
+        return validatePersisted(connection,validator,operation,buildId,sdkVersion,allRecords());
+    }
+    static com.luciadmcp.knowledge.domain.BuildValidator.Result validatePersisted(Connection db,
+            com.luciadmcp.knowledge.domain.BuildValidator validator, com.luciadmcp.knowledge.domain.BuildValidator.Operation operation,
+            String buildId,String sdkVersion, java.util.List<com.luciadmcp.knowledge.domain.StoredCatalogRecord> records) {
+        var reasons = new java.util.ArrayList<com.luciadmcp.knowledge.domain.BuildValidator.Reason>();
+        int schema=0; String runtime="";
+        try (Statement s=db.createStatement()) {
+            try(ResultSet r=s.executeQuery("PRAGMA user_version")) { r.next();schema=r.getInt(1); }
+            try(ResultSet r=s.executeQuery("SELECT identity_version,runtime_fingerprint FROM contract_metadata WHERE singleton=1")) {
+                if(!r.next()) reasons.add(com.luciadmcp.knowledge.domain.BuildValidator.Reason.UNSUPPORTED_SCHEMA);
+                else { if(!com.luciadmcp.knowledge.domain.ContractVersions.IDENTITY.equals(r.getString(1))) reasons.add(com.luciadmcp.knowledge.domain.BuildValidator.Reason.INVALID_IDENTITY); runtime=r.getString(2); }
+            }
+            try(ResultSet r=s.executeQuery("SELECT build_id,sdk_product,sdk_version,profile,input_digest,recipe_digest,runtime_digest,capabilities,validation_reasons FROM build_metadata")) {
+                if(!r.next()) reasons.add(com.luciadmcp.knowledge.domain.BuildValidator.Reason.INVALID_IDENTITY);
+                else {
+                    if(!buildId.equals(r.getString(1)) || !buildId.equals("b-"+r.getString(5))) reasons.add(com.luciadmcp.knowledge.domain.BuildValidator.Reason.INVALID_IDENTITY);
+                    if(!"LuciadLightspeed".equals(r.getString(2)) || !sdkVersion.equals(r.getString(3))) reasons.add(com.luciadmcp.knowledge.domain.BuildValidator.Reason.INVALID_SCOPE);
+                    if(!com.luciadmcp.knowledge.domain.ContractVersions.PROFILE.equals(r.getString(4)) || !com.luciadmcp.knowledge.domain.ContentHashes.recipeFingerprint(com.luciadmcp.knowledge.domain.ContractVersions.PROFILE,java.util.List.of()).equals(r.getString(6)) || !com.luciadmcp.knowledge.domain.ContentHashes.digest("capabilities/1",java.util.List.of("catalog","relationships")).equals(r.getString(8))) reasons.add(com.luciadmcp.knowledge.domain.BuildValidator.Reason.INCOMPATIBLE_RUNTIME);
+                    if(!runtime.equals(r.getString(7))) reasons.add(com.luciadmcp.knowledge.domain.BuildValidator.Reason.INCOMPATIBLE_RUNTIME);
+                    if(!"[]".equals(r.getString(9))) reasons.add(com.luciadmcp.knowledge.domain.BuildValidator.Reason.BUILD_INVALIDATING_OUTCOME);
+                    if(r.next()) reasons.add(com.luciadmcp.knowledge.domain.BuildValidator.Reason.INVALID_IDENTITY);
+                }
+            }
+            for(String table:java.util.List.of("knowledge_records","knowledge_dependencies")) {
+                try(ResultSet r=s.executeQuery("SELECT 1 FROM "+table+" LIMIT 1")) { if(r.next()) reasons.add(com.luciadmcp.knowledge.domain.BuildValidator.Reason.INCOMPATIBLE_RUNTIME); }
+            }
+        } catch(SQLException e) { reasons.add(com.luciadmcp.knowledge.domain.BuildValidator.Reason.UNSUPPORTED_SCHEMA); }
+        reasons.addAll(validator.validate(new com.luciadmcp.knowledge.domain.BuildValidator.Input(sdkVersion,schema,runtime,false,records,java.util.List.of(),java.util.List.of()),operation).reasons());
+        return new com.luciadmcp.knowledge.domain.BuildValidator.Result(reasons);
+    }
+
     private static void closeQuietly(Connection connection) {
         if (connection == null) {
             return;

@@ -5,7 +5,7 @@ import java.util.Optional;
 public record KnowledgeRecord(String id, String sdkVersion, RecordType recordType, KnowledgeKind knowledgeKind,
         Optional<SymbolCoordinate> symbol, SourceLocator locator, Governance governance, Applicability applicability) {
     public enum RecordType { API, NARRATIVE, RECIPE, PRACTICE }
-    public enum KnowledgeKind { REFERENCE, EXAMPLE, GUIDANCE, WORKFLOW }
+    public enum KnowledgeKind { AUTHORITATIVE_FACT, EXPERT_APPROVED_PRACTICE, RECIPE, CANDIDATE_LEARNING }
     public enum Approval { CANDIDATE, APPROVED }
     public record Governance(Approval approval, String owner, String provenance, String approvalEvidence) {
         public Governance { if (approval == null || owner == null || provenance == null || approvalEvidence == null) throw new IllegalArgumentException("governance required"); }

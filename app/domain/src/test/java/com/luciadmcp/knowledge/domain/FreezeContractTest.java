@@ -4,7 +4,7 @@ import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 class FreezeContractTest {
     private static KnowledgeRecord practice(String id, KnowledgeRecord.Approval approval) {
-        return new KnowledgeRecord(id,"2024.0",KnowledgeRecord.RecordType.PRACTICE,KnowledgeRecord.KnowledgeKind.GUIDANCE,
+        return new KnowledgeRecord(id,"2024.0",KnowledgeRecord.RecordType.PRACTICE,KnowledgeRecord.KnowledgeKind.EXPERT_APPROVED_PRACTICE,
                 Optional.empty(),new SourceLocator(SourceLocator.Kind.ABSENT,"",Optional.empty(),"synthetic no anchor"),
                 new KnowledgeRecord.Governance(approval,"synthetic-owner","synthetic provenance","synthetic approval evidence"),
                 new KnowledgeRecord.Applicability("LuciadLightspeed",List.of("2024.0"),List.of()));
@@ -30,6 +30,11 @@ class FreezeContractTest {
                 new DocumentationPayload.Block(DocumentationPayload.BlockKind.NOTE,"apiNote","note",List.of(external)))));
         String hash = ContentHashes.contentHash(DocumentationPayload.canonicalFields(sections));
         var payload = new DocumentationPayload("record",ContentHashes.sourceHash("source".getBytes(java.nio.charset.StandardCharsets.UTF_8)),sections,hash);
+        var table=new DocumentationPayload.Table(List.of("A","B"),List.of(List.of("1","2")));
+        var nested=new DocumentationPayload.ListItem("parent",List.of(new DocumentationPayload.ListItem("child",List.of())));
+        var structured=List.of(new DocumentationPayload.Section("structured","Structured",new SourceLocator(SourceLocator.Kind.SOURCE,"guide.md",Optional.empty(),"",Optional.of(new SourceLocator.LineRange(2,4)),Optional.of("intro")),List.of(new DocumentationPayload.Block(DocumentationPayload.BlockKind.TABLE,"","",List.of(),Optional.of(table),List.of(),false),new DocumentationPayload.Block(DocumentationPayload.BlockKind.LIST,"","",List.of(),Optional.empty(),List.of(nested),true))));
+        assertTrue(DocumentationPayload.canonicalFields(structured).contains("child"));
+        assertNotEquals(hash,ContentHashes.contentHash(DocumentationPayload.canonicalFields(structured)));
         assertTrue(payload.searchableText().contains("int x = 1;"));
         assertTrue(absent.anchor().isEmpty());
         assertThrows(IllegalArgumentException.class,() -> new DocumentationPayload("record",payload.sourceHash(),sections,"bad"));
