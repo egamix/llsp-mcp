@@ -2,7 +2,7 @@
 title: 'Story 2.7: Bounded, cycle-safe relationship traversal'
 type: 'feature'
 created: '2026-10-21'
-status: 'in-progress'
+status: 'done'
 route: 'dispatch'
 baseline_commit: '4b5e7678546f687b0cc16f6b57fe000e833a1189'
 story_key: '2-7-bounded-cycle-safe-relationship-traversal'
@@ -72,11 +72,11 @@ Paths below are under `app/`, using existing module/package roots.
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `domain/.../{TraversalRequest,TraversalLimits,TraversalResult,RelationshipStore}.java` plus domain tests — validated additive query/result contracts and boundary tests.
-- [ ] `catalog-sqlite/.../{SqliteRelationshipStore,BoundedRelationshipTraversal}.java` — indexed keyset adjacency, pinned-build handle, BFS, budgets and cancellable SQL.
-- [ ] `catalog-sqlite/.../TraversalCursorCodec.java` — bounded authenticated tokens/replay; injectable runtime key; reject incompatible scopes/queries/limits.
-- [ ] `catalog-sqlite/src/test/java/.../RelationshipTraversalTest.java` — matrix, directions/filters, reversed inserts, invalid inputs, reopen and cancellation.
-- [ ] This spec and `sprint-status.yaml` — verification/review evidence. Separate commits for contracts, traversal, continuation and completion, with related tests alongside.
+- [x] `domain/.../{TraversalRequest,TraversalLimits,TraversalResult,RelationshipStore}.java` plus domain tests — validated additive query/result contracts and boundary tests.
+- [x] `catalog-sqlite/.../{SqliteRelationshipStore,BoundedRelationshipTraversal}.java` — indexed keyset adjacency, pinned-build handle, BFS, budgets and cancellable SQL.
+- [x] `catalog-sqlite/.../TraversalCursorCodec.java` — bounded authenticated tokens/replay; injectable runtime key; reject incompatible scopes/queries/limits.
+- [x] `catalog-sqlite/src/test/java/.../RelationshipTraversalTest.java` — matrix, directions/filters, reversed inserts, invalid inputs, reopen and cancellation.
+- [x] This spec and `sprint-status.yaml` — verification/review evidence. Separate commits for contracts, traversal, continuation and completion, with related tests alongside.
 
 **Acceptance Criteria:**
 - Given cycles, when traversal runs, then scoped deterministic results obey depth and unique-node/distinct-edge semantics.
@@ -86,10 +86,23 @@ Paths below are under `app/`, using existing module/package roots.
 ## Implementation Notes
 
 - Approved on 2026-10-21. Preserve pre-existing README/docs edits. Commit cohesive implementation units with their tests on `codex/story-2-7-bounded-traversal`, as required by `AGENTS.md`.
+- Technical validation: configurable response budgets reserve at least 64 KiB for bounded metadata/cursors; smaller budgets are rejected. The approved default and hard cap remain 1 MiB. Boundary tests cover the validation floor.
+- Implemented validated domain contracts, indexed BFS, strict SQL VM/deadline/cancellation guards, canonical bounded JSON, and authenticated deterministic replay. The coordinator supplies build identity and signing material; the serving constructor uses SQLite read-only mode and pins a read snapshot without changing the sealed file.
+- Verification: `:domain:test :catalog-sqlite:test :cli:test checkDependencyDirection check` passed after the review fix (46 tasks, 17 seconds). XML audit: 205 tests, zero failures/errors, two pre-existing skips; all 11 traversal matrix/regression tests ran without skips. No performance or proprietary-corpus validation is claimed.
+- Matrix audit: chain/directions/filters/SDK isolation/missing and isolated seeds — `chainDirectionsTypesIsolatedAndMissing`; cycle/diamond/self-loop/order/reopen — `cyclesDiamondSelfLoopStableAcrossInsertionAndReopen` and `bothChargesDuplicateRowsAndEmitsEdgesOnce`; limits/atomic admission — `depthAndEveryWorkBoundaryAreHonestAndAtomic` and `TraversalContractTest.defaultsAndBoundaries`; high degree/escaped payload — `longEscapedStoredKeysAndHighDegreeStayBounded` and `adjacencyPayloadGuardsReadOnlyColumnByteMetadata`; page union/replay — `continuationPagesOnlyTheFixedWindowAndReplaysBudgets`; authentication/scope/version/query mismatch — `continuationAuthenticatesEveryQueryScopeAndRuntimeKey` and `codecOffsetsAndNormalizedFiltersAreAuthenticated`; execution/SQL cancellation — `cancellationAndDeadlineNeedNoSleeps` plus the SQL-step boundary assertion.
+- Runtime-only Windows verification used Story 2.6's documented Gradle cache, trust-store and nonexistent Unix-domain socket-directory workaround. Product configuration was not changed.
+- Separate commits retained: approved plan, domain contracts, indexed traversal, continuation/read-only scope tests, metadata-only payload guard fix, then completion evidence. Pending README/docs edits were preserved outside this story.
+- Contracts, numeric limits and provisional indexes remain subject to Story 2.8 ratification. No review findings deferred. Graft refreshed after implementation and the review fix.
 
 ## Spec Change Log
 
 ## Review Triage Log
+
+| Finding | Verdict | Route and evidence |
+|---|---|---|
+| Payload guard materializes oversized TEXT inside SQLite | high | patch — `length(CAST(canonical_key AS BLOB))` emits an unrestricted SQLite Column before Cast/length; proportional native allocation occurs before the response guard. Replace with metadata-based octet length and verify the guard's SQL execution does not materialize oversized TEXT. Existing output-size tests alone do not prove this. |
+
+Resolution: fixed in `82bf2e1` using `octet_length` for both endpoint guards. `adjacencyPayloadGuardsReadOnlyColumnByteMetadata` explains the production SQL factory and verifies metadata-only Column flags (`0xc0`) with no Cast; the focused tests and subsequent complete check passed. The reviewed BOTH-direction tight-budget concern was conservative truncation, not a filed finding.
 
 ## Design Notes
 
