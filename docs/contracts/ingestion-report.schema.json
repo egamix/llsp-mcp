@@ -1,0 +1,242 @@
+{
+  "type": "object",
+  "properties": {
+    "reportVersion": {
+      "const": 1
+    },
+    "profile": {
+      "const": "javadoc-lexical"
+    },
+    "runtimeFingerprint": {
+      "type": "string",
+      "minLength": 1
+    },
+    "recipeFingerprint": {
+      "type": "string",
+      "minLength": 1
+    },
+    "capabilityFingerprint": {
+      "type": "string",
+      "minLength": 1
+    },
+    "technicalRatification": {
+      "const": "PENDING"
+    },
+    "completion": {
+      "enum": [
+        "ABORTED",
+        "COMPLETE_FOR_PROFILE",
+        "PARTIAL"
+      ]
+    },
+    "coverage": {
+      "type": "object",
+      "properties": {
+        "pages": {
+          "type": "null"
+        },
+        "records": {
+          "type": "null"
+        },
+        "sections": {
+          "type": "null"
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "pages",
+        "records",
+        "sections",
+        "reason"
+      ],
+      "additionalProperties": false
+    },
+    "buildId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "sdkVersion": {
+      "type": "string",
+      "minLength": 1
+    },
+    "relationshipScope": {
+      "const": "DOCUMENTED_SDK_ONLY"
+    },
+    "toolchainFingerprint": {
+      "type": "string",
+      "minLength": 1
+    },
+    "aborted": {
+      "type": "boolean"
+    },
+    "activationOccurred": {
+      "type": "boolean"
+    },
+    "stages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "stage": {
+            "enum": [
+              "CATALOG",
+              "RELATIONSHIPS",
+              "EXAMPLES_WORKFLOWS",
+              "LEXICAL_INDEX",
+              "EMBEDDINGS",
+              "VECTOR_INDEX",
+              "VALIDATION",
+              "ACTIVATION"
+            ]
+          },
+          "status": {
+            "enum": [
+              "COMPLETED",
+              "SKIPPED_UNSUPPORTED",
+              "SKIPPED_ON_RESUME",
+              "FAILED",
+              "NOT_RUN"
+            ]
+          }
+        },
+        "required": [
+          "stage",
+          "status"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "failures": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "stage": {
+            "type": "string",
+            "minLength": 1
+          },
+          "severity": {
+            "enum": [
+              "RECOVERABLE",
+              "BUILD_INVALIDATING"
+            ]
+          },
+          "file": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "stage",
+          "severity",
+          "file",
+          "message"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "relationshipResolution": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "exact": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "ambiguous": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "unresolved": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "cells": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "relationshipType": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "resolutionKind": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "exact": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "ambiguous": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "unresolved": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                },
+                "required": [
+                  "relationshipType",
+                  "resolutionKind",
+                  "exact",
+                  "ambiguous",
+                  "unresolved"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "exact",
+            "ambiguous",
+            "unresolved",
+            "cells"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "reportVersion",
+    "profile",
+    "runtimeFingerprint",
+    "recipeFingerprint",
+    "capabilityFingerprint",
+    "technicalRatification",
+    "completion",
+    "coverage",
+    "buildId",
+    "sdkVersion",
+    "relationshipScope",
+    "toolchainFingerprint",
+    "aborted",
+    "activationOccurred",
+    "stages",
+    "failures",
+    "relationshipResolution"
+  ],
+  "additionalProperties": false,
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ingestion-report.schema.json"
+}

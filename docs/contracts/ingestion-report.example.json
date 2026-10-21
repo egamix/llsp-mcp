@@ -1,0 +1,62 @@
+{
+  "reportVersion": 1,
+  "profile": "javadoc-lexical",
+  "runtimeFingerprint": "38f9128067cdf5e6a2f7526f79fc2e56a0682edce83ba3837d50d67646effa4d",
+  "recipeFingerprint": "6bc9e4363a01485cd0151d13b46a8c77d9001c236182f34e169cb8c334fdaf15",
+  "capabilityFingerprint": "f511bedd2d7f4a94aee9fa72eaa44dcd2f9f171e351908ad40607a579d5c48e5",
+  "technicalRatification": "PENDING",
+  "completion": "COMPLETE_FOR_PROFILE",
+  "coverage": {
+    "pages": null,
+    "records": null,
+    "sections": null,
+    "reason": "coverage instrumentation deferred to Story 2.11"
+  },
+  "buildId": "b-0f7f1a726b414ef7e6370884bb2b6d653eed75c0093529720456da5a1fd6d8ac",
+  "sdkVersion": "2024.0",
+  "relationshipScope": "DOCUMENTED_SDK_ONLY",
+  "toolchainFingerprint": "e2c7dd42dde606a6100affd561bcee79b928308a9de256be9c43a24c2d005314",
+  "aborted": false,
+  "activationOccurred": false,
+  "stages": [
+    {
+      "stage": "CATALOG",
+      "status": "COMPLETED"
+    },
+    {
+      "stage": "RELATIONSHIPS",
+      "status": "COMPLETED"
+    },
+    {
+      "stage": "EXAMPLES_WORKFLOWS",
+      "status": "SKIPPED_UNSUPPORTED"
+    },
+    {
+      "stage": "LEXICAL_INDEX",
+      "status": "SKIPPED_UNSUPPORTED"
+    },
+    {
+      "stage": "EMBEDDINGS",
+      "status": "SKIPPED_UNSUPPORTED"
+    },
+    {
+      "stage": "VECTOR_INDEX",
+      "status": "SKIPPED_UNSUPPORTED"
+    },
+    {
+      "stage": "VALIDATION",
+      "status": "COMPLETED"
+    },
+    {
+      "stage": "ACTIVATION",
+      "status": "SKIPPED_UNSUPPORTED"
+    }
+  ],
+  "failures": [],
+  "relationshipResolution": {
+    "exact": 0,
+    "ambiguous": 0,
+    "unresolved": 0,
+    "cells": []
+  }
+}

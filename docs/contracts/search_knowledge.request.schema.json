@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "search_knowledge.request.schema.json",
+  "type": "object",
+  "properties": {
+    "contractVersion": {
+      "const": "read-tools/1"
+    },
+    "sdkVersion": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2048
+    },
+    "buildId": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "pageSize": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 50,
+      "default": 10
+    },
+    "continuation": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "limits": {
+      "$ref": "common.schema.json#/$defs/limits"
+    },
+    "query": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2048
+    },
+    "kinds": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "AUTHORITATIVE_FACT",
+          "EXPERT_APPROVED_PRACTICE",
+          "RECIPE"
+        ]
+      },
+      "maxItems": 3
+    },
+    "mode": {
+      "enum": [
+        "LEXICAL",
+        "BROWSE"
+      ]
+    }
+  },
+  "required": [
+    "contractVersion",
+    "sdkVersion",
+    "query"
+  ],
+  "additionalProperties": false
+}

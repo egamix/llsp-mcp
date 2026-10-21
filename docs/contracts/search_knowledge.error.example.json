@@ -1,0 +1,38 @@
+{
+  "request": {
+    "contractVersion": "read-tools/1",
+    "sdkVersion": "2024.0",
+    "query": "Widget"
+  },
+  "response": {
+    "contractVersion": "read-tools/1",
+    "tool": "search_knowledge",
+    "sdkVersion": "2024.0",
+    "buildId": "synthetic-build",
+    "proof": "NOT_APPLICABLE",
+    "data": null,
+    "error": {
+      "code": "INVALID_CONTINUATION",
+      "message": "Cursor does not match query/version/build",
+      "retryable": false
+    },
+    "counts": {
+      "value": null,
+      "relation": "UNKNOWN"
+    },
+    "coverage": {
+      "complete": false,
+      "reason": "Synthetic contract specimen; no corpus acceptance claim"
+    },
+    "emptyReason": null,
+    "truncated": false,
+    "continuation": null,
+    "trace": {
+      "normalizedQuery": "synthetic",
+      "matchedBy": [],
+      "candidatesExamined": 0,
+      "workCharged": 0,
+      "capabilityFingerprint": "0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  }
+}

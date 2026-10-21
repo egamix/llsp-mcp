@@ -1,0 +1,34 @@
+{
+  "contractVersion": "read-tools/1",
+  "planningAuthorization": {
+    "date": "2026-10-21",
+    "status": "APPROVED",
+    "scope": "Implementation/testing of approved Story 2.8 spec including source-content handoff; separate from technical ratification"
+  },
+  "technicalSignOffs": [
+    {
+      "area": "identity",
+      "status": "PENDING",
+      "approver": null,
+      "owner": null,
+      "approvalEvidence": null
+    },
+    {
+      "area": "schema",
+      "status": "PENDING",
+      "approver": null,
+      "owner": null,
+      "approvalEvidence": null
+    },
+    {
+      "area": "interfaces",
+      "status": "PENDING",
+      "approver": null,
+      "owner": null,
+      "approvalEvidence": null
+    }
+  ],
+  "dependentStoryGate": "CLOSED_PENDING_TECHNICAL_RATIFICATION",
+  "story10Acceptance": "NOT_RUN",
+  "reviewedExemptions": []
+}

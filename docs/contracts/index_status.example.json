@@ -1,0 +1,56 @@
+{
+  "request": {
+    "contractVersion": "read-tools/1",
+    "sdkVersion": "2024.0"
+  },
+  "response": {
+    "contractVersion": "read-tools/1",
+    "tool": "index_status",
+    "sdkVersion": "2024.0",
+    "buildId": "synthetic-build",
+    "proof": "INCOMPLETE_EVIDENCE",
+    "data": {
+      "state": "STAGING",
+      "profile": "javadoc-lexical",
+      "capabilities": [
+        "catalog",
+        "relationships"
+      ],
+      "technicalRatification": "PENDING",
+      "schemaVersion": 1,
+      "identityVersion": "identity/1",
+      "runtimeFingerprint": "0000000000000000000000000000000000000000000000000000000000000000",
+      "recipeFingerprint": "0000000000000000000000000000000000000000000000000000000000000000",
+      "capabilityFingerprint": "0000000000000000000000000000000000000000000000000000000000000000",
+      "sdkVersion": "2024.0",
+      "buildId": "synthetic-build",
+      "compatible": true,
+      "mode": "CATALOG_ONLY",
+      "coverage": {
+        "pages": null,
+        "records": null,
+        "sections": null
+      },
+      "validationErrors": []
+    },
+    "error": null,
+    "counts": {
+      "value": 0,
+      "relation": "EXACT"
+    },
+    "coverage": {
+      "complete": false,
+      "reason": "Synthetic contract specimen; no corpus acceptance claim"
+    },
+    "emptyReason": "INCOMPLETE_EVIDENCE",
+    "truncated": false,
+    "continuation": null,
+    "trace": {
+      "normalizedQuery": "synthetic",
+      "matchedBy": [],
+      "candidatesExamined": 0,
+      "workCharged": 0,
+      "capabilityFingerprint": "0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  }
+}

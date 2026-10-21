@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "resolve_symbol.request.schema.json",
+  "type": "object",
+  "properties": {
+    "contractVersion": {
+      "const": "read-tools/1"
+    },
+    "sdkVersion": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2048
+    },
+    "buildId": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "pageSize": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 50,
+      "default": 10
+    },
+    "continuation": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "limits": {
+      "$ref": "common.schema.json#/$defs/limits"
+    },
+    "symbol": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2048
+    },
+    "includeAliases": {
+      "type": "boolean",
+      "default": true
+    }
+  },
+  "required": [
+    "contractVersion",
+    "sdkVersion",
+    "symbol"
+  ],
+  "additionalProperties": false
+}

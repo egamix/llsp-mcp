@@ -1,0 +1,36 @@
+{
+  "request": {
+    "contractVersion": "read-tools/1",
+    "sdkVersion": "2024.0",
+    "symbol": "com.example.Widget"
+  },
+  "response": {
+    "contractVersion": "read-tools/1",
+    "tool": "resolve_symbol",
+    "sdkVersion": "2024.0",
+    "buildId": "synthetic-build",
+    "proof": "INCOMPLETE_EVIDENCE",
+    "data": {
+      "matches": []
+    },
+    "error": null,
+    "counts": {
+      "value": 0,
+      "relation": "EXACT"
+    },
+    "coverage": {
+      "complete": false,
+      "reason": "Synthetic contract specimen; no corpus acceptance claim"
+    },
+    "emptyReason": "INCOMPLETE_EVIDENCE",
+    "truncated": false,
+    "continuation": null,
+    "trace": {
+      "normalizedQuery": "synthetic",
+      "matchedBy": [],
+      "candidatesExamined": 0,
+      "workCharged": 0,
+      "capabilityFingerprint": "0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  }
+}

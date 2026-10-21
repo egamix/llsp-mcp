@@ -1,0 +1,63 @@
+{
+  "type": "object",
+  "properties": {
+    "buildId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "sdkVersion": {
+      "type": "string",
+      "minLength": 1
+    },
+    "toolchainFingerprint": {
+      "type": "string",
+      "minLength": 1
+    },
+    "manifestVersion": {
+      "const": 1
+    },
+    "profile": {
+      "const": "javadoc-lexical"
+    },
+    "inputDigest": {
+      "type": "string",
+      "minLength": 1
+    },
+    "recipeDigest": {
+      "type": "string",
+      "minLength": 1
+    },
+    "runtimeDigest": {
+      "type": "string",
+      "minLength": 1
+    },
+    "capabilities": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "catalog",
+          "relationships"
+        ]
+      }
+    },
+    "capabilityFingerprint": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "required": [
+    "buildId",
+    "sdkVersion",
+    "toolchainFingerprint",
+    "manifestVersion",
+    "profile",
+    "inputDigest",
+    "recipeDigest",
+    "runtimeDigest",
+    "capabilities",
+    "capabilityFingerprint"
+  ],
+  "additionalProperties": false,
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "manifest.schema.json"
+}

@@ -1,0 +1,166 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "get_relationships.request.schema.json",
+  "type": "object",
+  "properties": {
+    "contractVersion": {
+      "const": "read-tools/1"
+    },
+    "sdkVersion": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2048
+    },
+    "buildId": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "pageSize": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 50,
+      "default": 10
+    },
+    "continuation": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "limits": {
+      "$ref": "common.schema.json#/$defs/limits"
+    },
+    "seed": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2048
+    },
+    "family": {
+      "enum": [
+        "SDK",
+        "KNOWLEDGE_DEPENDENCY"
+      ],
+      "default": "SDK"
+    },
+    "mode": {
+      "enum": [
+        "DIRECT",
+        "RECURSIVE"
+      ]
+    },
+    "direction": {
+      "enum": [
+        "OUT",
+        "IN",
+        "BOTH"
+      ]
+    },
+    "types": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 2048
+      },
+      "maxItems": 17
+    },
+    "depth": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 8,
+      "default": 3
+    },
+    "visitedNodes": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 10000,
+      "default": 1000
+    },
+    "adjacencyRows": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 50000,
+      "default": 5000
+    },
+    "resultItems": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 10000,
+      "default": 1000
+    }
+  },
+  "required": [
+    "contractVersion",
+    "sdkVersion",
+    "seed"
+  ],
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "family": {
+            "const": "KNOWLEDGE_DEPENDENCY"
+          }
+        },
+        "required": [
+          "family"
+        ]
+      },
+      "then": {
+        "properties": {
+          "types": {
+            "items": {
+              "enum": [
+                "REQUIRED",
+                "OPTIONAL",
+                "SUPERSEDES"
+              ]
+            }
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "types": {
+            "items": {
+              "enum": [
+                "EXTENDS_CLASS",
+                "EXTENDS_INTERFACE",
+                "IMPLEMENTS",
+                "IMPLEMENTED_BY",
+                "DIRECT_SUBCLASS",
+                "RETURN_TYPE",
+                "PARAMETER_TYPE",
+                "THROWS_TYPE",
+                "FIELD_TYPE",
+                "CONSTRUCTOR_PARAMETER_TYPE",
+                "OVERRIDES",
+                "SPECIFIED_BY",
+                "SEE_ALSO",
+                "WORKFLOW_REQUIRES",
+                "USES_TYPE",
+                "CONSTRUCTS",
+                "CALLS"
+              ]
+            }
+          }
+        }
+      }
+    }
+  ]
+}
