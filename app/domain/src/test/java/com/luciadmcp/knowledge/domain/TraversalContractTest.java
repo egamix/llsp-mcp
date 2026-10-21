@@ -1,0 +1,20 @@
+package com.luciadmcp.knowledge.domain;
+
+import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.Test;
+
+class TraversalContractTest {
+    @Test void defaultsAndBoundaries() {
+        var query = new TraversalRequest("seed");
+        assertEquals(TraversalRequest.Mode.DIRECT, query.mode());
+        assertEquals(TraversalRequest.Direction.OUT, query.direction());
+        assertEquals(10, query.limits().pageItems());
+        assertThrows(IllegalArgumentException.class, () -> new TraversalRequest("x".repeat(2049)));
+        assertThrows(IllegalArgumentException.class, () -> new TraversalRequest("界".repeat(700)));
+        assertThrows(IllegalArgumentException.class, () -> new TraversalLimits(0,1,1,1,1,1,1,65536));
+        assertThrows(IllegalArgumentException.class, () -> new TraversalLimits(9,1,1,1,1,1,1,65536));
+        assertThrows(IllegalArgumentException.class, () -> new TraversalLimits(1,10001,1,1,1,1,1,65536));
+        assertThrows(IllegalArgumentException.class, () -> new TraversalLimits(1,1,1,1,51,1,1,65536));
+        assertThrows(IllegalArgumentException.class, () -> new TraversalLimits(1,1,1,1,1,1,1,1048577));
+    }
+}
