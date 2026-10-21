@@ -99,7 +99,7 @@ public final class SqliteDocumentationStore implements DocumentationStore {
             }
             if(count<1||count>256||hash==null)throw new IllegalStateException("CORRUPT_CONTENT");
             if(first>=count)throw new IllegalArgumentException("INVALID_OFFSET");
-            var sections=read(db,id,first,Math.min(limit,count-first),DocumentationPayload.MAX_BYTES-1024);
+            var sections=read(db,id,first,Math.min(limit,count-first),DocumentationCodec.MAX_ENCODED_BYTES);
             return Optional.of(new SectionPage(id,hash,ContentHashes.contentHash(DocumentationPayload.canonicalFields(sections)),sections,first+sections.size()<count?Optional.of(DocumentationStore.continuation(id,build,sdk,first+sections.size(),limit)):Optional.empty()));
         } catch(SQLException e) { throw new IllegalStateException("documentation read failed",e); }
     }

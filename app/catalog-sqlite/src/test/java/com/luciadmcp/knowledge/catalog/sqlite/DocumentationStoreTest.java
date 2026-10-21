@@ -74,6 +74,31 @@ class DocumentationStoreTest {
         byte[] before=Files.readAllBytes(path);assertThrows(IllegalStateException.class,()->new SqliteCatalogStore(path));assertArrayEquals(before,Files.readAllBytes(path));
     }
 
+    @Test void admittedNearCapSectionRemainsReadableAfterReopen() {
+        var tuple=tuple("1");var record=knowledge(tuple);
+        String text="x".repeat(1_048_000);
+        var section=new DocumentationPayload.Section("api","API documentation",record.locator(),List.of(
+                new DocumentationPayload.Block(DocumentationPayload.BlockKind.CODE,"signature",text,List.of())));
+        var sections=List.of(section);
+        var payload=new DocumentationPayload(record.id(),"0".repeat(64),sections,
+                ContentHashes.contentHash(DocumentationPayload.canonicalFields(sections)));
+        int encodedBytes=DocumentationCodec.section(section).length;
+        assertTrue(encodedBytes>DocumentationPayload.MAX_BYTES-1024);
+        assertTrue(encodedBytes<=DocumentationCodec.MAX_ENCODED_BYTES);
+        Path path=temp.resolve("near-cap.db");
+        try(var catalog=new SqliteCatalogStore(path)) {
+            catalog.bindManifest(IndexManifest.withDocumentation(BUILD,"1","synthetic"));
+            assertEquals(CatalogStore.PutStatus.INSERTED,catalog.putDocumented(tuple,record,payload).status());
+        }
+        try(var store=new SqliteDocumentationStore(path)) {
+            var page=store.readSections(record.id(),BUILD,"1",0,1).orElseThrow();
+            assertEquals(sections,page.sections());
+            assertEquals(payload.contentHash(),page.documentContentHash());
+            assertEquals(payload.contentHash(),page.pageContentHash());
+            assertTrue(page.continuation().isEmpty());
+        }
+    }
+
     @Test void exactSectionAndBlockCapsPagingAndEncodedAdmission() throws Exception {
         var tuple=tuple("1");var record=knowledge(tuple);var locator=record.locator();
         var block=new DocumentationPayload.Block(DocumentationPayload.BlockKind.PARAGRAPH,"","v",List.of());
