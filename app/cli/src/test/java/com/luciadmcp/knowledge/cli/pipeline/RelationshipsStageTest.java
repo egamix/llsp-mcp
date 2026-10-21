@@ -8,6 +8,8 @@ import com.luciadmcp.knowledge.catalog.sqlite.SqliteCatalogStore;
 import com.luciadmcp.knowledge.catalog.sqlite.SqliteRelationshipStore;
 import com.luciadmcp.knowledge.domain.CatalogStore;
 import com.luciadmcp.knowledge.domain.RelationshipEdge;
+import com.luciadmcp.knowledge.domain.ReferenceResolution;
+import com.luciadmcp.knowledge.domain.RelationshipScope;
 import com.luciadmcp.knowledge.domain.RelationshipStore;
 import com.luciadmcp.knowledge.domain.RelationshipType;
 import com.luciadmcp.knowledge.domain.StoredCatalogRecord;
@@ -174,6 +176,12 @@ class RelationshipsStageTest {
         return failures;
     }
 
+    private static List<ReferenceResolution> readResolutions(BuildContext ctx) {
+        try (RelationshipStore store = new SqliteRelationshipStore(ctx.catalogDbPath())) {
+            return store.resolutions(new RelationshipScope(VERSION));
+        }
+    }
+
     private static List<StoredRelationshipEdge> readEdges(BuildContext ctx) {
         try (RelationshipStore store = new SqliteRelationshipStore(ctx.catalogDbPath())) {
             return store.allEdges();
@@ -302,11 +310,9 @@ class RelationshipsStageTest {
 
         List<StoredRelationshipEdge> edges = readEdges(ctx);
         assertTrue(edges.isEmpty(), () -> "no edge may be fabricated for an out-of-tree reference: " + edges);
-        assertTrue(failures.stream().anyMatch(f -> f.stage() == PipelineStage.RELATIONSHIPS
-                        && f.severity() == FailureSeverity.RECOVERABLE
-                        && f.message().contains("unresolved") && f.message().contains("ExternalThing")),
-                () -> "the unresolved reference must be a recoverable failure: "
-                        + failures.stream().map(StageFailure::message).toList());
+        assertTrue(failures.isEmpty());
+        assertEquals(ReferenceResolution.Status.UNRESOLVED, readResolutions(ctx).get(0).status());
+        assertEquals("ExternalThing", readResolutions(ctx).get(0).originalToken());
     }
 
     @Test
@@ -330,10 +336,8 @@ class RelationshipsStageTest {
         List<StoredRelationshipEdge> edges = readEdges(ctx);
         assertTrue(edges.stream().noneMatch(e -> e.edge().type() == RelationshipType.RETURN_TYPE),
                 () -> "java.awt.Point must not resolve to com.example.Point: " + edges);
-        assertTrue(failures.stream().anyMatch(f -> f.severity() == FailureSeverity.RECOVERABLE
-                        && f.message().contains("java.awt.Point")),
-                () -> "expected a recoverable unresolved failure: "
-                        + failures.stream().map(StageFailure::message).toList());
+        assertTrue(failures.isEmpty());
+        assertEquals(ReferenceResolution.Reason.MISSING_QUALIFIED_NAME, readResolutions(ctx).get(0).reason());
     }
 
     // --- Matrix: ambiguous simple name -> left unresolved, no guessed edge --------------------------
@@ -363,10 +367,12 @@ class RelationshipsStageTest {
         List<StoredRelationshipEdge> edges = readEdges(ctx);
         assertTrue(edge(edges, "com.example.User#make()", RelationshipType.RETURN_TYPE).isEmpty(),
                 "an ambiguous simple name must not be guessed into an edge");
-        assertTrue(failures.stream().anyMatch(f -> f.severity() == FailureSeverity.RECOVERABLE
-                        && f.message().contains("RETURN_TYPE") && f.message().contains("Thing")),
-                () -> "the ambiguous reference must be a recoverable failure: "
-                        + failures.stream().map(StageFailure::message).toList());
+        assertTrue(failures.isEmpty());
+        ReferenceResolution r = readResolutions(ctx).get(0);
+        assertEquals(ReferenceResolution.Status.AMBIGUOUS, r.status());
+        assertEquals(2, r.candidateIds().size());
+        assertEquals("", r.selectedTargetId());
+        assertEquals(r.candidateIds().stream().sorted().toList(), r.candidateIds());
     }
 
     // --- AC 3 / Matrix: interrupted-then-resumed yields identical edges/ids, no duplicates ----------
@@ -424,6 +430,8 @@ class RelationshipsStageTest {
 
     /** A relationship store that reports every put as an identity clash (drives the AD-4 clash path). */
     private static final class ClashingStore implements RelationshipStore {
+        @Override public void putResolution(ReferenceResolution r) { }
+
         @Override
         public PutResult put(RelationshipEdge edge) {
             return new PutResult("edge-" + edge.type() + "-" + edge.sourceSymbol() + "-" + edge.targetSymbol(),
@@ -461,4 +469,125 @@ class RelationshipsStageTest {
         }
         assertFalse(readEdges(ctx).isEmpty(), "pass two must have persisted edges into the same file");
     }
+    @Test
+    void explicitExternalDeadAndEscapingLinksNeverFallbackToLocalNames(@TempDir Path tmp) throws Exception {
+        Path javadoc = Files.createDirectories(tmp.resolve("javadoc"));
+        write(javadoc, "com/example/Point.html", POINT);
+        String[] hrefs = {"https://external/Point.html", "Dead.html", "../../../Point.html"};
+        ReferenceResolution.Reason[] reasons = {ReferenceResolution.Reason.EXTERNAL_LOCATOR,
+                ReferenceResolution.Reason.MISSING_LOCATOR, ReferenceResolution.Reason.ROOT_ESCAPE};
+        for (int i = 0; i < hrefs.length; i++) {
+            write(javadoc, "com/example/User" + i + ".html", page("class-declaration-page", "Class User" + i,
+                    "<section class='class-description'><div class='block'>User.</div></section>"
+                    + "<section class='method-details'><section class='detail' id='get()'><h3>get</h3>"
+                    + "<div class='member-signature'><a href='" + hrefs[i] + "'>Point</a> get()</div>"
+                    + "<div class='block'>Gets.</div></section></section>"));
+        }
+        BuildContext ctx = context(tmp);
+        assertTrue(runBothPasses(javadoc, ctx).isEmpty());
+        assertTrue(readEdges(ctx).isEmpty());
+        var evidence = readResolutions(ctx);
+        assertEquals(3, evidence.size());
+        for (int i = 0; i < hrefs.length; i++) {
+            final int n = i;
+            assertTrue(evidence.stream().anyMatch(r -> r.originalLocator().equals(hrefs[n])
+                    && r.reason() == reasons[n] && r.status() == ReferenceResolution.Status.UNRESOLVED));
+        }
+    }
+
+    @Test
+    void locatorCollisionsRemainAmbiguousAndVersionScoped() {
+        var source = new StoredCatalogRecord("source", new com.luciadmcp.knowledge.domain.CatalogRecord(
+                VERSION, "User", "TYPE", "User", "User", "User.html", ""));
+        var first = new StoredCatalogRecord("b", new com.luciadmcp.knowledge.domain.CatalogRecord(
+                VERSION, "T#one", "METHOD", "T", "one", "T.html", "one(a.Point)"));
+        var second = new StoredCatalogRecord("a", new com.luciadmcp.knowledge.domain.CatalogRecord(
+                VERSION, "T#two", "METHOD", "T", "two", "T.html", "one(b.Point)"));
+        var foreign = new StoredCatalogRecord("foreign", new com.luciadmcp.knowledge.domain.CatalogRecord(
+                "other", "T#other", "METHOD", "T", "other", "T.html", "one(Point)"));
+        var index = RelationshipsStage.ResolutionIndex.build(List.of(source, first, second, foreign), VERSION);
+        var r = index.resolve("User", new com.luciadmcp.knowledge.ingest.javadoc.TypeRef("one", "T.html", "one(Point)"),
+                RelationshipType.SEE_ALSO, VERSION);
+        assertEquals(ReferenceResolution.Status.AMBIGUOUS, r.status());
+        assertEquals(List.of("a", "b"), r.candidateIds());
+        assertEquals("", r.selectedTargetId());
+    }
+
+    @Test
+    void partialEvidenceWriteRetryReproducesUninterruptedEdgesAndEvidence(@TempDir Path tmp) throws Exception {
+        Path javadoc = Files.createDirectories(tmp.resolve("javadoc"));
+        writeFullTree(javadoc);
+        BuildContext ctx = context(tmp), clean = context(tmp.resolve("clean"));
+        List<StageFailure> failures = new ArrayList<>();
+        new CatalogStage(javadoc, new JavadocCatalogSource(), catalogFactory()).execute(ctx, failures::add);
+        new RelationshipsStage(javadoc, new JavadocCatalogSource(), catalogFactory(), c -> {
+            var delegate = new SqliteRelationshipStore(c.catalogDbPath());
+            return new RelationshipStore() {
+                int writes;
+                public void putResolution(ReferenceResolution r) {
+                    delegate.putResolution(r);
+                    if (++writes == 2) throw new IllegalStateException("simulated interruption after evidence write");
+                }
+                public PutResult put(RelationshipEdge e) { return delegate.put(e); }
+                public List<StoredRelationshipEdge> allEdges() { return delegate.allEdges(); }
+                public Optional<StoredRelationshipEdge> findByEdgeId(String id) { return delegate.findByEdgeId(id); }
+                public void close() { delegate.close(); }
+            };
+        }).execute(ctx, failures::add);
+        assertTrue(failures.stream().anyMatch(f -> f.severity() == FailureSeverity.BUILD_INVALIDATING));
+        failures.clear();
+        new RelationshipsStage(javadoc, new JavadocCatalogSource(), catalogFactory(), relFactory()).execute(ctx, failures::add);
+        assertTrue(failures.isEmpty());
+        assertTrue(runBothPasses(javadoc, clean).isEmpty());
+        assertEquals(readEdges(clean), readEdges(ctx));
+        assertEquals(readResolutions(clean), readResolutions(ctx));
+        assertEquals(IngestionReport.ResolutionSummary.from(readResolutions(clean)),
+                IngestionReport.ResolutionSummary.from(readResolutions(ctx)));
+    }
+
+    @Test
+    void ordinaryUnresolvedEvidenceSurvivesBothPoliciesAndResumeReport(@TempDir Path tmp) throws Exception {
+        for (FailurePolicy policy : List.of(FailurePolicy.FAIL_FAST, FailurePolicy.COLLECT_AND_CONTINUE)) {
+            var args = PipelineTestSupport.argsIn(tmp.resolve(policy.name()), Optional.of(VERSION));
+            write(args.javadoc(), "com/example/Widget.html", page("class-declaration-page", "Class Widget",
+                    "<section class='class-description'><div class='block'>Widget.</div></section>"
+                    + "<section class='method-details'><section class='detail' id='get()'><h3>get</h3>"
+                    + "<div class='member-signature'>outside.Point get(outside.Point p) throws outside.Failure</div>"
+                    + "<div class='block'>Gets.</div><dl><dt>Throws:</dt><dd><code>outside.Failure</code> - bad</dd></dl>"
+                    + "</section></section>"));
+            var runner = IngestPipelineRunner.withCatalogStage(policy, args);
+            var result = runner.runToResult(args);
+            assertFalse(result.aborted(), () -> result.failures().toString());
+            assertTrue(result.failures().isEmpty());
+            var evidence = readResolutions(result.buildContext());
+            assertEquals(3, evidence.size());
+            assertTrue(evidence.stream().allMatch(r -> r.reason() == ReferenceResolution.Reason.MISSING_QUALIFIED_NAME));
+            assertTrue(readEdges(result.buildContext()).isEmpty());
+            String report = Files.readString(args.out().resolve(result.buildContext().buildId()).resolve("ingestion-report.json"));
+            assertTrue(report.contains("\"unresolved\": 3"), report);
+            assertTrue(report.contains("DOCUMENTED_SDK_ONLY"), report);
+            var resumed = runner.runToResult(args);
+            assertFalse(resumed.aborted());
+            assertEquals(evidence, readResolutions(resumed.buildContext()));
+            assertTrue(Files.readString(args.out().resolve(result.buildContext().buildId()).resolve("ingestion-report.json"))
+                    .contains("\"unresolved\": 3"));
+        }
+    }
+
+    @Test
+    void invalidSourceProvenanceInvalidatesPassTwo(@TempDir Path tmp) throws Exception {
+        Path javadoc = Files.createDirectories(tmp.resolve("javadoc"));
+        writeFullTree(javadoc);
+        BuildContext ctx = context(tmp);
+        List<StageFailure> failures = new ArrayList<>();
+        new CatalogStage(javadoc, new JavadocCatalogSource(), catalogFactory()).execute(ctx, failures::add);
+        try (var connection = java.sql.DriverManager.getConnection("jdbc:sqlite:" + ctx.catalogDbPath());
+                var update = connection.createStatement()) {
+            update.executeUpdate("UPDATE records SET relative_path='Wrong.html' WHERE canonical_key='com.example.Widget'");
+        }
+        new RelationshipsStage(javadoc, new JavadocCatalogSource(), catalogFactory(), relFactory()).execute(ctx, failures::add);
+        assertTrue(failures.stream().anyMatch(f -> f.severity() == FailureSeverity.BUILD_INVALIDATING
+                && f.message().contains("source provenance")));
+    }
+
 }
