@@ -63,9 +63,12 @@ development_status:
   2-3-build-canonical-symbol-records-with-overload-distinction: done
   2-4-persist-the-versioned-canonical-catalog: done
   2-5-construct-the-typed-relationship-graph-in-two-passes: done
-  2-6-keep-unresolved-references-explicit-scope-traversal-to-the-documented-sdk: review
-  2-7-bounded-cycle-safe-relationship-traversal: review
+  2-6-keep-unresolved-references-explicit-scope-traversal-to-the-documented-sdk: done
+  2-7-bounded-cycle-safe-relationship-traversal: done
   2-8-contract-and-verification-freeze: backlog
+  2-9-persist-source-faithful-api-documentation: backlog
+  2-10-preserve-structured-javadoc-and-narrative-content: backlog
+  2-11-account-for-ingestion-coverage-and-fidelity: backlog
   epic-2-retrospective: optional
 
   # Epic 3: Selected Examples, Recipes, Guides and Practices
@@ -227,9 +230,47 @@ planning_application:
   applied_at: 2026-10-02
   scope: "Prospective planning only; no implementation applied"
   source: "../initiative-luciad-mcp/change-evidence-backed-first-proof/change-evidence-backed-first-proof.md"
-  active_delivery_gate: "Story 2.5 review completion and story/tracker reconciliation; not cleared by planning"
+  active_delivery_gate: "2.6/2.7 reconciled from done specs and merge evidence; 2.8 technical sign-offs remain required"
   story_2_5_observation: "Story 2.5 review complete; marked done. Known gaps in deferred-work.md"
   contract_gate: "Story 2.8 technical schema/identity/interface sign-offs remain open"
   evaluation_gate: "10.1/B2/B6 before corpus curation or tuning; held-out protection"
-  proof_sequence: "2.5 review -> 2.6/2.7 -> 2.8 -> 4.1/4.2/4.6 + 6.1/6.2/6.5 + 5.7 -> handlers/content/guidance -> 10.2/10.3/10.4"
+  proof_sequence: "10.1 protocol alongside 2.8 -> ratified 2.8 -> 2.9 -> 2.10 -> 2.11 -> 4.2; 4.1 after 2.8; 4.1/4.2/2.7 -> 4.6; minimum 6.x + 5.7 -> handlers/validated serving/guidance -> 10.2/10.3/10.4"
   release_gate: "Lifecycle completion, packaging, approved NFR evidence, corpus/legal and release sign-offs"
+
+# Additive scheduling metadata for the existing legacy tracker; no second ticket store.
+# Prerequisites are full development_status keys. Technical gates are separate below.
+delivery_dependencies:
+  2-9-persist-source-faithful-api-documentation:
+    - 2-8-contract-and-verification-freeze
+  2-10-preserve-structured-javadoc-and-narrative-content:
+    - 2-9-persist-source-faithful-api-documentation
+  2-11-account-for-ingestion-coverage-and-fidelity:
+    - 2-10-preserve-structured-javadoc-and-narrative-content
+  4-1-detect-and-prioritize-exact-symbol-queries:
+    - 2-8-contract-and-verification-freeze
+  4-2-index-canonical-and-lexical-fields-for-bm25:
+    - 2-11-account-for-ingestion-coverage-and-fidelity
+  4-6-assemble-bounded-cited-lexical-results:
+    - 4-1-detect-and-prioritize-exact-symbol-queries
+    - 4-2-index-canonical-and-lexical-fields-for-bm25
+    - 2-7-bounded-cycle-safe-relationship-traversal
+  5-1-retrieval-and-symbol-tools:
+    - 4-6-assemble-bounded-cited-lexical-results
+    - 5-7-structured-error-ambiguity-and-truncation-contract
+  5-3-example-and-workflow-tools:
+    - 2-11-account-for-ingestion-coverage-and-fidelity
+    - 5-7-structured-error-ambiguity-and-truncation-contract
+
+product_quality_planning:
+  authorized_at: 2026-10-21
+  system_of_record: "existing epics.md and sprint-status.yaml; no ticket-store migration"
+  source: "../planning-artifacts/product-quality-improvement-plan-2026-10-21.md"
+  contract_input: "story-2-8-source-content-contract-input.md"
+  source_input: "source-faithful-javadoc-content-input.md"
+  technical_approval: "Pending actual 2.8 schema/identity/interface sign-offs; planning is not ratification"
+  evaluation: "10.1/B2/B6 before private-corpus selection/tuning; synthetic implementation is independent"
+  serving: "5.5/5.6 and minimum 6.1/6.2/6.5 remain required before live trials"
+  runtime_implementation: "Not performed by this planning amendment"
+  reconciliation_evidence:
+    story_2_6: "done spec; merged in 4b5e7678546f687b0cc16f6b57fe000e833a1189"
+    story_2_7: "done spec and review/verification record; merged in ea18507a40861b849a0640510ada9cadecc09f6f"

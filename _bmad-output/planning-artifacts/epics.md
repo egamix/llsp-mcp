@@ -489,6 +489,48 @@ Cycle-safe recursive traversal terminates within depth and visits no node more t
 
 **Coverage:** FR-1–3/7–11/44–47/49/50; AD-31–36.
 
+### Source-content delivery amendment (2026-10-21)
+
+Decision: preserve the existing epics/story IDs and legacy file-backed tracker. The user authorized folding the product-quality proposal into current work; no second ticket tree, store migration, new epic or runtime redesign is introduced. Completed 2.1–2.7 acceptance remains historical. Story 2.8 defines the contracts below; 2.9–2.11 implement them. Technical sign-offs remain explicit and pending.
+
+Story 2.8 must define the durable documentation payload and its ordered sections/blocks, original links, actual/absent anchors, narrative identity, content hashes, bounded storage/read operations and page/section coverage dispositions. Define searchable text as a projection of retained content, not its replacement. Do not implement all ingestion/search functionality inside the freeze. See [contract input](../implementation-artifacts/story-2-8-source-content-contract-input.md).
+
+### Story 2.9: Persist source-faithful API documentation
+
+As a user, I want extracted API explanations and constraints to survive ingestion and restart, so answers can use the documentation rather than only symbol names.
+
+**Outcome:** A thin type/member fixture passes through extraction, domain ports, SQLite and record fetch with its documentation attached to the correct stable ID. The same harness is reused by 2.10/2.11.
+
+**Acceptance:** Given modern/legacy types and overloads, when ingested and the store reopened without the original input directory, then signatures, descriptions, params/type params, returns, exceptions, since/deprecation and source locators are recoverable without cross-version leakage. Content and its record association commit atomically. Prose-only edits change content hashes rather than unaffected symbol IDs; relocated roots preserve logical identity. Unsupported schema opens fail before mutation. Tests include rollback and partial-record handling.
+
+**Dependencies / gates:** Ratified 2.8 payload/identity/schema/locator/limits; no implicit technical approval. **Owner:** implementation via `bmad-build`; schema decisions remain with 2.8's named technical approvers.
+
+**Coverage:** FR-5/6/8/44/47; AD-15/20/22/26. [Build intent](../implementation-artifacts/2-9-persist-source-faithful-api-documentation.md).
+
+### Story 2.10: Preserve structured Javadoc and narrative content
+
+As a user, I want code, ordered instructions, caveats and package introductions preserved, so retrieved content retains the meaning needed to use an API correctly.
+
+**Acceptance:** Given multiline code, lists/tables, several owned description blocks, API/implementation notes and inline links, when extracted/stored/reopened, then code whitespace, order/nesting, table headers/cells, note labels and original destinations survive. Package/overview pages become cited symbol-less narrative records, not fabricated API types. Navigation and duplicated member summaries are excluded. External/escaping hrefs remain evidence without fetching or verified local edges; absent anchors remain absent. Add representative modern/legacy golden fixtures to 2.9's roundtrip harness.
+
+**Dependencies / gates:** 2.9; consume the same approved content/locator contracts rather than define a second format. **Owner:** ingestion implementation via `bmad-build`.
+
+**Coverage:** FR-4/5/6/8/47; AD-4/15/26. [Build intent](../implementation-artifacts/2-10-preserve-structured-javadoc-and-narrative-content.md).
+
+### Story 2.11: Account for ingestion coverage and fidelity
+
+As a user, I want an honest account of what was ingested or lost, so an apparently successful build cannot conceal missing documentation.
+
+**Acceptance:** Given complete/partial/unsupported/malformed/oversized inputs, when ingestion ends, then discovered-page counts reconcile with explicitly excluded, complete, partial and failed dispositions; emitted/persisted records/sections reconcile under documented counting rules. Do not equate a member count with a page count or claim completeness from bounded inspection. Limits are enforced before unbounded materialization. End-to-end cases prove restart/source-directory independence, rollback/retry determinism and preserved structure/citations. A local optional private-corpus audit checks an independently sampled inventory without committing proprietary content; ordinary CI uses synthetic fixtures. Corpus selection/tuning uses development material under 10.1, never held-out gold. No answer-quality improvement is claimed by ingestion checks alone.
+
+**Dependencies / gates:** 2.10 and 2.8 report/outcome/limit contracts. Private-corpus selection/tuning additionally requires 10.1/B2/B6; synthetic implementation does not wait for gold access. **Owner:** ingestion/report implementation via `bmad-build`, with the corpus owner supplying any private audit inventory.
+
+**Coverage:** FR-1/2/3/5/8/49; AD-4/20/32/34. [Build intent](../implementation-artifacts/2-11-account-for-ingestion-coverage-and-fidelity.md).
+
+**Forward handoffs:** 4.1 retains its 2.8 exact-proof dependency. 4.2 consumes 2.9–2.11 stored content through bounded enumeration and cannot build its production index by re-parsing original HTML. 4.6 depends on 4.1/4.2 and 2.7, joining by stable ID to authoritative content. 5.1/5.3 consume shared services and 5.7 envelopes; a Javadoc-only first connection does not complete their broader supported-content requirements. Live serving still needs 5.5/5.6 and minimum 6.1/6.2/6.5. Define 10.1 alongside 2.8, before private corpus curation/tuning; trials remain 10.2/10.3. See the tracker's `delivery_dependencies` for exact scheduling keys.
+
+Decision: tests and necessary cleanup stay in each bounded story; 2.11 owns the closing ingestion end-to-end check. An unrelated sweeping refactor is not added to this product-quality amendment.
+
 ## Epic 3: Selected Examples, Recipes, Guides and Practices
 
 ### Story 3.1: Parse Java examples via AST
@@ -607,6 +649,8 @@ So that lexical search covers both precise symbol lookup and natural-language de
 
 **Approved forward amendment (2026-10-02):** Require 2.8. Retain exact/prefix/camel-case and analyzed prose/highlighting; add stable record ID, knowledge kind, governance/provenance, applicability and scope filters. Index selected supported content including symbol-less approved records; no embedding model or broad tag vocabulary is required. Coverage: FR-17/45/47; AD-18/19/26/31.
 
+**2026-10-21 source-content handoff:** Production indexing additionally waits for 2.9–2.11. Read approved stored payloads in bounded batches; index description, parameter/return/exception prose, notes, signatures and narrative text through stable record IDs. Do not reparse original HTML or use Lucene document IDs as public identity. Verify prose-only discovery, restart/source-directory independence, version exclusion and catalog/index compatibility.
+
 ### Story 4.3: Local ONNX vector search with explicit failure semantics
 
 **DEFERRED from first proof (2026-10-02):** Vector benefit requires evaluation after lexical baseline. Existing execution status remains backlog. Original intent/criteria below are retained for reactivation only and do not override current contracts. Scheduling excludes this story until a diagnosed gap, controlled benefit, preserved safety and owner approval clear the gate.
@@ -661,6 +705,8 @@ Given exact and lexical candidates, enforce trust/applicability/citation rules, 
 
 **Coverage:** FR-19/47; AD-11/15/18/19/20/35.
 
+**2026-10-21 source-content handoff:** Requires 4.1/4.2 and 2.7. Fetch authoritative sections by stable ID, retain code/note context and truthful locators, and apply request budgets before enrichment. Verify that citations resolve to the returned section and that bounded context is never presented as complete-corpus proof.
+
 ## Epic 5: Six-Tool MCP Surface
 
 ### Story 5.1: Knowledge search and symbol resolution
@@ -674,6 +720,8 @@ Implement `search_knowledge` and `resolve_symbol` through shared services. Searc
 **Dependencies / gates:** 2.8, 5.7, 4.1/4.2/4.6.
 
 **Coverage:** FR-21/23/38/47; AD-11/24/32/33/35 as applicable.
+
+**2026-10-21 delivery handoff:** Depends on the shared 4.6 retrieval service and 5.7 envelope. A first Javadoc search/resolve connection consumes the production persisted-content path from 2.9–2.11; it does not mark examples/guides or the broader story complete. CLI and MCP must use equivalent proof/ranking policy.
 
 ### Story 5.2: Bounded typed relationship tool
 
@@ -698,6 +746,8 @@ Implement `get_record` across supported record types with bounded ID batches/sec
 **Dependencies / gates:** 2.8, 5.7, canonical record ports; synthetic eligible records may precede each corpus producer.
 
 **Coverage:** FR-21/23/38/47; AD-11/24/32/33/35 as applicable.
+
+**2026-10-21 delivery handoff:** The first real Javadoc fetch consumes 2.9–2.11 payloads through bounded sections/IDs. Preserve code/notes and per-ID outcomes after input source removal. Shared DTO/schema work belongs to 2.8, envelope enforcement to 5.7; later producer-specific integrations remain required before claiming all supported content complete.
 
 ### Story 5.3b: Guide tools
 
@@ -1019,6 +1069,8 @@ Curate 20–30 representative Luciad tasks and source evidence within existing h
 
 **Coverage:** FR-48/49/50; AD-34/36.
 
+**2026-10-21 sequencing:** Run protocol definition alongside 2.8, not after retrieval tuning. Reserve held-out sources/questions before private-corpus curation/tuning or comparative claims; synthetic fidelity implementation in 2.9–2.11 can proceed independently. Distinguish absent source, extraction loss, retrieval miss, insufficient result context and answer-generation failure in the rubric.
+
 ### Story 10.2: Build the controlled external evaluation harness
 
 **Planning disposition:** Backlog; approved prospective scope, implementation not applied.
@@ -1030,6 +1082,8 @@ Run unaided, exact+lexical, then relationship/example/practice treatments with t
 **Dependencies / gates:** 10.1; 2.8; accepted six tools, minimum 6.1/6.2/6.5, selected corpus and 7.1/7.2; external SDK/build prerequisites.
 
 **Coverage:** FR-48/49/50; AD-34/36.
+
+**2026-10-21 evaluation handoff:** Include ordinary source-search, exact/BM25 and relationship/example context treatments with identical task/model/budgets except the treatment. Verify the source-to-store-to-result chain and classify failures by stage; ingestion roundtrip success alone is not evidence of improved answers.
 
 ### Story 10.3: Evaluate outcomes and decide expansion
 

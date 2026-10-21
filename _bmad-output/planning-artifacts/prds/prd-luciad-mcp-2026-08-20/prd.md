@@ -88,6 +88,8 @@ Both `section.class-description`/member-summary/`section.detail` and `ul.blockLi
 - Modern and legacy fixtures of the same class yield equivalent catalog records.
 - Broken/incomplete HTML degrades gracefully under the configured policy.
 
+**Forward fidelity clarification (2026-10-21, implementation in 2.9–2.11):** FR-5 extraction must feed durable documentation content, not only identity/location rows. Preserve all owned descriptions, code whitespace, ordered lists/tables, parameter/type-parameter documentation, API/implementation notes and original links. Retain package/overview narratives separately from API symbols. Reopening a built store without input files must retain content and truthful citations. Reconcile discovered-page and emitted-content dispositions; explicitly identify partial, failed, excluded and unsupported sources. Story 2.8 owns the payload/schema/locator/hash/limit contracts and required technical sign-off. This clarifies forward delivery; completed story acceptance is unchanged.
+
 #### FR-6: One record per API element (overloads distinct)
 Each semantic API element is exactly one primary retrieval record; unrelated APIs are never merged into fixed token windows; every method overload is a separate record. Long narrative may have secondary chunks that retain full symbol + source metadata. `→ brief §7`
 **Consequences (testable):**
