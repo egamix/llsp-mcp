@@ -136,21 +136,24 @@ final class BoundedRelationshipTraversal {
                 cutoff == Cutoff.NONE ? CountRelation.EXACT : CountRelation.LOWER_BOUND, token);
     }
     private Row seek(String id, String after, boolean out) throws SQLException {
-        String sql = "SELECT e.edge_id,e.source_id,e.target_id,e.type,"
-                + "CASE WHEN length(CAST(s.canonical_key AS BLOB))<=? THEN s.canonical_key END,"
-                + "CASE WHEN length(CAST(t.canonical_key AS BLOB))<=? THEN t.canonical_key END "
-                + "FROM edges e INDEXED BY " + (out ? "edges_out" : "edges_in")
-                + " JOIN records s ON s.record_id=e.source_id AND s.sdk_version=e.sdk_version"
-                + " JOIN records t ON t.record_id=e.target_id AND t.sdk_version=e.sdk_version"
-                + " WHERE e.sdk_version=? AND e." + (out ? "source_id" : "target_id") + "=? AND e.edge_id>?"
-                + " ORDER BY e.edge_id LIMIT 1";
-        try (PreparedStatement ps = db.prepareStatement(sql)) {
+        try (PreparedStatement ps = db.prepareStatement(adjacencySql(out))) {
             ps.setInt(1, limits.responseBytes() / 6); ps.setInt(2, limits.responseBytes() / 6);
             ps.setString(3, scope.sdkVersion()); ps.setString(4, id); ps.setString(5, after);
             try (ResultSet rs = ps.executeQuery()) {
                 return !rs.next() ? null : new Row(rs.getString(1),rs.getString(2),rs.getString(3),rs.getString(5),rs.getString(6),rs.getString(4));
             }
         }
+    }
+    static String adjacencySql(boolean out) {
+        // octet_length(column) reads the stored byte count without loading oversized TEXT values.
+        return "SELECT e.edge_id,e.source_id,e.target_id,e.type,"
+                + "CASE WHEN octet_length(s.canonical_key)<=? THEN s.canonical_key END,"
+                + "CASE WHEN octet_length(t.canonical_key)<=? THEN t.canonical_key END "
+                + "FROM edges e INDEXED BY " + (out ? "edges_out" : "edges_in")
+                + " JOIN records s ON s.record_id=e.source_id AND s.sdk_version=e.sdk_version"
+                + " JOIN records t ON t.record_id=e.target_id AND t.sdk_version=e.sdk_version"
+                + " WHERE e.sdk_version=? AND e." + (out ? "source_id" : "target_id") + "=? AND e.edge_id>?"
+                + " ORDER BY e.edge_id LIMIT 1";
     }
     private TraversalResult result(TraversalRequest q, Status status, List<Item> items, int visited,
             int scanned, int window, Cutoff cutoff, CountRelation relation, String token) {

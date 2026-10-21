@@ -254,4 +254,36 @@ class RelationshipTraversalTest {
         try (var store = serving(db)) { assertEquals(Status.OK,store.traverse(new TraversalRequest("A")).status()); }
         assertArrayEquals(before,java.nio.file.Files.readAllBytes(db));
     }
+
+    @Test void adjacencyPayloadGuardsReadOnlyColumnByteMetadata() throws Exception {
+        Path db = dir.resolve("metadata-guard.db"); nodes(db,"1","A","B"); edges(db,"AB");
+        try (var connection = DriverManager.getConnection("jdbc:sqlite:" + db)) {
+            for (boolean outgoing : new boolean[] {true, false}) {
+                // Explain the same statement factory that seek() actually prepares, rather than a
+                // separate example expression that could pass while production SQL regresses.
+                try (var ps = connection.prepareStatement("EXPLAIN " + BoundedRelationshipTraversal.adjacencySql(outgoing));
+                        var program = ps.executeQuery()) {
+                    int metadataGuards = 0;
+                    String previousOpcode = "";
+                    int previousFlags = 0, previousRegister = -1;
+                    while (program.next()) {
+                        String opcode = program.getString("opcode");
+                        assertNotEquals("Cast",opcode,"TEXT must not be materialized for a BLOB cast");
+                        if (opcode.equals("Function") && "octet_length(1)".equals(program.getString("p4"))) {
+                            assertEquals("Column",previousOpcode);
+                            assertEquals(program.getInt("p2"),previousRegister);
+                            // SQLite OPFLAG_BYTELENARG=0xc0 tells Column to supply byte metadata
+                            // without loading the TEXT payload, including overflow pages.
+                            assertEquals(0xc0,previousFlags & 0xc0);
+                            metadataGuards++;
+                        }
+                        previousOpcode = opcode;
+                        previousFlags = program.getInt("p5");
+                        previousRegister = program.getInt("p3");
+                    }
+                    assertEquals(2,metadataGuards,"both source and target guards require metadata-only access");
+                }
+            }
+        }
+    }
 }
