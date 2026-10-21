@@ -1,6 +1,6 @@
--- SQLite contract v1; technical ratification pending. Rebuild-only from provisional stores.
+-- SQLite schema/2; source API storage adoption approved 2026-10-21. Other gates remain pending.
 
-PRAGMA user_version=1;
+PRAGMA user_version=2;
 
 CREATE TABLE IF NOT EXISTS records (record_id TEXT PRIMARY KEY NOT NULL, sdk_version TEXT NOT NULL, canonical_key TEXT NOT NULL, kind TEXT NOT NULL, type_fqn TEXT NOT NULL, simple_name TEXT NOT NULL, relative_path TEXT NOT NULL, anchor TEXT NOT NULL, UNIQUE(sdk_version, canonical_key));
 
@@ -21,3 +21,7 @@ CREATE TABLE IF NOT EXISTS knowledge_dependencies (sdk_version TEXT NOT NULL, so
 CREATE TABLE IF NOT EXISTS build_metadata (build_id TEXT PRIMARY KEY NOT NULL, sdk_product TEXT NOT NULL, sdk_version TEXT NOT NULL, profile TEXT NOT NULL, input_digest TEXT NOT NULL, recipe_digest TEXT NOT NULL, runtime_digest TEXT NOT NULL, capabilities TEXT NOT NULL, validation_reasons TEXT NOT NULL);
 
 CREATE TABLE IF NOT EXISTS contract_metadata (singleton INTEGER PRIMARY KEY CHECK(singleton=1), identity_version TEXT NOT NULL, runtime_fingerprint TEXT NOT NULL);
+
+CREATE TABLE IF NOT EXISTS documentation (record_id TEXT PRIMARY KEY NOT NULL REFERENCES records(record_id), source_hash TEXT NOT NULL, content_hash TEXT NOT NULL, section_count INTEGER NOT NULL, metadata BLOB NOT NULL);
+
+CREATE TABLE IF NOT EXISTS documentation_sections (record_id TEXT NOT NULL REFERENCES documentation(record_id), ordinal INTEGER NOT NULL, payload BLOB NOT NULL, content_hash TEXT NOT NULL, PRIMARY KEY(record_id,ordinal));

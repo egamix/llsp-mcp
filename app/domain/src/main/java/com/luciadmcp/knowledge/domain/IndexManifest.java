@@ -26,6 +26,15 @@ public record IndexManifest(String buildId, String sdkVersion, String toolchainF
                 ContentHashes.runtimeFingerprint(), java.util.List.of("catalog", "relationships"),
                 ContentHashes.digest("capabilities/1", java.util.List.of("catalog", "relationships")));
     }
+    /** Content-capable production builds promise a payload for every catalog record. */
+    public static IndexManifest withDocumentation(String buildId, String sdkVersion, String toolchainFingerprint) {
+        var base = new IndexManifest(buildId, sdkVersion, toolchainFingerprint);
+        var capabilities = java.util.List.of("api-documentation", "catalog", "relationships");
+        return new IndexManifest(buildId, sdkVersion, toolchainFingerprint, base.manifestVersion(),
+                base.profile(), base.inputDigest(), base.recipeDigest(), base.runtimeDigest(), capabilities,
+                ContentHashes.digest("capabilities/1", capabilities));
+    }
+
     public IndexManifest {
         if (buildId == null || buildId.isBlank() || sdkVersion == null || sdkVersion.isBlank()
                 || toolchainFingerprint == null || toolchainFingerprint.isBlank() || manifestVersion != 1

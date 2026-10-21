@@ -32,6 +32,11 @@ public interface CatalogStore extends AutoCloseable {
      */
     PutResult put(CatalogRecord record);
 
+    /** Catalog identity, knowledge metadata and documentation commit as one association. */
+    default PutResult putDocumented(CatalogRecord record, KnowledgeRecord knowledge, DocumentationPayload payload) {
+        throw new UnsupportedOperationException("atomic documentation persistence unsupported");
+    }
+
     /** The stored record for a version-scoped canonical key, or empty if none. */
     Optional<StoredCatalogRecord> findByKey(String sdkVersion, String canonicalKey);
 

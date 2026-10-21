@@ -115,6 +115,14 @@ public final class SqliteCatalogStore implements CatalogStore {
         }
     }
 
+    Connection connection() { return connection; }
+
+    @Override public PutResult putDocumented(CatalogRecord record,
+            com.luciadmcp.knowledge.domain.KnowledgeRecord knowledge,
+            com.luciadmcp.knowledge.domain.DocumentationPayload payload) {
+        return new SqliteDocumentationStore(this).put(record, knowledge, payload);
+    }
+
     @Override public void markInvalid() {
         try(Statement s=connection.createStatement()) { s.executeUpdate("UPDATE build_metadata SET validation_reasons='[\"BUILD_INVALIDATING_OUTCOME\"]'"); }
         catch(SQLException e) { throw new IllegalStateException("could not preserve validation failure",e); }
@@ -183,16 +191,17 @@ public final class SqliteCatalogStore implements CatalogStore {
                 else {
                     if(!buildId.equals(r.getString(1)) || !buildId.equals("b-"+r.getString(5))) reasons.add(com.luciadmcp.knowledge.domain.BuildValidator.Reason.INVALID_IDENTITY);
                     if(!"LuciadLightspeed".equals(r.getString(2)) || !sdkVersion.equals(r.getString(3))) reasons.add(com.luciadmcp.knowledge.domain.BuildValidator.Reason.INVALID_SCOPE);
-                    if(!com.luciadmcp.knowledge.domain.ContractVersions.PROFILE.equals(r.getString(4)) || !com.luciadmcp.knowledge.domain.ContentHashes.recipeFingerprint(com.luciadmcp.knowledge.domain.ContractVersions.PROFILE,java.util.List.of()).equals(r.getString(6)) || !com.luciadmcp.knowledge.domain.ContentHashes.digest("capabilities/1",java.util.List.of("catalog","relationships")).equals(r.getString(8))) reasons.add(com.luciadmcp.knowledge.domain.BuildValidator.Reason.INCOMPATIBLE_RUNTIME);
+                    if(!com.luciadmcp.knowledge.domain.ContractVersions.PROFILE.equals(r.getString(4)) || !com.luciadmcp.knowledge.domain.ContentHashes.recipeFingerprint(com.luciadmcp.knowledge.domain.ContractVersions.PROFILE,java.util.List.of()).equals(r.getString(6)) || (!com.luciadmcp.knowledge.domain.ContentHashes.digest("capabilities/1",java.util.List.of("api-documentation","catalog","relationships")).equals(r.getString(8)) && !com.luciadmcp.knowledge.domain.ContentHashes.digest("capabilities/1",java.util.List.of("catalog","relationships")).equals(r.getString(8)))) reasons.add(com.luciadmcp.knowledge.domain.BuildValidator.Reason.INCOMPATIBLE_RUNTIME);
                     if(!runtime.equals(r.getString(7))) reasons.add(com.luciadmcp.knowledge.domain.BuildValidator.Reason.INCOMPATIBLE_RUNTIME);
                     if(!"[]".equals(r.getString(9))) reasons.add(com.luciadmcp.knowledge.domain.BuildValidator.Reason.BUILD_INVALIDATING_OUTCOME);
                     if(r.next()) reasons.add(com.luciadmcp.knowledge.domain.BuildValidator.Reason.INVALID_IDENTITY);
                 }
             }
-            for(String table:java.util.List.of("knowledge_records","knowledge_dependencies")) {
+            SqliteDocumentationStore.validate(db,records);
+            for(String table:java.util.List.of("knowledge_dependencies")) {
                 try(ResultSet r=s.executeQuery("SELECT 1 FROM "+table+" LIMIT 1")) { if(r.next()) reasons.add(com.luciadmcp.knowledge.domain.BuildValidator.Reason.INCOMPATIBLE_RUNTIME); }
             }
-        } catch(SQLException e) { reasons.add(com.luciadmcp.knowledge.domain.BuildValidator.Reason.UNSUPPORTED_SCHEMA); }
+        } catch(SQLException | RuntimeException e) { reasons.add(com.luciadmcp.knowledge.domain.BuildValidator.Reason.UNSUPPORTED_SCHEMA); }
         try (Statement statement=db.createStatement()) {
             java.util.Set<String> recordIds=records.stream().map(com.luciadmcp.knowledge.domain.StoredCatalogRecord::recordId).collect(java.util.stream.Collectors.toSet());
             int count=0;long bytes=0;

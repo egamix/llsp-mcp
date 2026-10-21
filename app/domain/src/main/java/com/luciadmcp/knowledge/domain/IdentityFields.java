@@ -42,6 +42,11 @@ public final class IdentityFields {
     private IdentityFields() {
     }
 
+    /** Domain-owned stable ID, independent of source location and documentation content. */
+    public static String recordId(CatalogRecord record) {
+        return ContentHashes.recordHash(entityTypeFor(record), identityValues(record));
+    }
+
     /**
      * The entity name a record belongs to: {@link #ENTITY_API_ELEMENT} for a type-level record,
      * {@link #ENTITY_METHOD_ELEMENT} for a member (method, constructor, field, enum constant). The
