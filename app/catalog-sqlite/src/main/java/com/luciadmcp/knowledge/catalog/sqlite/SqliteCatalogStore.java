@@ -136,7 +136,31 @@ public final class SqliteCatalogStore implements CatalogStore {
     @Override
     public com.luciadmcp.knowledge.domain.BuildValidator.Result validateBuild(com.luciadmcp.knowledge.domain.BuildValidator validator,
             com.luciadmcp.knowledge.domain.BuildValidator.Operation operation, String buildId, String sdkVersion) {
-        return validatePersisted(connection,validator,operation,buildId,sdkVersion,allRecords());
+        try {
+            connection.setAutoCommit(false);
+            return validatePersisted(connection,validator,operation,buildId,sdkVersion,validationRecords(connection,null));
+        } catch(SQLException e) { throw new IllegalStateException("could not pin validation snapshot",e); }
+        finally { try { connection.rollback(); connection.setAutoCommit(true); } catch(SQLException e) { throw new IllegalStateException("could not release validation snapshot",e); } }
+    }
+    /** Metadata-only admission pass before any TEXT payload is fetched. Must run in one pinned snapshot. */
+    static java.util.List<com.luciadmcp.knowledge.domain.StoredCatalogRecord> validationRecords(Connection db,String sdk) throws SQLException {
+        String where=sdk==null ? "" : " WHERE sdk_version=?";
+        String columns="record_id,sdk_version,canonical_key,kind,type_fqn,simple_name,relative_path,anchor";
+        String metadata=java.util.Arrays.stream(columns.split(",")).map(c -> "octet_length("+c+")").collect(java.util.stream.Collectors.joining(","));
+        long total=0;int rows=0;
+        try(var p=db.prepareStatement("SELECT "+metadata+" FROM records"+where+" LIMIT 100001")) {
+            if(sdk!=null)p.setString(1,sdk);
+            try(var r=p.executeQuery()) { while(r.next()) {
+                if(++rows>com.luciadmcp.knowledge.domain.StandardBuildValidator.MAX_RECORDS) throw new IllegalStateException("WORK_LIMIT: validation rows");
+                for(int i=1;i<=8;i++) { long bytes=r.getLong(i); if(r.wasNull() || bytes>1_048_576 || (total+=bytes)>16_777_216) throw new IllegalStateException("WORK_LIMIT: validation payload"); }
+            } }
+        }
+        var records=new java.util.ArrayList<com.luciadmcp.knowledge.domain.StoredCatalogRecord>(rows);
+        try(var p=db.prepareStatement("SELECT "+columns+" FROM records"+where+" LIMIT 100000")) {
+            if(sdk!=null)p.setString(1,sdk);
+            try(var r=p.executeQuery()) { while(r.next()) records.add(new com.luciadmcp.knowledge.domain.StoredCatalogRecord(r.getString(1),new com.luciadmcp.knowledge.domain.CatalogRecord(r.getString(2),r.getString(3),r.getString(4),r.getString(5),r.getString(6),r.getString(7),r.getString(8)))); }
+        }
+        return records;
     }
     static com.luciadmcp.knowledge.domain.BuildValidator.Result validatePersisted(Connection db,
             com.luciadmcp.knowledge.domain.BuildValidator validator, com.luciadmcp.knowledge.domain.BuildValidator.Operation operation,
@@ -144,6 +168,11 @@ public final class SqliteCatalogStore implements CatalogStore {
         var reasons = new java.util.ArrayList<com.luciadmcp.knowledge.domain.BuildValidator.Reason>();
         int schema=0; String runtime="";
         try (Statement s=db.createStatement()) {
+            for(var entry:java.util.Map.of("contract_metadata", "identity_version,runtime_fingerprint", "build_metadata", "build_id,sdk_product,sdk_version,profile,input_digest,recipe_digest,runtime_digest,capabilities,validation_reasons").entrySet()) {
+                String lengths=java.util.Arrays.stream(entry.getValue().split(",")).map(c -> "octet_length("+c+")").collect(java.util.stream.Collectors.joining(","));
+                try(ResultSet r=s.executeQuery("SELECT "+lengths+" FROM "+entry.getKey()+" LIMIT 2")) { int rows=0;while(r.next()) { if(++rows>1) throw new IllegalStateException("WORK_LIMIT: metadata rows"); for(int i=1;i<=r.getMetaData().getColumnCount();i++) if(r.getLong(i)>2048) throw new IllegalStateException("WORK_LIMIT: metadata payload"); } }
+            }
+
             try(ResultSet r=s.executeQuery("PRAGMA user_version")) { r.next();schema=r.getInt(1); }
             try(ResultSet r=s.executeQuery("SELECT identity_version,runtime_fingerprint FROM contract_metadata WHERE singleton=1")) {
                 if(!r.next()) reasons.add(com.luciadmcp.knowledge.domain.BuildValidator.Reason.UNSUPPORTED_SCHEMA);
@@ -162,6 +191,22 @@ public final class SqliteCatalogStore implements CatalogStore {
             }
             for(String table:java.util.List.of("knowledge_records","knowledge_dependencies")) {
                 try(ResultSet r=s.executeQuery("SELECT 1 FROM "+table+" LIMIT 1")) { if(r.next()) reasons.add(com.luciadmcp.knowledge.domain.BuildValidator.Reason.INCOMPATIBLE_RUNTIME); }
+            }
+        } catch(SQLException e) { reasons.add(com.luciadmcp.knowledge.domain.BuildValidator.Reason.UNSUPPORTED_SCHEMA); }
+        try (Statement statement=db.createStatement()) {
+            java.util.Set<String> recordIds=records.stream().map(com.luciadmcp.knowledge.domain.StoredCatalogRecord::recordId).collect(java.util.stream.Collectors.toSet());
+            int count=0;long bytes=0;
+            try(ResultSet r=statement.executeQuery("SELECT octet_length(edge_id),octet_length(sdk_version),octet_length(source_id),octet_length(type),octet_length(target_id),octet_length(evidence) FROM edges LIMIT 200001")) {
+                while(r.next()) { if(++count>200000) throw new IllegalStateException("WORK_LIMIT: edges"); for(int i=1;i<=6;i++) { long size=r.getLong(i);if(size>1_048_576 || (bytes+=size)>16_777_216) throw new IllegalStateException("WORK_LIMIT: edge payload"); } }
+            }
+            try(ResultSet r=statement.executeQuery("SELECT edge_id,sdk_version,source_id,type,target_id,evidence FROM edges LIMIT 200000")) {
+                while(r.next()) {
+                    if(!sdkVersion.equals(r.getString(2))) continue;
+                    try {
+                        String id=com.luciadmcp.knowledge.domain.ContentHashes.relationshipHash(r.getString(2),r.getString(3),com.luciadmcp.knowledge.domain.RelationshipType.valueOf(r.getString(4)),r.getString(5),r.getString(6));
+                        if(!id.equals(r.getString(1)) || !recordIds.contains(r.getString(3)) || !recordIds.contains(r.getString(5))) reasons.add(com.luciadmcp.knowledge.domain.BuildValidator.Reason.INVALID_IDENTITY);
+                    } catch(IllegalArgumentException e) { reasons.add(com.luciadmcp.knowledge.domain.BuildValidator.Reason.INVALID_IDENTITY); }
+                }
             }
         } catch(SQLException e) { reasons.add(com.luciadmcp.knowledge.domain.BuildValidator.Reason.UNSUPPORTED_SCHEMA); }
         reasons.addAll(validator.validate(new com.luciadmcp.knowledge.domain.BuildValidator.Input(sdkVersion,schema,runtime,false,records,java.util.List.of(),java.util.List.of()),operation).reasons());

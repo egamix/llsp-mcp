@@ -40,4 +40,12 @@ class SchemaCompatibilityTest {
         }
         assertThrows(IllegalStateException.class,()->new SqliteRelationshipStore(file,build,new com.luciadmcp.knowledge.domain.RelationshipScope("2024.0"),new byte[32]));
     }
+    @Test void unrelatedOversizedCatalogRowIsRejectedBeforeTextFetch(@TempDir Path root) throws Exception {
+        Path file=root.resolve("oversized.sqlite");String build="b-"+"a".repeat(64);
+        try(var catalog=new SqliteCatalogStore(file)) { catalog.bindManifest(new com.luciadmcp.knowledge.domain.IndexManifest(build,"2024.0","runtime")); catalog.put(new com.luciadmcp.knowledge.domain.CatalogRecord("2024.0","safe.T","TYPE","safe.T","T","safe/T.html","")); }
+        try(var edges=new SqliteRelationshipStore(file)) {}
+        try(var db=DriverManager.getConnection("jdbc:sqlite:"+file);var s=db.createStatement()) { s.execute("UPDATE records SET simple_name=printf('%.*c', 10000000, 'X')"); }
+        var failure=assertThrows(IllegalStateException.class,()->new SqliteRelationshipStore(file,build,new com.luciadmcp.knowledge.domain.RelationshipScope("2024.0"),new byte[32]));
+        assertTrue(failure.getCause().getMessage().contains("WORK_LIMIT"));
+    }
 }

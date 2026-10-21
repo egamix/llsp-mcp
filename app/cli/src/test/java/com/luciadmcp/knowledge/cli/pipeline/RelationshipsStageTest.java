@@ -40,7 +40,7 @@ class RelationshipsStageTest {
 
     // The 13 structural types (everything except the example/workflow types out of scope for 2.5).
     private static final Set<RelationshipType> STRUCTURAL = EnumSet.complementOf(
-            EnumSet.of(RelationshipType.EXAMPLE_USES, RelationshipType.WORKFLOW_REQUIRES));
+            EnumSet.of(RelationshipType.USES_TYPE, RelationshipType.CONSTRUCTS, RelationshipType.CALLS, RelationshipType.WORKFLOW_REQUIRES));
 
     // --- synthetic documented SDK tree (modern layout), all under com/example -----------------------
 
@@ -525,6 +525,14 @@ class RelationshipsStageTest {
                         && r.reason() == reasons[n] && r.status() == ReferenceResolution.Status.UNRESOLVED));
             }
         }
+    }
+
+    @Test void qualifiedReferenceResolvesPreciselyWithoutFallback() {
+        var source=new StoredCatalogRecord("source",new com.luciadmcp.knowledge.domain.CatalogRecord(VERSION,"User","TYPE","User","User","User.html",""));
+        var target=new StoredCatalogRecord("target",new com.luciadmcp.knowledge.domain.CatalogRecord(VERSION,"a.Value","TYPE","a.Value","Value","a/Value.html",""));
+        var index=RelationshipsStage.ResolutionIndex.build(List.of(source,target),VERSION);
+        var r=index.resolve("User",com.luciadmcp.knowledge.ingest.javadoc.TypeRef.ofName("a.Value"),RelationshipType.RETURN_TYPE,VERSION);
+        assertEquals(ReferenceResolution.Status.EXACT,r.status()); assertEquals("target",r.selectedTargetId());
     }
 
     @Test

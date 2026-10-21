@@ -214,6 +214,17 @@ class CatalogStageTest {
         }
     }
 
+    @Test void completedResumeRevalidatesPersistedMetadata(@TempDir Path tmp) throws Exception {
+        Path javadoc=Files.createDirectories(tmp.resolve("javadoc")); writeType(javadoc,"com/example/Widget.html",CLEAN_PAGE);
+        var args=new IngestArguments(javadoc,Files.createDirectories(tmp.resolve("samples")),Files.createDirectories(tmp.resolve("guides")),tmp.resolve("unused-model"),tmp.resolve("out"),Optional.empty(),Optional.of("2024.0"));
+        var first=IngestPipelineRunner.withCatalogStage(FailurePolicy.COLLECT_AND_CONTINUE,args).runToResult(args);
+        assertFalse(first.aborted());
+        try(var db=java.sql.DriverManager.getConnection("jdbc:sqlite:"+first.buildContext().catalogDbPath());var statement=db.createStatement()) { statement.execute("UPDATE build_metadata SET runtime_digest='corrupt'"); }
+        var resumed=IngestPipelineRunner.withCatalogStage(FailurePolicy.COLLECT_AND_CONTINUE,args).runToResult(args);
+        assertTrue(resumed.aborted()); assertFalse(resumed.activationOccurred());
+        assertTrue(resumed.failures().stream().anyMatch(f -> f.severity()==FailureSeverity.BUILD_INVALIDATING));
+    }
+
     @Test
     void identicalPartialOccurrencesInvalidateContinueBuild(@TempDir Path tmp) throws Exception {
         Path javadoc = Files.createDirectories(tmp.resolve("javadoc"));

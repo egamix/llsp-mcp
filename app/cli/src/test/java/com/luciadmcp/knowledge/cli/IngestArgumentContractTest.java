@@ -51,6 +51,16 @@ class IngestArgumentContractTest {
         };
     }
 
+    @Test void omittedModelAllowsOutputUnderWorkingDirectory(@TempDir Path tmp) throws Exception {
+        String[] base=validOfflineArgs(tmp);
+        java.util.List<String> arguments=new java.util.ArrayList<>();
+        for(int i=0;i<base.length;i++) { if(base[i].equals("--model")) { i++;continue; } arguments.add(base[i]); }
+        Path out=Path.of("build","model-free-contract-test-"+java.util.UUID.randomUUID()).toAbsolutePath();
+        int index=arguments.indexOf("--out"); arguments.set(index+1,out.toString());
+        Result result=run(arguments.toArray(String[]::new));
+        assertEquals(CliMain.EXIT_OK,result.exit(),result.err());
+    }
+
     @Test
     void validOfflineInvocationSucceeds(@TempDir Path tmp) throws Exception {
         Result r = run(validOfflineArgs(tmp));

@@ -194,7 +194,7 @@ public final class IngestPipelineRunner implements IngestPipeline {
                 statuses.put(stage, StageStatus.SKIPPED_UNSUPPORTED);
                 continue;
             }
-            if (checkpoint.isCompleted(stage)) {
+            if (checkpoint.isCompleted(stage) && !(stage == PipelineStage.VALIDATION && !unsupported.isEmpty())) {
                 statuses.put(stage, StageStatus.SKIPPED_ON_RESUME);
                 continue; // resume: already done in a prior run
             }
