@@ -116,6 +116,8 @@ def main():
         validator(tool,"response").validate(specimen["response"]);semantic(specimen["response"]);checked+=2
     mismatch=json.loads((DIRECTORY/"search_knowledge.target-mismatch.example.json").read_text())["response"]
     assert mismatch["targetSdkVersion"]=="2023.1" and mismatch["sdkVersion"]=="2023.5" and mismatch["versionNotices"]==[];checked+=1
+    resolved=json.loads((DIRECTORY/"resolve_symbol.target-mismatch.example.json").read_text())["response"]
+    assert resolved["counts"]=={"value":len(resolved["data"]["matches"]),"relation":"EXACT"} and resolved["counts"]["value"]==1 and resolved["emptyReason"] is None
     no_target=copy.deepcopy(mismatch);no_target["targetSdkVersion"]=None
     validator("search_knowledge","response").validate(no_target);semantic(no_target);checked+=1
     notice=json.loads((DIRECTORY/"search_knowledge.change-notice.example.json").read_text())["response"]

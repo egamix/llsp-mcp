@@ -55,14 +55,14 @@
     },
     "error": null,
     "counts": {
-      "value": 0,
+      "value": 1,
       "relation": "EXACT"
     },
     "coverage": {
       "complete": false,
       "reason": "Synthetic contract specimen; no corpus acceptance claim"
     },
-    "emptyReason": "INCOMPLETE_EVIDENCE",
+    "emptyReason": null,
     "truncated": false,
     "continuation": null,
     "trace": {

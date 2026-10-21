@@ -258,12 +258,11 @@ None. The PRD (§2.2, §9 assumptions) confirms the only consumer interface is t
 
 ## Epic List
 
-#
 ## Approved SDK guidance amendment — 2026-10-21
 
 Applies prospectively to Stories 2.9–2.11, 4.1/4.2/4.6, the six 5.x read tools and 6.x source/build selection. read-tools/2 policy/contracts are implemented; retrieval/MCP integration remains downstream. Optional user target SDK is guidance context, never an automatic restrictive source filter. Choose one configured usable source deterministically within finite request budgets, respecting explicit source/build filters and immutable pinning. Default guidance is useful normal content with actual source-version citations, including target 2023.1/source 2023.5. No mismatch-only UNKNOWN_SDK, INAPPLICABLE, negative existence claim or automatic UNVERIFIED warning. Only concrete, cited target-relevant introduction/removal/behavior-change evidence can support a specific notice; labels/proximity/absence cannot. GENERAL applicability is explicit and retains governance; exact source proof does not certify tested target compatibility. Preserve ambiguity and honest source limitations, source-specific IDs, same-source graph edges and corrupt-build rejection. The user approved this policy; all other technical sign-offs remain pending. Completed-story frozen intent remains historical and unchanged.
 
-## Epic 1: Foundation & Domain Contracts
+### Epic 1: Foundation & Domain Contracts
 
 Completed-story text below is historical acceptance, preserved verbatim. Forward profile/contract changes belong to 2.8/6.x.
 
