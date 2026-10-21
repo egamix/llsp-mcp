@@ -21,6 +21,6 @@ Pre-binding error envelopes now explicitly permit paired null build/capability b
 
 Independent review corrections enforce complete persisted SDK-scope validation identically at CLI/startup and require practice/recipe governance independently of knowledge kind. Existing v1 semantics are preserved; focused and full cross-platform regression checks pass. Human technical ratification remains pending.
 
-## 2026-10-21 — Story 2.9 scoped adoption
+## 2026-10-21 â€” Story 2.9 scoped adoption
 
 Adopt identity/1, DocumentationPayload, typed locators and bounded DocumentationStore for API persistence. schema/2 adds atomic catalog/knowledge/document/section storage, rejects older stores unchanged, and versions javadoc-lexical/2 and catalog-runtime/2. Production capabilities add api-documentation; read-tools/2 guidance is unchanged. Interface, evaluation and release sign-offs remain pending.

@@ -1,3 +1,5 @@
+> Historical SDK-guidance amendment evidence before schema/2. Runtime/build digests and suite counts below belong to that revision; current persistence evidence is in STORY-2-9-VERIFICATION.md. The read-tools/2 guidance policy remains in effect.
+
 # SDK guidance amendment verification - 2026-10-21
 
 Current interface: read-tools/2. User guidance-policy approval is recorded in sign-offs.json; technical identity/schema/interface ratification remains pending. This implements domain policy/contracts and wire specimens only. Retrieval/MCP integration, private-corpus evaluation and Story 10.1 acceptance are not implemented or claimed.

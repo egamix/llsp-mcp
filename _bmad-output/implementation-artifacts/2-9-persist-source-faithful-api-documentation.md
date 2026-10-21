@@ -1,10 +1,11 @@
 ---
 title: 'Story 2.9: Persist source-faithful API documentation'
 type: 'feature'
-status: 'draft'
+status: 'done'
 route: 'dispatch'
 created: '2026-10-21'
 review_loop_iteration: 0
+baseline_commit: 'd21e3643c6a35b1e158c10540545a58abd1f6e2c'
 story_key: '2-9-persist-source-faithful-api-documentation'
 after: ['2-8-contract-and-verification-freeze']
 context:
@@ -52,21 +53,33 @@ Module paths are under `app/`, using existing packages.
 
 ## Tasks & Acceptance
 
-- [ ] `domain`, `docs/contracts`: document schema/2 encoding and atomic integration ports. Preserve structured DTO roundtrip, source/document/page hashes, 256 sections, 4096 blocks, 1 MiB canonical bytes and page limit 1..50. Bound encoded/returned bytes; version runtime/capability/oracle fixtures and scoped approvals.
-- [ ] `catalog-sqlite`: implement atomic catalog/metadata/content writes, idempotence/clashes, scoped enumeration and section paging. Validate supported persisted payloads on CLI/startup; test corruption, preflight and injected transaction rollback.
-- [ ] `ingest-javadoc`, `cli`: carry original-byte hash, actual anchors and type-parameter docs; assemble deterministic sections and wire production atomic persistence. Unsupported or failed content writes cannot report tuple-only success.
-- [ ] Tests/evidence: shared modern/legacy reopen harness, every matrix row, fresh portability snapshots, tracker/graph refresh and independent complete-diff review.
+- [x] `domain`, `docs/contracts`: document schema/2 encoding and atomic integration ports. Preserve structured DTO roundtrip, source/document/page hashes, 256 sections, 4096 blocks, 1 MiB canonical bytes and page limit 1..50. Bound encoded/returned bytes; version runtime/capability/oracle fixtures and scoped approvals.
+- [x] `catalog-sqlite`: implement atomic catalog/metadata/content writes, idempotence/clashes, scoped enumeration and section paging. Validate supported persisted payloads on CLI/startup; test corruption, preflight and injected transaction rollback.
+- [x] `ingest-javadoc`, `cli`: carry original-byte hash, actual anchors and type-parameter docs; assemble deterministic sections and wire production atomic persistence. Unsupported or failed content writes cannot report tuple-only success.
+- [x] Tests/evidence: shared modern/legacy reopen harness, every matrix row, fresh portability snapshots, tracker/graph refresh and independent complete-diff review.
 
 **Acceptance:** Given synthetic Javadocs, when ingested and removed, then reopened fetches retain every expected field under its original stable ID. Given corrupt content, CLI and pinned startup both reject it. Given relocated builds on Windows/Linux, logical IDs/content match excluding operational paths/timestamps.
 
 ## Implementation Notes
 
-Planning until approval of this spec and its scoped contract adoption. Preserve unrelated docs/README/diagrams. No merge, push or squash.
+User approved this presented spec and scoped contract adoption with “continue” on 2026-10-21. Preserve unrelated docs/README/diagrams. No merge, push or squash.
+
+This is the active parent BMAD step-03 handoff; implement directly from this spec without invoking the skill renderer again. Commit verified cohesive changes separately. Windows Gradle process environment: GRADLE_USER_HOME=C:/Users/UserAdmin/.gradle; GRADLE_OPTS=-Djavax.net.ssl.trustStoreType=Windows-ROOT; JAVA_TOOL_OPTIONS=-Djdk.net.unixdomain.tmpdir=D:/workspace/luciad-mcp/.nonexistent-unix-socket-dir (keep that directory nonexistent). Parent owns final review and fresh platform parity checks.
 
 ## Spec Change Log
 
 ## Review Triage Log
 
+| Finding | Verdict | Evidence and route |
+| --- | --- | --- |
+| Admitted single section cannot be fetched | medium | Reviewer reproduced a valid 1,048,000-character paragraph accepted by putDocumented but rejected by readSections even at limit=1. The fetch guard reserves 1024 bytes below the canonical cap while storage permits framing overhead. Patch the existing read bound to the bounded admitted encoding cap and add a near-cap reopen regression; no public surface change. |
+
 ## Verification
 
 Focused tests per slice, Python contract verifier/oracle, full `app/gradlew.bat --no-daemon check`, fresh Windows/Linux snapshots. Audit matrix tests actually ran. Scoped diff checks, Graft refresh and independent review. Reuse process-local Gradle workarounds.
+
+## Completion evidence
+
+Implementation commits: `e892082`, `6932c23`, `002a3dd`; evidence `504065e`; independent review correction `53b0dad`. The one review finding was patched by aligning bounded read admission to encoded write admission, with an actual near-cap SQLite reopen regression. No findings deferred.
+
+Final full Windows check: 241 tests, zero failures/errors, two existing environment skips. Clean native Linux application suites: 240 tests, zero failures/errors/skips. All eleven new matrix tests ran and passed on both platforms. Python contract verifier passes 122 checks; independent portable known answers pass. Content-inclusive application snapshots match byte-for-byte and as parsed JSON, SHA-256 `576cb508cdc24a8beaa0fd5d44b7eeb7b4ffb5ddcadabe5ef32f1ad7a66c254a`. Graph refreshed after the patch; scoped diff checks pass. Details: [verification](../../docs/contracts/STORY-2-9-VERIFICATION.md). Rich block/narrative extraction and coverage remain their planned next stories; no broader acceptance or serving claim.
