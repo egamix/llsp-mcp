@@ -12,4 +12,4 @@ app/gradlew.bat --no-daemon :cli:test --tests com.luciadmcp.knowledge.cli.pipeli
 
 On Linux use `./gradlew` from `app/` with the same task/test selector. The opt-in environment variable is inherited by the test JVM. Use independent Windows/Linux output paths. Compare parsed JSON objects or UTF-8 bytes; output uses LF on both platforms. The tests themselves always run even when export is disabled.
 
-The Windows focused run passed and exported `build/contracts/windows-application.json`. Cross-platform execution/comparison evidence is recorded separately after both platform runs; this document does not claim a Linux outcome.
+The Windows focused run and clean Linux-native Java run passed. Exports `build/contracts/windows-application.json` and `build/contracts/linux-application.json` are byte-identical: SHA-256 `2d13d1705cadb127196380dd747129183501d20bb6ffdf15907694ed7ff070d9`. Linux used Ubuntu-24.04 with a temporary Temurin Java 21.0.12.1 JDK and the committed Gradle wrapper JAR. See `VERIFICATION.md` for platform counts, setup constraints and evidence boundaries.

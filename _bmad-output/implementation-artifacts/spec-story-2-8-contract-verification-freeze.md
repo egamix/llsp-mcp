@@ -2,7 +2,7 @@
 title: 'Story 2.8: Contract and Verification Freeze'
 type: 'feature'
 created: '2026-10-21'
-status: 'in-progress'
+status: 'done'
 route: 'dispatch'
 review_loop_iteration: 0
 baseline_commit: '25ee25cb7acb812ab8101b77fa6ae4eaa5fd87d7'
@@ -55,10 +55,10 @@ Paths are repository-relative; classes use each module's Java package.
 
 **Execution, in dependency/commit order:**
 
-- [ ] `app/domain`, `app/ingest-javadoc`, `app/cli` — version coordinates/serialization, record/edge/evidence recipes and independent digests; portable build hashing includes profile/governed selection. Test known answers/sensitivity.
-- [ ] `app/domain`, `app/catalog-sqlite`, `app/bootstrap` and tests — version records, SDK, optional symbols, typed locators, evidence, separate relationship/dependency families, knowledge kinds/governance/applicability, payload integration and build metadata. Check compatibility before DDL. Add shared `BuildValidator` port/result/implementation defining identical CLI/startup/activation/reload/rollback/restore reasons; wire existing paths.
-- [ ] `app/domain`, `app/cli`, `app/mcp`, `docs/contracts/` and tests — version manifest/report coverage, profile, skips, severity and capability fingerprints. Lexical mode needs no model. Unknown/stub SDK or invalidating outcomes block activation/success. Publish exact schemas/examples for `search_knowledge`, `resolve_symbol`, `get_record`, `get_relationships`, `check_symbols`, `index_status`: errors/proof/scope/count/trace/batch/sections/traversal and query/build/version-bound cursors. Pin finite defaults/caps, page 10/50 and payload 1 MiB. Separate content citations from verdict/status obligations.
-- [ ] Tests, portable fixtures/runner, `docs/contracts/CHANGELOG.md`, sign-off record — cover matrix/schema/governance; detect hash/identity/scope/ambiguity/resolution/activation mutations. Run synthetic screening separately from Story 10.1 acceptance. Compare Windows/Linux fixtures excluding operational fields; record actual evidence, versions/changes/exemptions and pending/approved sign-offs.
+- [x] `app/domain`, `app/ingest-javadoc`, `app/cli` — version coordinates/serialization, record/edge/evidence recipes and independent digests; portable build hashing includes profile/governed selection. Test known answers/sensitivity.
+- [x] `app/domain`, `app/catalog-sqlite`, `app/bootstrap` and tests — version records, SDK, optional symbols, typed locators, evidence, separate relationship/dependency families, knowledge kinds/governance/applicability, payload integration and build metadata. Check compatibility before DDL. Add shared `BuildValidator` port/result/implementation defining identical CLI/startup/activation/reload/rollback/restore reasons; wire existing paths.
+- [x] `app/domain`, `app/cli`, `app/mcp`, `docs/contracts/` and tests — version manifest/report coverage, profile, skips, severity and capability fingerprints. Lexical mode needs no model. Unknown/stub SDK or invalidating outcomes block activation/success. Publish exact schemas/examples for `search_knowledge`, `resolve_symbol`, `get_record`, `get_relationships`, `check_symbols`, `index_status`: errors/proof/scope/count/trace/batch/sections/traversal and query/build/version-bound cursors. Pin finite defaults/caps, page 10/50 and payload 1 MiB. Separate content citations from verdict/status obligations.
+- [x] Tests, portable fixtures/runner, `docs/contracts/CHANGELOG.md`, sign-off record — cover matrix/schema/governance; detect hash/identity/scope/ambiguity/resolution/activation mutations. Run synthetic screening separately from Story 10.1 acceptance. Compare Windows/Linux fixtures excluding operational fields; record actual evidence, versions/changes/exemptions and pending/approved sign-offs.
 
 **Acceptance:** Reviewed slices evidence all nine Story 2.8 criteria. Pending sign-off remains a reported gate; tests do not unblock dependent stories automatically.
 
@@ -70,10 +70,21 @@ The schema/interface slice also consumes `story-2-8-source-content-contract-inpu
 
 - 2026-10-21: User approved the updated spec including the source-content handoff. Technical ratification is separate and remains pending.
 - Local verification environment in `app/`: `GRADLE_USER_HOME=C:/Users/UserAdmin/.gradle`, `GRADLE_OPTS=-Djavax.net.ssl.trustStoreType=Windows-ROOT`, `JAVA_TOOL_OPTIONS=-Djdk.net.unixdomain.tmpdir=D:/workspace/luciad-mcp/.nonexistent-unix-socket-dir`. Keep that socket directory nonexistent for the installed JDK's TCP fallback. Use process environment only; filesystem/cache access may require escalation.
+- Implementation commits: `7436b57`, `c59e202`, `726b5b8`, `851ade7`, `0b12689`, `fa96ba9`, `dc99e9f`, `d85cacc`. Parent audit closed coordinate serialization, collision severity, persisted metadata/resume, bounded startup, model-free output guarding and public-envelope/content/browse gaps with regression evidence.
+- Parent verification: fresh Windows `check --rerun-tasks` passed (224 tests, zero failures/errors, two existing environment skips); all 14 named matrix tests ran and passed. Linux domain/parser/SQLite/CLI suites passed on a clean committed-source export (223 tests, zero failures/errors/skips). Windows/Linux actual application snapshots were byte-identical, SHA-256 `2d13d1705cadb127196380dd747129183501d20bb6ffdf15907694ed7ff070d9`. Schema suite passed 87 checks; six selected mutations were detected. See [verification evidence](../../docs/contracts/VERIFICATION.md).
+- Temporary Linux JDK/cache/source exports are verification tools only. Human identity/schema/interface ratification remains pending in [sign-offs](../../docs/contracts/sign-offs.json); Story 10.1 acceptance was not run.
+- Final post-review verification on `f80d41c`: Windows full `check --rerun-tasks` passed (226 tests, zero failures/errors, two existing environment skips); Linux contract suites passed (225 tests, zero failures/errors/skips). Application snapshot bytes still match SHA-256 `2d13d1705cadb127196380dd747129183501d20bb6ffdf15907694ed7ff070d9`. All six mutations were detected again and source bytes restored. Schema checks remain 87. Both independent review findings were fixed; none deferred.
 
 ## Spec Change Log
 
 ## Review Triage Log
+
+| Finding | Verdict | Evidence and route |
+| --- | --- | --- |
+| Persisted startup/CLI scope parity | medium | Confirmed: startup passes an SDK-filtered catalog list while CLI passes the complete bounded list; persisted edge validation skips foreign SDK rows. Mixed-scope data therefore yields different validation outcomes. Patch the existing admission call and edge scope branch; add persisted-path regression coverage. |
+| Practice/recipe governance bypass | medium | Confirmed: governance requirements inspect only knowledge kind, so independently typed PRACTICE/RECIPE records labeled AUTHORITATIVE_FACT can pass with blank governance. Patch the existing condition to include record type and test the independent combinations. |
+
+Resolution: `f80d41c` fixed both findings. `SchemaCompatibilityTest.mixedScopeCatalogAndForeignEdgesRejectCliAndPinnedStartupIdentically` exercises actual persisted CLI/startup paths; `FreezeContractTest.independentPracticeAndRecipeTypesRequireGovernanceEvenWhenMarkedAsFacts` covers independent kinds/types with an authoritative API fact control. Both tests passed on Windows and Linux in the final runs. No review finding was deferred.
 
 ## Verification
 
