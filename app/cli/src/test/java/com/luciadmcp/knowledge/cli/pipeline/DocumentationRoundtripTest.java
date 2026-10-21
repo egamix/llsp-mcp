@@ -43,6 +43,8 @@ class DocumentationRoundtripTest {
                 assertEquals("Use NewWidget instead.",fields(store.readSections(catalog.get("com.example.Widget").recordId(),result.manifest().buildId(),"2024.0",0,50).orElseThrow()).get("deprecated"));
                 assertEquals("Use doThing instead.",fields(store.readSections(catalog.get("com.example.Widget#oldThing()").recordId(),result.manifest().buildId(),"2024.0",0,50).orElseThrow()).get("deprecated"));
                 assertEquals("the initial size",fields(store.readSections(catalog.get("com.example.Widget#Widget(int)").recordId(),result.manifest().buildId(),"2024.0",0,50).orElseThrow()).get("parameter size"));
+                assertEquals("Tests point containment.",fields(store.readSections(catalog.get(era.equals("jdk8")?"com.example.Widget#contains(Point)":"com.example.Widget#contains(com.example.Point)").recordId(),result.manifest().buildId(),"2024.0",0,50).orElseThrow()).get("description"));
+                assertEquals("Tests coordinate containment.",fields(store.readSections(catalog.get("com.example.Widget#contains(double,double)").recordId(),result.manifest().buildId(),"2024.0",0,50).orElseThrow()).get("description"));
                 for(var record:catalog.values())assertTrue(store.readSections(record.recordId(),result.manifest().buildId(),"2024.0",0,50).isPresent());
             }
             try(var db=DriverManager.getConnection("jdbc:sqlite:"+result.buildContext().catalogDbPath());var s=db.createStatement();var r=s.executeQuery("SELECT source_hash FROM documentation")) { while(r.next())assertEquals(sourceHash,r.getString(1)); }
@@ -93,5 +95,21 @@ class DocumentationRoundtripTest {
         };
         List<StageFailure> failures=new ArrayList<>();new CatalogStage(args.javadoc(),new JavadocCatalogSource(),c->unsupported).execute(BuildContext.forInputs(args),failures::add);
         assertTrue(tuples.isEmpty());assertTrue(failures.stream().anyMatch(f->f.severity()==FailureSeverity.BUILD_INVALIDATING&&f.message().contains("atomic documentation")));
+    }
+
+    @Test void productionStageRollsBackFailedContentWrites() throws Exception {
+        var args=args(temp,"2024.0");Files.writeString(args.javadoc().resolve("Generic.html"),generic("Generic."));
+        var context=BuildContext.forInputs(args);
+        try(var catalog=new SqliteCatalogStore(context.catalogDbPath())) { catalog.bindManifest(IndexManifest.withDocumentation(context.buildId(),context.sdkVersion(),"synthetic")); }
+        try(var db=DriverManager.getConnection("jdbc:sqlite:"+context.catalogDbPath());var s=db.createStatement()) { s.execute("CREATE TRIGGER content_failure BEFORE INSERT ON documentation_sections BEGIN SELECT RAISE(ABORT,'injected production failure'); END"); }
+        List<StageFailure> failures=new ArrayList<>();new CatalogStage(args.javadoc(),new JavadocCatalogSource(),c->new SqliteCatalogStore(c.catalogDbPath())).execute(context,failures::add);
+        assertTrue(failures.stream().anyMatch(f->f.severity()==FailureSeverity.BUILD_INVALIDATING&&f.message().contains("atomic documentation write failed")));
+        try(var db=DriverManager.getConnection("jdbc:sqlite:"+context.catalogDbPath());var s=db.createStatement()) {
+            for(String table:List.of("records","knowledge_records","documentation","documentation_sections"))try(var r=s.executeQuery("SELECT count(*) FROM "+table)) { assertTrue(r.next());assertEquals(0,r.getInt(1)); }
+            s.execute("DROP TRIGGER content_failure");
+        }
+        failures.clear();new CatalogStage(args.javadoc(),new JavadocCatalogSource(),c->new SqliteCatalogStore(c.catalogDbPath())).execute(context,failures::add);assertTrue(failures.isEmpty(),failures.toString());
+        Files.delete(args.javadoc().resolve("Generic.html"));
+        try(var catalog=new SqliteCatalogStore(context.catalogDbPath());var store=new SqliteDocumentationStore(context.catalogDbPath())) { assertEquals(2,catalog.allRecords().size());for(var record:catalog.allRecords())assertTrue(store.readSections(record.recordId(),context.buildId(),context.sdkVersion(),0,50).isPresent()); }
     }
 }

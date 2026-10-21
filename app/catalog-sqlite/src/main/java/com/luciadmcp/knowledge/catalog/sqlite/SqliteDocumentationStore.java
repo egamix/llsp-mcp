@@ -34,6 +34,7 @@ public final class SqliteDocumentationStore implements DocumentationStore {
     CatalogStore.PutResult put(CatalogRecord tuple, KnowledgeRecord record, DocumentationPayload payload) {
         String id=IdentityFields.recordId(tuple);
         validateAssociation(tuple,record,payload);
+        if(payload.sections().isEmpty())throw new IllegalArgumentException("API documentation requires a section");
         byte[] metadata=metadata(record);
         // Encode/validate before opening a transaction. Total framing overhead is bounded too.
         List<byte[]> sections=payload.sections().stream().map(DocumentationCodec::section).toList();
@@ -148,7 +149,10 @@ public final class SqliteDocumentationStore implements DocumentationStore {
 
     static void validate(Connection db,List<StoredCatalogRecord> records) throws SQLException {
         // Supported API rows only; metadata and content are bounded before materialization.
-        try(var s=db.createStatement();var r=s.executeQuery("SELECT count(*) FROM documentation_sections")) { r.next();if(r.getLong(1)>100000L*256)throw new IllegalStateException("WORK_LIMIT"); }
+        long totalBytes=0;int totalRows=0;
+        try(var s=db.createStatement();var r=s.executeQuery("SELECT octet_length(payload) FROM documentation_sections LIMIT 100001")) {
+            while(r.next())if(++totalRows>100000 || r.getLong(1)>DocumentationCodec.MAX_ENCODED_BYTES || (totalBytes+=r.getLong(1))>16_777_216)throw new IllegalStateException("WORK_LIMIT: documentation validation");
+        }
         try(var s=db.createStatement();var r=s.executeQuery("SELECT 1 FROM documentation_sections s LEFT JOIN documentation d USING(record_id) WHERE d.record_id IS NULL OR s.ordinal<0 OR s.ordinal>=d.section_count LIMIT 1")) { if(r.next())throw new IllegalStateException("ORPHAN_CONTENT"); }
         try(var s=db.createStatement();var r=s.executeQuery("SELECT 1 FROM documentation d LEFT JOIN records r USING(record_id) LEFT JOIN knowledge_records k USING(record_id) WHERE r.record_id IS NULL OR k.record_id IS NULL LIMIT 1")) { if(r.next())throw new IllegalStateException("ORPHAN_CONTENT"); }
         try(var s=db.createStatement();var r=s.executeQuery("SELECT 1 FROM knowledge_records k LEFT JOIN documentation d USING(record_id) WHERE d.record_id IS NULL LIMIT 1")) { if(r.next())throw new IllegalStateException("ORPHAN_METADATA"); }
@@ -157,7 +161,7 @@ public final class SqliteDocumentationStore implements DocumentationStore {
             required=r.next() && ContentHashes.digest("capabilities/1",List.of("api-documentation","catalog","relationships")).equals(r.getString(1));
         }
         for(var stored:records) {
-            // Tuple-only synthetic catalog fixtures remain valid. Production content capability is checked by the producer.
+            // Catalog-only lower-level builds retain their declared capability; production requires every payload.
             try(var p=db.prepareStatement("SELECT octet_length(metadata) FROM documentation WHERE record_id=?")) {
                 p.setString(1,stored.recordId());try(var r=p.executeQuery()) { if(!r.next()) { if(required)throw new IllegalStateException("MISSING_CONTENT");continue; }if(r.getLong(1)>DocumentationCodec.MAX_ENCODED_BYTES)throw new IllegalStateException("PAYLOAD_TOO_LARGE"); }
             }
@@ -166,7 +170,7 @@ public final class SqliteDocumentationStore implements DocumentationStore {
             if(fields.size()!=18)throw new IllegalStateException("CORRUPT_METADATA");
             String columns="record_id,sdk_product,sdk_version,record_type,knowledge_kind,symbol_coordinate,locator_kind,source_path,source_anchor,source_first_line,source_last_line,source_section,absent_reason,approval,owner,provenance,approval_evidence,applicability";
             try(var p=db.prepareStatement("SELECT "+Arrays.stream(columns.split(",")).map(c->"octet_length("+c+")").collect(java.util.stream.Collectors.joining(","))+" FROM knowledge_records WHERE record_id=?")) {
-                p.setString(1,stored.recordId());try(var r=p.executeQuery()) { if(!r.next())throw new IllegalStateException("MISSING_METADATA");for(int i=1;i<=18;i++)if(r.getLong(i)>DocumentationCodec.MAX_ENCODED_BYTES)throw new IllegalStateException("PAYLOAD_TOO_LARGE"); }
+                p.setString(1,stored.recordId());try(var r=p.executeQuery()) { if(!r.next())throw new IllegalStateException("MISSING_METADATA");long bytes=0;for(int i=1;i<=18;i++)if(r.getLong(i)>DocumentationCodec.MAX_ENCODED_BYTES || (bytes+=r.getLong(i))>DocumentationCodec.MAX_ENCODED_BYTES)throw new IllegalStateException("PAYLOAD_TOO_LARGE"); }
             }
             try(var p=db.prepareStatement("SELECT "+columns+" FROM knowledge_records WHERE record_id=?")) { p.setString(1,stored.recordId());try(var r=p.executeQuery()) { r.next();for(int i=0;i<18;i++)if(!Objects.equals(fields.get(i),r.getString(i+1)))throw new IllegalStateException("CORRUPT_METADATA"); } }
             var coordinate=SymbolCoordinate.parse(fields.get(5));

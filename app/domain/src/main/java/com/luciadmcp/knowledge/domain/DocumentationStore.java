@@ -11,12 +11,13 @@ public interface DocumentationStore extends AutoCloseable {
     /** Continuations bind the complete read scope and limits; they are not authorization tokens. */
     default Optional<SectionPage> readSections(String recordId, String buildId, String sdkVersion, String continuation, int limit) {
         checkLimit(limit);
+        TraversalRequest.boundedText(recordId); TraversalRequest.boundedText(buildId); TraversalRequest.boundedText(sdkVersion);
         try {
-            if (continuation == null || continuation.length() > 128) throw new IllegalArgumentException();
+            if (continuation == null || continuation.length() > 128) throw new IllegalArgumentException("INVALID_CONTINUATION");
             int separator = continuation.indexOf(':');
             int offset = Integer.parseInt(continuation.substring(0, separator));
             if (offset < 1 || offset >= DocumentationPayload.MAX_SECTIONS
-                    || !continuation.equals(continuation(recordId, buildId, sdkVersion, offset, limit))) throw new IllegalArgumentException();
+                    || !continuation.equals(continuation(recordId, buildId, sdkVersion, offset, limit))) throw new IllegalArgumentException("INVALID_CONTINUATION");
             return readSections(recordId, buildId, sdkVersion, offset, limit);
         } catch (IndexOutOfBoundsException | NumberFormatException e) { throw new IllegalArgumentException("INVALID_CONTINUATION", e); }
     }

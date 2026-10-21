@@ -59,7 +59,10 @@ class DocumentationStoreTest {
     }
     @Test void corruptAndOversizeRejectCliAndPinnedStartup() throws Exception {
         Path path=seed();
-        for(String corruption:List.of("UPDATE documentation_sections SET payload=x'00000001'","UPDATE documentation_sections SET payload=zeroblob(2000000)","UPDATE documentation SET content_hash='"+"0".repeat(64)+"'","UPDATE knowledge_records SET approval='CANDIDATE'")) {
+        for(String corruption:List.of("UPDATE documentation_sections SET payload=x'00000001'","UPDATE documentation_sections SET payload=zeroblob(2000000)","UPDATE documentation SET content_hash='"+"0".repeat(64)+"'","UPDATE knowledge_records SET approval='CANDIDATE'",
+                "UPDATE documentation SET metadata=zeroblob(2000000)","UPDATE documentation SET source_hash='bad'",
+                "UPDATE documentation SET section_count=257","UPDATE documentation_sections SET ordinal=ordinal+300",
+                "DELETE FROM documentation","DELETE FROM knowledge_records","UPDATE knowledge_records SET applicability='bad'")) {
             Path copy=temp.resolve("bad"+Math.abs(corruption.hashCode())+".db");Files.copy(path,copy);
             try(var db=DriverManager.getConnection("jdbc:sqlite:"+copy);var s=db.createStatement()) { s.executeUpdate(corruption); }
             try(var catalog=new SqliteCatalogStore(copy)) { assertFalse(catalog.validateBuild(new StandardBuildValidator(),BuildValidator.Operation.CLI,BUILD,"1").valid()); }
@@ -69,5 +72,31 @@ class DocumentationStoreTest {
     @Test void rejectsSchemaOneWithoutChangingBytes() throws Exception {
         Path path=temp.resolve("old.db");try(var db=DriverManager.getConnection("jdbc:sqlite:"+path);var s=db.createStatement()) { s.execute("PRAGMA user_version=1");s.execute("CREATE TABLE original(value)"); }
         byte[] before=Files.readAllBytes(path);assertThrows(IllegalStateException.class,()->new SqliteCatalogStore(path));assertArrayEquals(before,Files.readAllBytes(path));
+    }
+
+    @Test void exactSectionAndBlockCapsPagingAndEncodedAdmission() throws Exception {
+        var tuple=tuple("1");var record=knowledge(tuple);var locator=record.locator();
+        var block=new DocumentationPayload.Block(DocumentationPayload.BlockKind.PARAGRAPH,"","v",List.of());
+        List<DocumentationPayload.Section> sections=new ArrayList<>();
+        for(int i=0;i<256;i++)sections.add(new DocumentationPayload.Section("s"+i,"",locator,Collections.nCopies(16,block)));
+        var payload=new DocumentationPayload(record.id(),"0".repeat(64),sections,ContentHashes.contentHash(DocumentationPayload.canonicalFields(sections)));
+        Path path=temp.resolve("caps.db");
+        try(var catalog=new SqliteCatalogStore(path)) { catalog.bindManifest(IndexManifest.withDocumentation(BUILD,"1","synthetic"));assertEquals(CatalogStore.PutStatus.INSERTED,catalog.putDocumented(tuple,record,payload).status()); }
+        try(var store=new SqliteDocumentationStore(path)) {
+            int returned=0;var page=store.readSections(record.id(),BUILD,"1",0,50).orElseThrow();
+            while(true) { returned+=page.sections().size();if(page.continuation().isEmpty())break;page=store.readSections(record.id(),BUILD,"1",page.continuation().orElseThrow(),50).orElseThrow(); }
+            assertEquals(256,returned);
+            for(String malformed:List.of("", "-1:bad", "256:bad", "abc", "1:bad", "1:"+"a".repeat(200)))assertThrows(IllegalArgumentException.class,()->store.readSections(record.id(),BUILD,"1",malformed,50));
+        }
+        var extra=new ArrayList<>(sections);extra.add(new DocumentationPayload.Section("extra","",locator,List.of()));
+        assertThrows(IllegalArgumentException.class,()->DocumentationPayload.canonicalFields(extra));
+        var tooManyBlocks=List.of(new DocumentationPayload.Section("s","",locator,Collections.nCopies(4097,block)));
+        assertThrows(IllegalArgumentException.class,()->new DocumentationPayload(record.id(),"0".repeat(64),tooManyBlocks,"0".repeat(64)));
+        assertThrows(IllegalArgumentException.class,()->DocumentationCodec.decode(new byte[]{127,127,127,127}));
+        assertThrows(IllegalArgumentException.class,()->DocumentationCodec.decode(new byte[DocumentationCodec.MAX_ENCODED_BYTES+1]));
+        var tooMuchText=List.of(new DocumentationPayload.Section("s","",locator,List.of(new DocumentationPayload.Block(DocumentationPayload.BlockKind.CODE,"","x".repeat(DocumentationPayload.MAX_BYTES+1),List.of()))));
+        assertThrows(IllegalArgumentException.class,()->DocumentationPayload.canonicalFields(tooMuchText));
+        try(var db=DriverManager.getConnection("jdbc:sqlite:"+path);var s=db.createStatement()) { s.executeUpdate("UPDATE documentation_sections SET payload=zeroblob(2000000) WHERE ordinal=0"); }
+        try(var store=new SqliteDocumentationStore(path)) { assertThrows(IllegalStateException.class,()->store.readSections(record.id(),BUILD,"1",0,1)); }
     }
 }
