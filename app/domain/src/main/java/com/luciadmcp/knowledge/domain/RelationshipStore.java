@@ -26,6 +26,11 @@ import java.util.Optional;
  */
 public interface RelationshipStore extends AutoCloseable {
 
+    /** Bounded consumer traversal; supported only by a trusted immutable-build handle. */
+    default TraversalResult traverse(TraversalRequest request) {
+        throw new UnsupportedOperationException("bounded traversal requires a pinned build handle");
+    }
+
     /**
      * Persists one logical edge, mapping each endpoint canonical key to its stored {@code record_id},
      * computing the edge ID from those IDs (AD-22), and deduplicating by it. The write is an idempotent

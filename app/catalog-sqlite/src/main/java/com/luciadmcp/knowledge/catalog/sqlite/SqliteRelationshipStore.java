@@ -81,6 +81,50 @@ public final class SqliteRelationshipStore implements RelationshipStore {
     private static final String STRUCTURAL_EVIDENCE = "";
 
     private final Connection connection;
+    private BoundedRelationshipTraversal traversal;
+
+    /**
+     * Serving handle. The coordinator attests that buildId names this sealed immutable file;
+     * identity is never derived from its path. Runtime signing material must be at least 32 bytes.
+     * This handle prohibits writes and retains a read snapshot until closed.
+     */
+    public SqliteRelationshipStore(Path dbPath, String buildId,
+            com.luciadmcp.knowledge.domain.RelationshipScope scope, byte[] signingKey) {
+        this(requireExisting(dbPath, buildId, scope, signingKey), true);
+        try {
+            try (Statement stmt = connection.createStatement()) {
+                stmt.execute("PRAGMA query_only=ON");
+                stmt.execute("PRAGMA busy_timeout=0");
+            }
+            connection.setAutoCommit(false);
+            // Establish the snapshot at binding time, before any seed can be resolved.
+            try (Statement stmt = connection.createStatement();
+                    ResultSet ignored = stmt.executeQuery("SELECT 1 FROM records LIMIT 1")) {
+                ignored.next();
+            }
+            traversal = new BoundedRelationshipTraversal(connection, buildId, scope, signingKey, System::nanoTime);
+        } catch (SQLException | RuntimeException e) {
+            closeQuietly(connection);
+            throw new IllegalStateException("could not pin traversal build", e);
+        }
+    }
+
+    private static Path requireExisting(Path path, String buildId,
+            com.luciadmcp.knowledge.domain.RelationshipScope scope, byte[] key) {
+        com.luciadmcp.knowledge.domain.TraversalRequest.boundedText(buildId);
+        if (scope == null) throw new IllegalArgumentException("scope required");
+        com.luciadmcp.knowledge.domain.TraversalRequest.boundedText(scope.sdkVersion());
+        if (key == null || key.length < 32) throw new IllegalArgumentException("runtime signing key needs 32 bytes");
+        if (path == null || !Files.isRegularFile(path)) throw new IllegalArgumentException("sealed build file required");
+        return path;
+    }
+
+    @Override
+    public synchronized com.luciadmcp.knowledge.domain.TraversalResult traverse(
+            com.luciadmcp.knowledge.domain.TraversalRequest request) {
+        if (traversal == null) throw new IllegalStateException("traversal requires a pinned immutable build handle");
+        return traversal.traverse(request);
+    }
 
     /**
      * Opens (creating if absent) the build-scoped catalog file at {@code dbPath} — the same file the
@@ -91,6 +135,10 @@ public final class SqliteRelationshipStore implements RelationshipStore {
      * @param dbPath the build-scoped SQLite file path (coordinator-owned; AD-25)
      */
     public SqliteRelationshipStore(Path dbPath) {
+        this(dbPath, false);
+    }
+
+    private SqliteRelationshipStore(Path dbPath, boolean readOnly) {
         if (dbPath == null) {
             throw new IllegalArgumentException("dbPath must not be null");
         }
@@ -105,9 +153,13 @@ public final class SqliteRelationshipStore implements RelationshipStore {
         }
         Connection opened = null;
         try {
-            opened = DriverManager.getConnection("jdbc:sqlite:" + absolute);
-            try (Statement stmt = opened.createStatement()) {
+            opened = DriverManager.getConnection(readOnly
+                    ? "jdbc:sqlite:" + absolute.toUri() + "?mode=ro"
+                    : "jdbc:sqlite:" + absolute);
+            if (!readOnly) try (Statement stmt = opened.createStatement()) {
                 stmt.execute(CREATE_EDGES_TABLE);
+                stmt.execute("CREATE INDEX IF NOT EXISTS edges_out ON edges(sdk_version,source_id,edge_id)");
+                stmt.execute("CREATE INDEX IF NOT EXISTS edges_in ON edges(sdk_version,target_id,edge_id)");
                 // Provisional Story 2.6 occurrence identity; outcome fields deliberately are not identity.
                 stmt.execute("CREATE TABLE IF NOT EXISTS reference_resolutions ("
                         + "id INTEGER PRIMARY KEY, sdk_version TEXT NOT NULL, source_id TEXT NOT NULL, "
