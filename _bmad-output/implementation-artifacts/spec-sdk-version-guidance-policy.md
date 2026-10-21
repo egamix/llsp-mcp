@@ -2,7 +2,7 @@
 title: 'SDK version as guidance context and source provenance'
 type: 'feature'
 created: '2026-10-21'
-status: 'in-progress'
+status: 'done'
 route: 'dispatch'
 review_loop_iteration: 0
 context:
@@ -48,9 +48,9 @@ Preserve finite budgets, immutable source/build pinning, source-specific stable 
 
 ## Tasks & Acceptance
 
-- [ ] Domain policy/contracts and tests: separate target context, source proof and evidence-backed notices; test every matrix row. Keep existing storage/relationship validation protections. General applicability must be explicit and must not fabricate API compatibility.
-- [ ] Public schemas/examples, verification script, README/CHANGELOG/sign-off evidence: make target SDK optional context, retain exact source scope, define bounded source selection/fallback and per-result provenance. Target mismatch alone cannot cause UNKNOWN_SDK/INAPPLICABLE/negative existence. Represent normal guidance without an automatic unverified warning; include concrete change notices with citations. Version the interface change and update impacted known-answer fixtures/cursor/runtime contracts honestly.
-- [ ] Architecture spine, PRD, epics and epic context: reconcile current normative target/source/absence/presentation policy. Amend forward stories, not historical frozen intent. Record this user's policy approval without auto-approving unrelated contracts.
+- [x] Domain policy/contracts and tests: separate target context, source proof and evidence-backed notices; test every matrix row. Keep existing storage/relationship validation protections. General applicability must be explicit and must not fabricate API compatibility.
+- [x] Public schemas/examples, verification script, README/CHANGELOG/sign-off evidence: make target SDK optional context, retain exact source scope, define bounded source selection/fallback and per-result provenance. Target mismatch alone cannot cause UNKNOWN_SDK/INAPPLICABLE/negative existence. Represent normal guidance without an automatic unverified warning; include concrete change notices with citations. Version the interface change and update impacted known-answer fixtures/cursor/runtime contracts honestly.
+- [x] Architecture spine, PRD, epics and epic context: reconcile current normative target/source/absence/presentation policy. Amend forward stories, not historical frozen intent. Record this user's policy approval without auto-approving unrelated contracts.
 
 **Acceptance:** Given the 2023.1/2023.5 example, when policy and wire specimens run, then useful cited content passes with no mismatch warning or false absence. Given a target-relevant cited change, then only that evidence supports a specific notice. Given foreign source rows, then existing invalid-scope regressions still pass. Given absent handlers, then documentation accurately says policy/contracts are implemented and downstream integration remains required.
 
@@ -65,6 +65,11 @@ Preserve finite budgets, immutable source/build pinning, source-specific stable 
 
 ## Review Triage Log
 
+- Parent audit: corrected the positive resolve specimen's count/empty marker and added a regression assertion; removed an accidental Markdown heading change. Completed in `b71621f` before independent review.
+- Independent focused review of the full baseline-to-amendment diff: no high-confidence findings. No findings deferred.
+
 ## Verification
 
 Run focused domain/policy tests and `python tools/contracts/verify_contracts.py`, then full `app/gradlew.bat --no-daemon check`. Update/run portable known answers if interface/runtime fingerprints change; retain relocation and source-isolation regressions. Run scoped `git diff --check`, refresh `graft build`, and independently review the complete amendment diff. No private-corpus or live-handler acceptance claim.
+
+Executed verification: 122 synthetic contract checks and independent portable known answers pass. Full Windows check: 230 tests, zero failures/errors, two existing environment skips. Clean native Linux application suites: 229 tests, zero failures/errors/skips. All four policy tests and foreign-source CLI/startup rejection ran on both platforms. Application snapshots match in bytes and parsed JSON (SHA-256 `70bb3da18a51bf08f44e7f3212a2031b5584166eb9d5274d83e332fc278bd453`). Scoped diff checks pass. Graft was refreshed after implementation. Full matrix mapping and parent parity evidence: [verification](../../docs/contracts/SDK-VERSION-GUIDANCE-VERIFICATION.md). Retrieval/MCP handler integration remains with its planned downstream stories; no new deferred findings.

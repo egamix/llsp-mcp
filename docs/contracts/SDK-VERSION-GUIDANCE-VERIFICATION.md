@@ -23,3 +23,11 @@ Used only process-local documented Gradle environment variables; the nonexistent
 | Foreign records/edges reject | SchemaCompatibilityTest.mixedScopeCatalogAndForeignEdgesRejectCliAndPinnedStartupIdentically; general policy test rejects foreign-source build |
 
 Cursor target/source independence is tested by SdkGuidancePolicyTest.cursorBindsOptionalTargetSeparatelyFromSource. Source-specific identity formats and SQLite schema remain unchanged; the interface bump changes runtime and complete build digests and requires rebuilding incompatible runtime builds. Historical read-tools/1 Windows/Linux application snapshot hashes and mutation evidence remain labeled historical. Fresh application parity for read-tools/2 is separate evidence, not implied by the independent Python recipe oracle.
+
+## Parent verification and application parity
+
+Parent reran the full Windows `check --rerun-tasks`: 230 tests, zero failures/errors and the same two environment skips listed above. A clean Git archive of commit `1d6dafa` (all amended Java code and portable fixtures) ran the four application test modules in native Ubuntu 24.04: 229 tests, zero failures/errors/skips. Later commits only amend wire fixtures, verification and planning documents. Every policy test, the foreign-source CLI/startup regression and the real application portability test ran and passed on both platforms.
+
+Both runs exported the real production pipeline logical snapshot. Raw bytes and parsed JSON match (6,217 bytes), SHA-256 `70bb3da18a51bf08f44e7f3212a2031b5584166eb9d5274d83e332fc278bd453`; build ID `b-2dac036086b7643c05d9d1a8144c84b116c03e5c2901df260e73db5608c47617`. Runtime fingerprint is the read-tools/2 value above; stable catalog record/edge identities remain unchanged. This is synthetic application portability evidence, not a retrieval-handler or private-corpus acceptance result.
+
+Independent focused review of the complete amendment diff reported no high-confidence findings. The parent corrected the positive resolve specimen count/empty marker and a Markdown heading before that review; the corrected contract verifier passes all 122 checks. No review findings were deferred.
