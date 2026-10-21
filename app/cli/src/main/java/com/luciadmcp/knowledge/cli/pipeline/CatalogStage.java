@@ -128,8 +128,9 @@ public final class CatalogStage implements Stage {
         }
 
         for (SymbolRecord record : page.records()) {
-            CatalogRecord tuple = toCatalogRecord(version, record);
-            CatalogStore.PutResult result = store.put(tuple);
+            CatalogRecord tuple = toCatalogRecord(version, record, com.luciadmcp.knowledge.ingest.javadoc.JavadocDocumentationAssembler.anchor(page, record).orElse(""));
+            var documented = com.luciadmcp.knowledge.ingest.javadoc.JavadocDocumentationAssembler.assemble(tuple, page, record);
+            CatalogStore.PutResult result = store.putDocumented(tuple, documented.record(), documented.payload());
             if (result.status() == CatalogStore.PutStatus.IDENTITY_CLASH) {
                 // A real identity clash compromises catalog integrity — never overwrite or drop (AD-4).
                 failures.accept(StageFailure.ofFile(
@@ -149,7 +150,7 @@ public final class CatalogStage implements Stage {
      * and the {@link #anchorFor(SymbolRecord) derived anchor} that (with the path) resolves back to
      * source. The store computes the ID — this never does (AD-22).
      */
-    private static CatalogRecord toCatalogRecord(String version, SymbolRecord record) {
+    private static CatalogRecord toCatalogRecord(String version, SymbolRecord record, String actualAnchor) {
         return new CatalogRecord(
                 version,
                 record.canonicalKey(),
@@ -157,7 +158,7 @@ public final class CatalogStage implements Stage {
                 record.typeFqn(),
                 record.simpleName(),
                 record.relativePath(),
-                anchorFor(record));
+                actualAnchor);
     }
 
     /**

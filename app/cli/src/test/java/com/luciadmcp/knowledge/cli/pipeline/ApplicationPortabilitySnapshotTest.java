@@ -83,6 +83,9 @@ class ApplicationPortabilitySnapshotTest {
             logical.put("schemaVersion", query(connection, "PRAGMA user_version"));
             logical.put("schemaMetadata", query(connection, "SELECT singleton,identity_version,runtime_fingerprint FROM contract_metadata ORDER BY singleton"));
             logical.put("buildMetadata", query(connection, "SELECT build_id,sdk_product,sdk_version,profile,input_digest,recipe_digest,runtime_digest,capabilities,validation_reasons FROM build_metadata ORDER BY build_id"));
+            logical.put("knowledgeRows", query(connection,"SELECT record_id,sdk_product,sdk_version,record_type,knowledge_kind,symbol_coordinate,locator_kind,source_path,source_anchor,source_first_line,source_last_line,source_section,absent_reason,approval,owner,provenance,approval_evidence,applicability FROM knowledge_records ORDER BY record_id"));
+            logical.put("documentation", query(connection,"SELECT record_id,source_hash,content_hash,section_count,hex(metadata) FROM documentation ORDER BY record_id"));
+            logical.put("documentationSections", query(connection,"SELECT record_id,ordinal,hex(payload),content_hash FROM documentation_sections ORDER BY record_id,ordinal"));
         }
         String report = Files.readString(arguments.out().resolve(result.manifest().buildId()).resolve(IngestPipelineRunner.REPORT_FILE), StandardCharsets.UTF_8);
         assertTrue(report.contains("SKIPPED_UNSUPPORTED"));

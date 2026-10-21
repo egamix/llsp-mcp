@@ -1,6 +1,7 @@
 package com.luciadmcp.knowledge.ingest.javadoc;
 
 import java.util.List;
+import java.util.Optional;
 
 /**
  * A single documented member (method, constructor, or field) extracted from a type page (Story 2.2).
@@ -56,7 +57,8 @@ public record ExtractedMember(
         TypeRef specifiedBy,
         List<TypeRef> seeAlso,
         List<TypeRef> parameterRefs,
-        List<TypeRef> throwsRefs) {
+        List<TypeRef> throwsRefs,
+        List<Param> typeParameters, Optional<String> anchor) {
 
     public ExtractedMember {
         if (kind == null) {
@@ -73,6 +75,17 @@ public record ExtractedMember(
         seeAlso = seeAlso == null ? List.of() : List.copyOf(seeAlso);
         parameterRefs = parameterRefs == null ? List.of() : List.copyOf(parameterRefs);
         throwsRefs = throwsRefs == null ? List.of() : List.copyOf(throwsRefs);
+        typeParameters = typeParameters == null ? List.of() : List.copyOf(typeParameters);
+        anchor = anchor == null ? Optional.empty() : anchor;
+    }
+
+    /** Compatibility for callers without documentation provenance. */
+    public ExtractedMember(MemberKind kind, String name, String signature, String description,
+            List<Param> params, String returns, List<ThrownException> throwsTypes, String since,
+            Deprecation deprecation, TypeRef returnType, TypeRef fieldType, TypeRef overrides,
+            TypeRef specifiedBy, List<TypeRef> seeAlso, List<TypeRef> parameterRefs, List<TypeRef> throwsRefs) {
+        this(kind,name,signature,description,params,returns,throwsTypes,since,deprecation,returnType,
+                fieldType,overrides,specifiedBy,seeAlso,parameterRefs,throwsRefs,List.of(),Optional.empty());
     }
 
     /** Compatibility for callers without independently extracted qualified references. */

@@ -56,8 +56,8 @@ public final class IngestPipelineRunner implements IngestPipeline {
     // Placeholder toolchain component versions. Each real value arrives with the stage that owns it
     // (parser/schema in Epic 2, normalizer/relationship-rules in Epic 3, embedding config in Epic 4);
     // they are distinct stub identifiers now so the fingerprint is a genuine function of five inputs.
-    static final String STUB_PARSER_VERSION = "javadoc-parser/1";
-    static final String STUB_SCHEMA_VERSION = "schema/1";
+    static final String STUB_PARSER_VERSION = "javadoc-parser/2";
+    static final String STUB_SCHEMA_VERSION = "schema/2";
     static final String STUB_NORMALIZER_VERSION = "qualified-normalizer/1";
     static final String STUB_RELATIONSHIP_RULES_VERSION = "relationship-rules/1";
     static final String STUB_EMBEDDING_CONFIG_ID = "embedding/disabled";
@@ -145,7 +145,7 @@ public final class IngestPipelineRunner implements IngestPipeline {
 
     private static SqliteCatalogStore openBuildCatalog(BuildContext context) {
         var store = new SqliteCatalogStore(context.catalogDbPath());
-        try { store.bindManifest(new IndexManifest(context.buildId(),context.sdkVersion(),com.luciadmcp.knowledge.domain.ContentHashes.runtimeFingerprint())); return store; }
+        try { store.bindManifest(IndexManifest.withDocumentation(context.buildId(),context.sdkVersion(),com.luciadmcp.knowledge.domain.ContentHashes.runtimeFingerprint())); return store; }
         catch(RuntimeException e) { store.close(); throw e; }
     }
 
@@ -177,7 +177,8 @@ public final class IngestPipelineRunner implements IngestPipeline {
         // BuildContext (AD-12). STUB_SDK_VERSION survives only as BuildContext.forInputs' fallback
         // when no --sdk-version is supplied — the persisted path uses the real value.
         IndexManifest manifest =
-                new IndexManifest(context.buildId(), context.sdkVersion(), toolchainFingerprint);
+                unsupported.isEmpty() ? new IndexManifest(context.buildId(), context.sdkVersion(), toolchainFingerprint)
+                        : IndexManifest.withDocumentation(context.buildId(), context.sdkVersion(), toolchainFingerprint);
 
         List<StageFailure> collected = new ArrayList<>();
         PipelineStage[] all = PipelineStage.values();

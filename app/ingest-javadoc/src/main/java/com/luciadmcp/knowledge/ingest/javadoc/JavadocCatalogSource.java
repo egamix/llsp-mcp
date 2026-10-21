@@ -38,7 +38,7 @@ public final class JavadocCatalogSource {
 
             List<String> issues = new ArrayList<>(extracted.issues());
             issues.addAll(minted.issues());
-            pages.add(new PageResult(relativePath, minted.records(), issues, extracted.type()));
+            pages.add(new PageResult(relativePath, minted.records(), issues, extracted.type(), extracted.sourceHash()));
         }
         return new Result(discovered.warnings(), pages);
     }
@@ -58,7 +58,7 @@ public final class JavadocCatalogSource {
      * @param type         the extracted type, carrying the relationship-source references for pass two
      */
     public record PageResult(
-            String relativePath, List<SymbolRecord> records, List<String> issues, ExtractedType type) {
+            String relativePath, List<SymbolRecord> records, List<String> issues, ExtractedType type, java.util.Optional<String> sourceHash) {
 
         public PageResult {
             if (relativePath == null || relativePath.isBlank()) {

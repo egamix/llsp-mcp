@@ -14,7 +14,7 @@ class PortableFixtureTest {
         assertEquals(expected.getProperty("contentHash"),ContentHashes.contentHash(List.of("paragraph","synthetic")));
         assertEquals(expected.getProperty("recipeDigest"),ContentHashes.recipeFingerprint(ContractVersions.PROFILE,List.of()));
         assertEquals(expected.getProperty("runtimeDigest"),ContentHashes.runtimeFingerprint());
-        var manifest=new IndexManifest("b-"+"a".repeat(64),"1","runtime");
+        var manifest=IndexManifest.withDocumentation("b-"+"a".repeat(64),"1","runtime");
         assertEquals(expected.getProperty("capabilityFingerprint"),manifest.capabilityFingerprint());
         assertEquals(expected.getProperty("profile"),manifest.profile());
         assertEquals(Integer.parseInt(expected.getProperty("manifestVersion")),manifest.manifestVersion());

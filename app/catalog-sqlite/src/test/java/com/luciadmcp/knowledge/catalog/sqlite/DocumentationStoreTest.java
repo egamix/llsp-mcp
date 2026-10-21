@@ -32,9 +32,13 @@ class DocumentationStoreTest {
         try(var store=new SqliteDocumentationStore(path)) {
             assertEquals(DocumentationStore.WriteStatus.IDENTICAL,store.putAtomically(record,payload));
             assertEquals(List.of(record.id()),store.enumerateIds(BUILD,"1","",50));
-            var first=store.readSections(record.id(),BUILD,"1",0,1).orElseThrow();assertEquals(List.of(payload.sections().get(0)),first.sections());assertEquals(Optional.of("1"),first.continuation());assertEquals(payload.contentHash(),first.documentContentHash());
-            assertEquals(List.of(payload.sections().get(1)),store.readSections(record.id(),BUILD,"1",Integer.parseInt(first.continuation().orElseThrow()),50).orElseThrow().sections());
+            var first=store.readSections(record.id(),BUILD,"1",0,1).orElseThrow();assertEquals(List.of(payload.sections().get(0)),first.sections());assertTrue(first.continuation().orElseThrow().startsWith("1:"));assertEquals(payload.contentHash(),first.documentContentHash());
+            assertEquals(List.of(payload.sections().get(1)),store.readSections(record.id(),BUILD,"1",first.continuation().orElseThrow(),1).orElseThrow().sections());
             assertTrue(store.readSections("missing",BUILD,"1",0,1).isEmpty());
+            assertThrows(IllegalArgumentException.class,()->store.readSections(record.id(),BUILD,"1",first.continuation().orElseThrow(),2));
+            assertThrows(IllegalArgumentException.class,()->store.readSections("other",BUILD,"1",first.continuation().orElseThrow(),1));
+            assertThrows(IllegalArgumentException.class,()->store.readSections(record.id(),"other","1",first.continuation().orElseThrow(),1));
+            assertThrows(IllegalArgumentException.class,()->store.readSections(record.id(),BUILD,"other",first.continuation().orElseThrow(),1));
             for(int limit:new int[]{0,51})assertThrows(IllegalArgumentException.class,()->store.readSections(record.id(),BUILD,"1",0,limit));
             for(int offset:new int[]{-1,2,257})assertThrows(IllegalArgumentException.class,()->store.readSections(record.id(),BUILD,"1",offset,1));
             assertThrows(IllegalArgumentException.class,()->store.readSections(record.id(),"wrong","1",0,1));assertThrows(IllegalArgumentException.class,()->store.enumerateIds(BUILD,"2","",1));

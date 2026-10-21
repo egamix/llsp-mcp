@@ -72,8 +72,10 @@ public final class JavadocFieldExtractor {
         try {
             // charset=null lets JSoup honor a BOM/meta charset (legacy trees may be ISO-8859-1),
             // falling back to UTF-8 when none is declared. Local-bytes parse only (AD-9).
-            Document doc = Jsoup.parse(file.toFile(), null);
-            return extract(doc, relativePath);
+            byte[] bytes = java.nio.file.Files.readAllBytes(file);
+            Document doc = Jsoup.parse(new java.io.ByteArrayInputStream(bytes), null, "");
+            ExtractionResult result = extract(doc, relativePath);
+            return new ExtractionResult(result.type(), result.issues(), Optional.of(com.luciadmcp.knowledge.domain.ContentHashes.sourceHash(bytes)));
         } catch (IOException e) {
             return empty(relativePath, "failed to read/parse " + relativePath + ": " + e.getMessage());
         }
@@ -136,7 +138,10 @@ public final class JavadocFieldExtractor {
 
         ExtractedType type = new ExtractedType(
                 relativePath, typeDescription, typeSince, typeDeprecation, members,
-                header.superclass(), header.superInterfaces(), header.implementedInterfaces(), typeSeeAlso);
+                header.superclass(), header.superInterfaces(), header.implementedInterfaces(), typeSeeAlso,
+                scope == null || scope.selectFirst(".type-signature, .typeSignature, pre") == null ? "" : norm(scope.selectFirst(".type-signature, .typeSignature, pre")),
+                scope == null ? List.of() : parseNotes(scope, relativePath, "type", issues).typeParameters,
+                scope == null ? Optional.empty() : actualAnchor(scope));
         return new ExtractionResult(type, issues);
     }
 
@@ -157,6 +162,27 @@ public final class JavadocFieldExtractor {
             }
         }
         return legacy;
+    }
+
+    /** Only anchors physically owned by this element; group/detail headings are not member citations. */
+    private static Optional<String> actualAnchor(Element block) {
+        if (!block.id().isBlank()) return Optional.of(block.id());
+        for (Element child : block.children()) {
+            if (child.tagName().equals("a")) {
+                String value = child.hasAttr("name") ? child.attr("name") : child.id();
+                if (!value.isBlank()) return Optional.of(value);
+            }
+        }
+        Element previous = block.previousElementSibling();
+        if (previous == null && block.parent() != null && block.parent().tagName().equals("ul"))
+            previous = block.parent().previousElementSibling();
+        if (previous != null && previous.tagName().equals("a")) {
+            String value = previous.hasAttr("name") ? previous.attr("name") : previous.id();
+            if (!value.isBlank() && !List.of("constructor.detail", "method.detail", "field.detail",
+                    "enum.constant.detail", "constructor-detail", "method-detail", "field-detail",
+                    "enum-constant-detail").contains(value)) return Optional.of(value);
+        }
+        return Optional.empty();
     }
 
     private ExtractedMember extractMember(Element block, String relativePath, List<String> issues) {
@@ -195,7 +221,7 @@ public final class JavadocFieldExtractor {
                 notes.params, notes.returns, notes.throwsTypes, notes.since, deprecation,
                 returnType, fieldType, notes.overrides, notes.specifiedBy, List.copyOf(notes.seeAlso),
                 parameterReferences(sig, signature, relativePath),
-                throwsReferences(sig, signature, relativePath, notes.throwsRefs));
+                throwsReferences(sig, signature, relativePath, notes.throwsRefs), notes.typeParameters, actualAnchor(block));
     }
 
     /**
@@ -413,8 +439,7 @@ public final class JavadocFieldExtractor {
 
     private static void dispatchNote(String label, Element dd, Notes notes, String relativePath) {
         switch (label) {
-            // Only positional value parameters. "type parameters" (a generic method's <T>) is a
-            // separate concept and must not land in the positional param list — ignored this story.
+            case "type parameters" -> notes.typeParameters.add(splitNameProse(dd, Param::new));
             case "parameters" -> notes.params.add(splitNameProse(dd, Param::new));
             case "returns" -> notes.returns = norm(dd);
             case "throws", "exceptions" -> {
@@ -436,7 +461,7 @@ public final class JavadocFieldExtractor {
     /** Labels this extractor actually consumes — a dangling one of these is a real truncation. */
     private static boolean isConsumedLabel(String label) {
         return switch (label) {
-            case "parameters", "returns", "throws", "exceptions", "since" -> true;
+            case "type parameters", "parameters", "returns", "throws", "exceptions", "since" -> true;
             default -> false;
         };
     }
@@ -562,6 +587,7 @@ public final class JavadocFieldExtractor {
     private static final class Notes {
         final List<TypeRef> throwsRefs = new ArrayList<>();
         final List<Param> params = new ArrayList<>();
+        final List<Param> typeParameters = new ArrayList<>();
         final List<ThrownException> throwsTypes = new ArrayList<>();
         final List<TypeRef> seeAlso = new ArrayList<>();
         String returns = "";

@@ -8,6 +8,22 @@ public interface DocumentationStore extends AutoCloseable {
     enum WriteStatus { INSERTED, IDENTICAL, IDENTITY_CLASH }
     WriteStatus putAtomically(KnowledgeRecord record, DocumentationPayload payload);
     Optional<SectionPage> readSections(String recordId, String buildId, String sdkVersion, int firstSection, int limit);
+    /** Continuations bind the complete read scope and limits; they are not authorization tokens. */
+    default Optional<SectionPage> readSections(String recordId, String buildId, String sdkVersion, String continuation, int limit) {
+        checkLimit(limit);
+        try {
+            if (continuation == null || continuation.length() > 128) throw new IllegalArgumentException();
+            int separator = continuation.indexOf(':');
+            int offset = Integer.parseInt(continuation.substring(0, separator));
+            if (offset < 1 || offset >= DocumentationPayload.MAX_SECTIONS
+                    || !continuation.equals(continuation(recordId, buildId, sdkVersion, offset, limit))) throw new IllegalArgumentException();
+            return readSections(recordId, buildId, sdkVersion, offset, limit);
+        } catch (IndexOutOfBoundsException | NumberFormatException e) { throw new IllegalArgumentException("INVALID_CONTINUATION", e); }
+    }
+    static String continuation(String recordId, String buildId, String sdkVersion, int offset, int limit) {
+        return offset + ":" + ContentHashes.digest("documentation-page/1", List.of(recordId,buildId,sdkVersion,
+                Integer.toString(offset),Integer.toString(limit),Integer.toString(ContractVersions.SCHEMA),ContentHashes.runtimeFingerprint()));
+    }
     record SectionPage(String recordId, String documentContentHash, String pageContentHash,
             List<DocumentationPayload.Section> sections, Optional<String> continuation) {
         public SectionPage { if(recordId==null || documentContentHash==null || pageContentHash==null || sections==null || continuation==null) throw new IllegalArgumentException("section page fields required"); checkLimit(sections.size()); sections=List.copyOf(sections); if(!pageContentHash.equals(ContentHashes.contentHash(DocumentationPayload.canonicalFields(sections)))) throw new IllegalArgumentException("page hash mismatch"); }

@@ -164,7 +164,7 @@ public final class RelationshipsStage implements Stage {
         for (SymbolRecord record : page.records()) {
             StoredCatalogRecord stored = index.byKey.get(record.canonicalKey());
             if (stored == null || !stored.record().relativePath().equals(record.relativePath())
-                    || !stored.record().anchor().equals(CatalogStage.anchorFor(record))) {
+                    || !stored.record().anchor().equals(com.luciadmcp.knowledge.ingest.javadoc.JavadocDocumentationAssembler.anchor(page, record).orElse(""))) {
                 throw new IllegalStateException("reference source provenance differs from completed catalog: " + record.canonicalKey());
             }
         }
@@ -315,7 +315,10 @@ public final class RelationshipsStage implements Stage {
                 if (!record.sdkVersion().equals(version)) continue;
                 index.byKey.put(record.canonicalKey(), stored);
                 index.byId.put(stored.recordId(), stored);
-                index.byPathAnchor.computeIfAbsent(pathAnchorKey(record.relativePath(), record.anchor()), k -> new ArrayList<>()).add(stored);
+                if ("TYPE".equals(record.kind()) || !record.anchor().isEmpty())
+                    index.byPathAnchor.computeIfAbsent(pathAnchorKey(record.relativePath(), record.anchor()), k -> new ArrayList<>()).add(stored);
+                if ("TYPE".equals(record.kind()) && !record.anchor().isEmpty())
+                    index.byPathAnchor.computeIfAbsent(pathAnchorKey(record.relativePath(), ""), k -> new ArrayList<>()).add(stored);
                 if ("TYPE".equals(record.kind())) {
                     index.byFqnType.computeIfAbsent(record.typeFqn(), k -> new ArrayList<>()).add(stored);
                     index.bySimpleType.computeIfAbsent(record.simpleName(), k -> new ArrayList<>()).add(stored);

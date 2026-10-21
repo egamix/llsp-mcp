@@ -330,6 +330,14 @@ class CatalogStageTest {
         boolean forceClash = false;
         boolean closed = false;
 
+        @Override public PutResult putDocumented(CatalogRecord record,
+                com.luciadmcp.knowledge.domain.KnowledgeRecord knowledge,
+                com.luciadmcp.knowledge.domain.DocumentationPayload payload) {
+            assertEquals(knowledge.id(), payload.recordId());
+            assertFalse(payload.sections().isEmpty());
+            return put(record);
+        }
+
         @Override
         public PutResult put(CatalogRecord record) {
             submitted.add(record);

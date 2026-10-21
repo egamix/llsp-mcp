@@ -18,9 +18,12 @@ import java.util.List;
  * @param type   the extracted fields (never null; members may be empty)
  * @param issues non-fatal extraction issues, each carrying the page's relative path
  */
-public record ExtractionResult(ExtractedType type, List<String> issues) {
+public record ExtractionResult(ExtractedType type, List<String> issues, java.util.Optional<String> sourceHash) {
+
+    public ExtractionResult(ExtractedType type, List<String> issues) { this(type,issues,java.util.Optional.empty()); }
 
     public ExtractionResult {
+        if(sourceHash==null)throw new IllegalArgumentException("sourceHash required");
         if (type == null) {
             throw new IllegalArgumentException("type must not be null");
         }
