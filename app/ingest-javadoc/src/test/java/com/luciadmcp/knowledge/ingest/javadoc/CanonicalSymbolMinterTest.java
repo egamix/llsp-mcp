@@ -310,6 +310,29 @@ class CanonicalSymbolMinterTest {
         return minter.mint(extracted.type());
     }
 
+    @Test
+    void classNamedMethodStaysDistinctFromConstructorRegardlessOfPresenceOrOrder() {
+        ExtractedMember constructor = new ExtractedMember(MemberKind.CONSTRUCTOR, "Widget",
+                "public Widget(int x)", "desc", List.of(), "", List.of(), "", Deprecation.NONE);
+        ExtractedMember method = method("Widget", "public void Widget(int x)");
+        SymbolMintResult combined = minter.mint(new ExtractedType(
+                "com/example/Widget.html", "desc", "", Deprecation.NONE, List.of(constructor, method)));
+        assertTrue(combined.issues().isEmpty(), () -> combined.issues().toString());
+        assertKeysUnique(combined.records());
+        SymbolRecord constructorRecord = keyed(combined.records(), "com.example.Widget#Widget(int)");
+        SymbolRecord methodRecord = keyed(combined.records(), "com.example.Widget#method:Widget(int)");
+        assertEquals(SymbolKind.CONSTRUCTOR, constructorRecord.kind());
+        assertEquals(SymbolKind.METHOD, methodRecord.kind());
+        assertEquals("Widget", methodRecord.simpleName());
+        assertEquals("Widget(int)", methodRecord.variants().erasedGeneric());
+        for (List<ExtractedMember> members : List.of(List.of(method), List.of(method, constructor))) {
+            SymbolMintResult reordered = minter.mint(new ExtractedType(
+                    "com/example/Widget.html", "desc", "", Deprecation.NONE, members));
+            assertTrue(reordered.issues().isEmpty(), () -> reordered.issues().toString());
+            assertEquals(methodRecord.canonicalKey(), keyed(reordered.records(), methodRecord.canonicalKey()).canonicalKey());
+        }
+    }
+
     private static ExtractedMember method(String name, String signature) {
         return new ExtractedMember(MemberKind.METHOD, name, signature, "desc",
                 List.of(), "", List.of(), "", Deprecation.NONE);
