@@ -45,6 +45,18 @@ class ReadToolsBoundaryTest {
    var browse=tools.call("search_knowledge",q("mode","BROWSE","pageSize",50));assertNotNull(browse.get("continuation"));assertEquals(false,((Map<?,?>)browse.get("coverage")).get("complete"));
    for(var r:List.of(first,second,huge,exhausted))Wire.validate("get_record.response",r);
    assertEquals("INVALID_REQUEST",Wire.JSON.valueToTree(tools.call("resolve_symbol",q("symbol","Widget","path","forbidden"))).path("error").path("code").asText());
+   var badCursor=tools.call("resolve_symbol",q("symbol","Widget","continuation","tampered"));
+   assertEquals("INVALID_CONTINUATION",Wire.JSON.valueToTree(badCursor).path("error").path("code").asText());assertEquals(BUILD,badCursor.get("buildId"));assertEquals("1",badCursor.get("sdkVersion"));
+   assertEquals(source.binding().capabilityFingerprint(),Wire.JSON.valueToTree(badCursor).path("trace").path("capabilityFingerprint").asText());Wire.validate("resolve_symbol.response",badCursor);
+   var lowResolve=tools.call("resolve_symbol",q("symbol","p.Widget","limits",map("work",1)));
+   assertEquals("WORK_LIMIT",Wire.JSON.valueToTree(lowResolve).path("error").path("code").asText());assertEquals(BUILD,lowResolve.get("buildId"));Wire.validate("resolve_symbol.response",lowResolve);
+   var enoughResolve=tools.call("resolve_symbol",q("symbol","p.Widget","limits",map("work",2)));
+   assertNull(enoughResolve.get("error"));assertEquals(2,Wire.JSON.valueToTree(enoughResolve).path("trace").path("workCharged").asInt());
+   var lowCandidates=tools.call("get_record",q("recordIds",List.of(paged,small),"limits",map("candidates",1)));
+   assertEquals("WORK_LIMIT",Wire.JSON.valueToTree(lowCandidates).path("error").path("code").asText());assertNull(lowCandidates.get("data"));assertEquals(BUILD,lowCandidates.get("buildId"));
+   assertEquals(0,Wire.JSON.valueToTree(lowCandidates).path("trace").path("candidatesExamined").asInt());Wire.validate("get_record.response",lowCandidates);
+   var unknown=tools.call("resolve_symbol",q("symbol","Widget","sourceSdkVersion","absent"));assertNull(unknown.get("sdkVersion"));assertNull(unknown.get("buildId"));
+   assertTrue(Wire.JSON.valueToTree(unknown).path("trace").path("capabilityFingerprint").isNull());
    assertThrows(IllegalArgumentException.class,()->Wire.parse("{} {}".getBytes()));
    assertThrows(IllegalArgumentException.class,()->Wire.parse("{\"x\":1,\"x\":2}".getBytes()));
   }

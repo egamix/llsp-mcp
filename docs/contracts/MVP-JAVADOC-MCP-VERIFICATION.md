@@ -43,3 +43,9 @@ filenames that resemble an admitted server artifact. The real classpath test and
 matrix both passed. Jetty is pinned to 12.1.14, superseding 12.1.3 after upstream advisory
 [GHSA-wjpw-4j6x-6rwh](https://github.com/jetty/jetty.project/security/advisories/GHSA-wjpw-4j6x-6rwh) identified affected releases through 12.1.4. Focused MCP admission/CLI
 connection verification and installDist were rerun for the corrected pin.
+
+Post-admission error regressions also pass: tampered continuations and exhausted resolve
+work retain actual source/build/capability binding; unknown explicit sources remain unbound.
+Canonical resolution requires one proof lookup plus one charged metadata enrichment read.
+A fetch batch larger than its candidate budget returns typed WORK_LIMIT before batch admission,
+with zero candidates examined and the selected source binding preserved.

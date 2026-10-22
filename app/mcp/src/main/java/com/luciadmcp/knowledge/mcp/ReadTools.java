@@ -23,7 +23,7 @@ public final class ReadTools {
         this.search=new CitedRetrieval(content,symbols,index,key);
     }
     public Map<String,Object> call(String name,Map<String,Object> input) {
-        Map<String,Object> result;
+        Map<String,Object> result;boolean bound=false;
         try {
             if(!NAMES.contains(name))throw new IllegalArgumentException();
             Wire.validate(name+".request",input);
@@ -34,12 +34,14 @@ public final class ReadTools {
             var binding=content.binding();
             if(q.hasNonNull("sourceSdkVersion") && !q.path("sourceSdkVersion").asText().equals(binding.sdkVersion()))return error(name,input,"UNKNOWN_SDK");
             if(q.hasNonNull("buildId") && !q.path("buildId").asText().equals(binding.buildId()))return error(name,input,"BUILD_UNAVAILABLE");
+            bound=true;
             int page=q.path("pageSize").asInt(10),work=q.path("limits").path("work").asInt(5000),candidates=q.path("limits").path("candidates").asInt(1000);
             int millis=q.path("limits").path("executionMillis").asInt(1000),bytes=q.path("limits").path("responseBytes").asInt(1048576);
             Budget budget=new Budget(work,millis);
             if(name.equals("get_record")) {
+                if(strings(input,"recordIds").size()>candidates)return admittedError(name,input,"WORK_LIMIT",true);
                 var floor=envelope(name,input,"NOT_APPLICABLE",map("records",strings(input,"recordIds").stream().map(id->verdict(id,"PAYLOAD_TOO_LARGE","Response admission budget")).toList()));
-                if(wrappedBytes(floor)>bytes-8192)return error(name,input,"PAYLOAD_TOO_LARGE");
+                if(wrappedBytes(floor)>bytes-8192)return admittedError(name,input,"PAYLOAD_TOO_LARGE",true);
             }
             result=switch(name) {
                 case "search_knowledge" -> search(input,page,work,candidates,millis,bytes);
@@ -54,19 +56,19 @@ public final class ReadTools {
                     for(int i=records.size()-1;i>=0 && wrappedBytes(result)>bytes;i--)
                         records.set(i,verdict((String)records.get(i).get("inputRecordId"),"PAYLOAD_TOO_LARGE","Serialized response budget"));
                     result.put("truncated",true);result.put("continuation",null);
-                } else result=error(name,input,"PAYLOAD_TOO_LARGE");
+                } else result=admittedError(name,input,"PAYLOAD_TOO_LARGE",true);
             }
             Wire.validate(name+".response",result);return result;
         } catch(CitedRetrieval.RetrievalException e) {
-            return error(name,input,switch(e.failure()) {
+            return admittedError(name,input,switch(e.failure()) {
                 case SOURCE_MISMATCH -> "UNKNOWN_SDK";case BUILD_MISMATCH,INDEX_UNAVAILABLE -> "BUILD_UNAVAILABLE";
                 case INVALID_CONTINUATION -> "INVALID_CONTINUATION";case WORK_LIMIT,CANDIDATE_LIMIT -> "WORK_LIMIT";
                 case TIME_LIMIT -> "DEADLINE";case PAYLOAD_LIMIT -> "PAYLOAD_TOO_LARGE";default -> "INCOMPATIBLE_BUILD";
-            });
-        } catch(Limit e) { return error(name,input,e.code); }
-        catch(IllegalArgumentException e) { return error(name,input,"INVALID_REQUEST"); }
-        catch(SymbolSourceException e) { return error(name,input,e.code().name().equals("BUILD_INVALID")?"INCOMPATIBLE_BUILD":"BUILD_UNAVAILABLE"); }
-        catch(RuntimeException e) { return error(name,input,"INTERNAL_ERROR"); }
+            },bound);
+        } catch(Limit e) { return admittedError(name,input,e.code,bound); }
+        catch(IllegalArgumentException e) { return admittedError(name,input,"INVALID_REQUEST",bound); }
+        catch(SymbolSourceException e) { return admittedError(name,input,e.code().name().equals("BUILD_INVALID")?"INCOMPATIBLE_BUILD":"BUILD_UNAVAILABLE",bound); }
+        catch(RuntimeException e) { return admittedError(name,input,"INTERNAL_ERROR",bound); }
     }
     public static int wrappedBytes(Map<String,Object> result) {
         return Wire.bytes(map("jsonrpc","2.0","id","f".repeat(8192),"result",
@@ -97,13 +99,13 @@ public final class ReadTools {
         budget.used=p.workCharged();budget.check();
         var matches=new ArrayList<Map<String,Object>>();
         for(var m:p.matches()) {
-            budget.check();var record=content.knowledgeRecord(m.recordId()).orElseThrow(()->new IllegalStateException("MISSING_CONTENT"));
+            budget.charge();var record=content.knowledgeRecord(m.recordId()).orElseThrow(()->new IllegalStateException("MISSING_CONTENT"));
             matches.add(item(record,p.proof().name(),m.matchedBy().equals("canonical")?"COORDINATE":"ALIAS",null,null));
         }
         int next=offset+matches.size();boolean more=next<p.candidatesMatched();
         String cursor=more && !matches.isEmpty()?cursor(q,"resolve",next):"";
         var r=envelope("resolve_symbol",q,p.proof().name(),map("matches",matches));
-        finish(r,p.candidatesMatched(),p.complete()?"EXACT":"LOWER_BOUND",p.workCharged(),p.candidatesMatched(),more||!p.complete(),cursor,matches.isEmpty()?p.proof().name():null,
+        finish(r,p.candidatesMatched(),p.complete()?"EXACT":"LOWER_BOUND",budget.used,p.candidatesMatched(),more||!p.complete(),cursor,matches.isEmpty()?p.proof().name():null,
             matches.stream().map(i->(String)i.get("matchedBy")).distinct().toList());return r;
     }
     private Map<String,Object> fetch(Map<String,Object> q,int page,int bytes,Budget budget) {
@@ -185,6 +187,14 @@ public final class ReadTools {
         r.put("counts",map("value",relation.equals("UNKNOWN")?null:count,"relation",relation));r.put("truncated",truncated);r.put("continuation",nullIfEmpty(cursor));
         r.put("emptyReason",empty==null?null:Set.of("UNKNOWN_IN_SCOPE","INCOMPLETE_EVIDENCE","NOT_APPLICABLE").contains(empty)?empty:"NO_MATCH");
         var trace=(Map<String,Object>)r.get("trace");trace.put("workCharged",work);trace.put("candidatesExamined",candidates);trace.put("matchedBy",matched);
+    }
+    private Map<String,Object> admittedError(String name,Map<String,Object> q,String code,boolean bound) {
+        var result=error(name,q,code);
+        if(bound) {
+            var binding=content.binding();result.put("sdkVersion",binding.sdkVersion());result.put("buildId",binding.buildId());
+            ((Map<String,Object>)result.get("trace")).put("capabilityFingerprint",binding.capabilityFingerprint());
+        }
+        return result;
     }
     public static Map<String,Object> error(String name,Map<String,Object> q,String code) {
         var r=map("contractVersion","read-tools/2","tool",name,"sdkVersion",null,"buildId",null,"proof","NOT_APPLICABLE","data",null,
