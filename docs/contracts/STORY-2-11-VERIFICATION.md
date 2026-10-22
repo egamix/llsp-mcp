@@ -43,7 +43,7 @@ python tools/contracts/audit_ingestion.py --inventory nonexistent-private-invent
 ```
 
 Focused and full Java checks passed. Final Gradle check: 265 discovered tests, 264 passed,
-0 failures/errors and 1 pre-existing skip (IngestArgumentContractTest.optionalTrainingsIsAcceptedAndPassedThrough). Module totals: domain 30, ingest-javadoc 84,
+0 failures/errors and 1 pre-existing skip (IngestArgumentContractTest.outputSymlinkedIntoInputDirectoryIsRejected). Module totals: domain 30, ingest-javadoc 84,
 catalog-sqlite 42 and CLI 109. Contract/oracle checks: 127 passed. Audit unittest
 specimens: 14 passed. The audit of the real Java-ingested independent fixture returned PASS,
 comparing one record and one actual section. Default private mode returned NOT_RUN with
