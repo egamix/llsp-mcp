@@ -93,4 +93,12 @@ class CoverageIntegrationTest {
         assertTrue(coverage.outcomes().stream().anyMatch(o->o.reason().equals("IDENTITY_CLASH")));
         try(var db=DriverManager.getConnection("jdbc:sqlite:"+result.buildContext().catalogDbPath());var st=db.createStatement();var rows=st.executeQuery("SELECT group_concat(hex(payload),'') FROM documentation_sections ORDER BY record_id,ordinal")) { rows.next();assertEquals(original,rows.getString(1)); }
     }
+    @Test void authoredDocFileHeadingCannotBeExcludedOrPromotedToApi() throws Exception {
+        var args=StructuredDocumentationRoundtripTest.args(temp);
+        Files.writeString(args.javadoc().resolve("authored.html"),"<body class='doc-file-page'><h1>Class Tutorial</h1><p>Authored content.</p></body>");
+        var result=IngestPipelineRunner.withCatalogStage(FailurePolicy.COLLECT_AND_CONTINUE,args).runToResult(args);
+        var coverage=CoverageSnapshot.restore(result.buildContext()).orElseThrow();
+        assertEquals(1,coverage.failed());assertEquals(0,coverage.excluded());assertEquals(0,coverage.complete());
+        assertEquals("UNKNOWN",coverage.outcomes().getFirst().pageType());
+    }
 }
