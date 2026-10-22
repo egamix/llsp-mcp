@@ -101,4 +101,41 @@ class CoverageIntegrationTest {
         assertEquals(1,coverage.failed());assertEquals(0,coverage.excluded());assertEquals(0,coverage.complete());
         assertEquals("UNKNOWN",coverage.outcomes().getFirst().pageType());
     }
+    @Test void conflictingPagesHaveIndependentLosingAssociations() throws Exception {
+        var args=StructuredDocumentationRoundtripTest.args(temp);
+        String type=Files.readString(StructuredDocumentationRoundtripTest.fixtures().resolve("modern/p/T.html"));
+        Files.createDirectories(args.javadoc().resolve("p"));
+        Files.writeString(args.javadoc().resolve("p/T.html"),type);
+        Files.writeString(args.javadoc().resolve("p.T.html"),type);
+        var context=BuildContext.forInputs(args);List<StageFailure> failures=new ArrayList<>();
+        var stage=new CatalogStage(args.javadoc(),new JavadocCatalogSource(),c->new SqliteCatalogStore(c.catalogDbPath()));
+        stage.execute(context,failures::add);var first=CoverageSnapshot.restore(context).orElseThrow();
+        assertEquals(6,first.emittedRecords());assertEquals(3,first.persistedRecords());
+        assertEquals(1,first.complete());assertEquals(1,first.failed());assertEquals(0,first.partial());
+        assertEquals(6,first.emittedSections());assertEquals(3,first.persistedSections());
+        stage.execute(context,failures::add);assertEquals(first,CoverageSnapshot.restore(context).orElseThrow());
+    }
+    @Test void narrativeCanonicalOverflowIsLocalAndLaterNarrativePersists() throws Exception {
+        var args=StructuredDocumentationRoundtripTest.args(temp);
+        String prefix="<body class='package-declaration-page'><section class='package-description'><p>",suffix="</p></section></body>";
+        Files.writeString(args.javadoc().resolve("a.html"),prefix+"a".repeat(DocumentationPayload.MAX_BYTES-1)+suffix);
+        Files.writeString(args.javadoc().resolve("z.html"),prefix+"Valid later narrative."+suffix);
+        var context=BuildContext.forInputs(args);List<StageFailure> failures=new ArrayList<>();
+        new CatalogStage(args.javadoc(),new JavadocCatalogSource(),c->new SqliteCatalogStore(c.catalogDbPath())).execute(context,failures::add);
+        assertEquals(1,failures.size());assertEquals(FailureSeverity.RECOVERABLE,failures.getFirst().severity());assertEquals("PAYLOAD_REJECTED",failures.getFirst().message());
+        var coverage=CoverageSnapshot.restore(context).orElseThrow();assertEquals(1,coverage.failed());assertEquals(1,coverage.complete());assertEquals(2,coverage.emittedRecords());assertEquals(1,coverage.persistedRecords());
+        try(var db=DriverManager.getConnection("jdbc:sqlite:"+context.catalogDbPath());var st=db.createStatement();var rows=st.executeQuery("SELECT count(*) FROM documentation_sections WHERE length(payload)>0")) { rows.next();assertEquals(1,rows.getInt(1)); }
+    }
+    @Test void missingAndCorruptCompletedCoverageHonorFailFastBeforeLaterStages() throws Exception {
+        for(boolean corrupt:List.of(false,true)) {
+            var args=StructuredDocumentationRoundtripTest.args(temp.resolve(Boolean.toString(corrupt)));
+            Files.copy(StructuredDocumentationRoundtripTest.repo().resolve("docs/contracts/fixtures/ingestion-audit-source.html"),args.javadoc().resolve("package-summary.html"));
+            var runner=IngestPipelineRunner.withCatalogStage(FailurePolicy.FAIL_FAST,args);var first=runner.runToResult(args);
+            assertFalse(first.aborted());Path sidecar=first.buildContext().stagingDir().resolve(CoverageSnapshot.FILE);
+            if(corrupt)Files.write(sidecar,new byte[]{0});else Files.delete(sidecar);
+            var resumed=runner.runToResult(args);assertTrue(resumed.aborted());
+            String report=Files.readString(args.out().resolve(first.manifest().buildId()).resolve("ingestion-report.json"));
+            assertTrue(report.contains("COVERAGE_UNAVAILABLE"));assertTrue(report.contains("\"stage\": \"RELATIONSHIPS\", \"status\": \"NOT_RUN\""));
+        }
+    }
 }

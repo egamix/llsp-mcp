@@ -25,4 +25,17 @@ class SourceAdmissionTest {
         var aggregate=new SourceAdmission.Budget();for(int i=0;i<4096;i++)aggregate.admit("a".repeat(4096));
         assertEquals("SOURCE_ENUMERATION_LIMIT",assertThrows(IllegalArgumentException.class,()->aggregate.admit("a")).getMessage());
     }
+    @Test void realWalkRejectsFilesEmptyDirectoriesDepthAndAttributeFailures() throws Exception {
+        Files.writeString(root.resolve("a"),"a");Files.writeString(root.resolve("b"),"b");
+        SourceAdmission.AttributeReader attributes=p->Files.readAttributes(p,java.nio.file.attribute.BasicFileAttributes.class);
+        assertEquals(2,SourceAdmission.enumerate(root,2,3,1,attributes).size());
+        assertEquals("SOURCE_ENUMERATION_LIMIT",assertThrows(IllegalArgumentException.class,()->SourceAdmission.enumerate(root,1,10,10,attributes)).getMessage());
+        assertThrows(java.io.UncheckedIOException.class,()->SourceAdmission.enumerate(root,10,10,10,p->{throw new java.io.IOException("synthetic attribute failure");}));
+        Files.delete(root.resolve("a"));Files.delete(root.resolve("b"));
+        Files.createDirectories(root.resolve("a/b"));
+        assertEquals(0,SourceAdmission.enumerate(root,1,3,2,attributes).size());
+        assertEquals("SOURCE_TRAVERSAL_LIMIT",assertThrows(IllegalArgumentException.class,()->SourceAdmission.enumerate(root,1,2,2,attributes)).getMessage());
+        assertEquals("SOURCE_TRAVERSAL_LIMIT",assertThrows(IllegalArgumentException.class,()->SourceAdmission.enumerate(root,1,3,1,attributes)).getMessage());
+        assertThrows(java.io.UncheckedIOException.class,()->SourceAdmission.enumerate(root.resolve("missing")));
+    }
 }

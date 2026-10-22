@@ -111,7 +111,13 @@ public final class CatalogStage implements Stage {
                 Path file=javadocRoot.resolve(page.relativePath());
                 for(String issue:page.issues())failures.accept(StageFailure.ofFile(PipelineStage.CATALOG,FailureSeverity.RECOVERABLE,file,issue));
                 if(page.blocks().isEmpty() || page.sourceHash().isEmpty())continue;
-                var documented=com.luciadmcp.knowledge.ingest.javadoc.JavadocDocumentationAssembler.assembleNarrative(version,page);
+                com.luciadmcp.knowledge.ingest.javadoc.JavadocDocumentationAssembler.Documented documented;
+                try { documented=com.luciadmcp.knowledge.ingest.javadoc.JavadocDocumentationAssembler.assembleNarrative(version,page); }
+                catch(IllegalArgumentException e) {
+                    accounting.failed(page.relativePath(),"PAYLOAD_REJECTED");
+                    failures.accept(StageFailure.ofFile(PipelineStage.CATALOG,FailureSeverity.RECOVERABLE,file,"PAYLOAD_REJECTED"));
+                    continue;
+                }
                 String key="narrative:"+page.relativePath();
                 accounting.sections(key,documented.payload().sections().size());
                 var written=store.putNarrative(documented.record(),documented.payload());

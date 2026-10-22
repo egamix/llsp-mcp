@@ -198,6 +198,10 @@ public final class IngestPipelineRunner implements IngestPipeline {
             if (stage == PipelineStage.CATALOG && checkpoint.isCompleted(stage) && !unsupported.isEmpty()
                     && CoverageSnapshot.restore(context).isEmpty()) {
                 collected.add(StageFailure.of(stage,FailureSeverity.RECOVERABLE,"COVERAGE_UNAVAILABLE: missing, corrupt or mismatched snapshot"));
+                if(policy==FailurePolicy.FAIL_FAST) {
+                    statuses.put(stage,StageStatus.FAILED);
+                    return aborted(args,context,manifest,checkpoint,collected,statuses);
+                }
             }
             if (checkpoint.isCompleted(stage) && !(stage == PipelineStage.VALIDATION && !unsupported.isEmpty())) {
                 statuses.put(stage, StageStatus.SKIPPED_ON_RESUME);

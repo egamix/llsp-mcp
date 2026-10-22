@@ -24,7 +24,8 @@ final class CoverageAccounting {
         for(var page:result.pages())for(var record:page.records())emit(page.relativePath(),record.canonicalKey());
         for(var page:result.narratives())if(!page.blocks().isEmpty() && page.sourceHash().isPresent())emit(page.relativePath(),"narrative:"+page.relativePath());
     }
-    void emit(String path,String key) { pages.computeIfAbsent(path,p->new Page("TYPE")).records.add(key);records.computeIfAbsent(key,k->new Association()); }
+    private static String association(String path,String key) { return path+"\0"+key; }
+    void emit(String path,String key) { String id=association(path,key);pages.computeIfAbsent(path,p->new Page("TYPE")).records.add(id);records.computeIfAbsent(id,k->new Association()); }
     void begin(String path,List<String> issues) {
         active=path;Page page=pages.get(path);page.processed=true;
         page.issues=!issues.isEmpty();page.reason=issues.isEmpty()?"PRESERVED":reason(issues);
@@ -35,8 +36,8 @@ final class CoverageAccounting {
         return "EXTRACTION_ISSUE";
     }
     void storageFailure() { if(active!=null)failed(active,"STORAGE_FAILED"); }
-    void sections(String key,int count) { records.get(key).sections=count; }
-    void persisted(String key) { records.get(key).persisted=true; }
+    void sections(String key,int count) { records.get(association(active,key)).sections=count; }
+    void persisted(String key) { records.get(association(active,key)).persisted=true; }
     void failed(String path,String reason) { Page page=pages.get(path);page.issues=true;page.reason=reason; }
     CoverageSnapshot snapshot() {
         long excluded=0,complete=0,partial=0,failed=0;Map<String,Long> groups=new TreeMap<>();
