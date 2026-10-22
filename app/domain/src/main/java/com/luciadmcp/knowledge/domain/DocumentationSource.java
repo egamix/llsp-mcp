@@ -10,5 +10,9 @@ public interface DocumentationSource extends AutoCloseable {
     List<String> documentationIdsAfter(String afterId, int limit);
     Optional<KnowledgeRecord> knowledgeRecord(String recordId);
     List<DocumentationPayload.Section> sections(String recordId, int offset, int limit);
+    /** Bounded hash-preserving read from the same pinned snapshot. */
+    default Optional<DocumentationStore.SectionPage> sectionPage(String recordId, int offset, int limit) {
+        throw new UnsupportedOperationException("bounded page port unavailable");
+    }
     @Override void close();
 }

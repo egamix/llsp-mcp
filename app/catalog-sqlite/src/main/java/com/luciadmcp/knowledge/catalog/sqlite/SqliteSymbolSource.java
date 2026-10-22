@@ -12,7 +12,8 @@ public final class SqliteSymbolSource implements SymbolSource, DocumentationSour
     private final Connection db;
     private final SymbolSourceBinding binding;
 
-    public SqliteSymbolSource(Path path) {
+    public SqliteSymbolSource(Path path) { this(path,BuildValidator.Operation.STARTUP); }
+    public SqliteSymbolSource(Path path,BuildValidator.Operation operation) {
         if(path==null || !Files.isRegularFile(path))throw new SymbolSourceException(BUILD_UNAVAILABLE,"Existing source catalog required");
         Connection opened=null;
         try {
@@ -28,7 +29,7 @@ public final class SqliteSymbolSource implements SymbolSource, DocumentationSour
                 if(r.next())throw new SymbolSourceException(BUILD_INVALID,"Multiple build identities");
             }
             var records=SqliteCatalogStore.validationRecords(opened,null);
-            var validation=SqliteCatalogStore.validatePersisted(opened,new StandardBuildValidator(),BuildValidator.Operation.STARTUP,build,sdk,records);
+            var validation=SqliteCatalogStore.validatePersisted(opened,new StandardBuildValidator(),operation,build,sdk,records);
             if(!validation.valid())throw new SymbolSourceException(BUILD_INVALID,"BUILD_INVALID: "+validation.reasons());
             // Check citation eligibility at admission rather than inventing locators while resolving.
             for(var record:records) locator(record.record());
@@ -42,6 +43,13 @@ public final class SqliteSymbolSource implements SymbolSource, DocumentationSour
     }
     private static SourceLocator locator(CatalogRecord r) {
         return new SourceLocator(SourceLocator.Kind.SOURCE,r.relativePath(),r.anchor().isEmpty()?Optional.empty():Optional.of(r.anchor()),"");
+    }
+    public synchronized void verifyManifest(IndexManifest m) {
+        try(var stmt=db.createStatement();var r=stmt.executeQuery("SELECT input_digest,recipe_digest,runtime_digest,profile,capabilities FROM build_metadata LIMIT 1")) {
+            if(!r.next() || !binding.sdkVersion().equals(m.sdkVersion()) || !binding.buildId().equals(m.buildId()) || !m.inputDigest().equals(r.getString(1))
+                || !m.recipeDigest().equals(r.getString(2)) || !m.runtimeDigest().equals(r.getString(3)) || !m.profile().equals(r.getString(4)) || !m.capabilityFingerprint().equals(r.getString(5)))
+                throw new SymbolSourceException(BUILD_INVALID,"MANIFEST_BINDING");
+        }catch(SQLException e) { throw new SymbolSourceException(BUILD_INVALID,"MANIFEST_BINDING",e); }
     }
     @Override public SymbolSourceBinding binding() { return binding; }
     @Override public synchronized Optional<StoredCatalogRecord> canonical(String key) {
@@ -96,6 +104,21 @@ public final class SqliteSymbolSource implements SymbolSource, DocumentationSour
                 return List.copyOf(SqliteDocumentationStore.read(db,id,offset,Math.min(limit,count-offset),DocumentationCodec.MAX_ENCODED_BYTES));
             }
         }catch(SQLException e) { throw new SymbolSourceException(BUILD_UNAVAILABLE,"Pinned section read failed",e); }
+    }
+    @Override public synchronized Optional<DocumentationStore.SectionPage> sectionPage(String id,int offset,int limit) {
+        ExactSymbolQuery.text(id);DocumentationStore.checkLimit(limit);
+        if(offset<0 || offset>=DocumentationPayload.MAX_SECTIONS)throw new IllegalArgumentException("INVALID_OFFSET");
+        try(var p=db.prepareStatement("SELECT section_count,content_hash FROM documentation WHERE record_id=?")) {
+            p.setString(1,id);
+            try(var r=p.executeQuery()) {
+                if(!r.next())return Optional.empty();
+                int count=r.getInt(1);String hash=r.getString(2);
+                if(count<1 || count>256 || offset>=count)throw new IllegalArgumentException("INVALID_OFFSET");
+                var page=SqliteDocumentationStore.read(db,id,offset,Math.min(limit,count-offset),DocumentationCodec.MAX_ENCODED_BYTES);
+                return Optional.of(new DocumentationStore.SectionPage(id,hash,ContentHashes.contentHash(DocumentationPayload.canonicalFields(page)),page,
+                    offset+page.size()<count?Optional.of(Integer.toString(offset+page.size())):Optional.empty()));
+            }
+        } catch(SQLException e) { throw new SymbolSourceException(BUILD_UNAVAILABLE,"Pinned page read failed",e); }
     }
     @Override public synchronized void close() {
         try { db.close(); }catch(SQLException e) { throw new SymbolSourceException(BUILD_UNAVAILABLE,"Source close failed",e); }
