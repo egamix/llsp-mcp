@@ -74,8 +74,8 @@ public final class BundleRepository {
         }catch(IOException e) { throw invalid("ATOMIC_ACTIVATION_FAILED"); }
     }
     private com.fasterxml.jackson.databind.JsonNode pointer() { return read(config.indexRoot().resolve("active.json"),16384); }
-    public Handle current(BuildValidator.Operation operation) {
-        var pointer=pointer();
+    public Handle current(BuildValidator.Operation operation) { return current(pointer(),operation); }
+    private Handle current(com.fasterxml.jackson.databind.JsonNode pointer,BuildValidator.Operation operation) {
         if(pointer.size()!=4 || pointer.path("pointerVersion").asInt()!=1 || !pointer.path("source").asText().equals(config.sourceDefault()))throw invalid("ACTIVE_POINTER");
         return scoped(admit(bundle(pointer.path("sdkVersion").asText(),pointer.path("buildId").asText()),operation),pointer.path("sdkVersion").asText(),pointer.path("buildId").asText());
     }
@@ -145,7 +145,10 @@ public final class BundleRepository {
     public static final class Serving implements AutoCloseable {
         private final BundleRepository repository;private Entry current;private boolean closed;private com.fasterxml.jackson.databind.JsonNode observed;
         private static final class Entry { final Handle handle;int readers;boolean retired;Entry(Handle h) { handle=h; } }
-        public Serving(BundleRepository repository) { this.repository=repository;current=new Entry(repository.current(BuildValidator.Operation.STARTUP));observed=repository.pointer(); }
+        public Serving(BundleRepository repository) {
+            this.repository=repository;var pointer=repository.pointer();
+            current=new Entry(repository.current(pointer,BuildValidator.Operation.STARTUP));observed=pointer;
+        }
         public synchronized Lease lease() { if(closed)throw invalid("SERVICE_CLOSED");current.readers++;return new Lease(current); }
         public boolean reloadIfChanged() {
             try { synchronized(this) { if(closed)return false;if(repository.pointer().equals(observed))return true; } }
@@ -154,7 +157,7 @@ public final class BundleRepository {
         }
         public boolean reload() {
             Handle replacement;com.fasterxml.jackson.databind.JsonNode pointer;
-            try { pointer=repository.pointer();replacement=repository.current(BuildValidator.Operation.RELOAD); }
+            try { pointer=repository.pointer();replacement=repository.current(pointer,BuildValidator.Operation.RELOAD); }
             catch(RuntimeException e) { return false; }
             synchronized(this) {
                 if(closed) { replacement.close();return false; }

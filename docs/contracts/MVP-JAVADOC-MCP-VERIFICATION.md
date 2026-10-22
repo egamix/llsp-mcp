@@ -49,3 +49,8 @@ work retain actual source/build/capability binding; unknown explicit sources rem
 Canonical resolution requires one proof lookup plus one charged metadata enrichment read.
 A fetch batch larger than its candidate budget returns typed WORK_LIMIT before batch admission,
 with zero candidates examined and the selected source binding preserved.
+
+Startup and reload now admit exactly the captured pointer snapshot and record that same
+snapshot as observed, preventing an intervening activation from being marked observed
+while a different build is served. Existing replacement/lease tests and installDist passed
+after this repair.
