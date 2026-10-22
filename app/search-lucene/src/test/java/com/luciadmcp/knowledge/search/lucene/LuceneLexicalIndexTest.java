@@ -129,6 +129,20 @@ class LuceneLexicalIndexTest {
             }
         }
     }
+    @Test void boundedOffsetsAndExactPriorityShareOneStableCandidateWindow() {
+        var source=new Source();for(int n=0;n<65;n++)source.add(String.format("%04d",n),"","same prose");
+        Path path=temp.resolve("index");LuceneLexicalIndex.build(path,source);
+        try(var index=new LuceneLexicalIndex(path,LexicalIndex.Binding.of(source))) {
+            var ids=new ArrayList<String>();
+            for(int offset=0;offset<65;offset+=10) {
+                var page=index.search(new LexicalIndex.Query("prose",10,65,5000,5000,Map.of(),Optional.empty(),offset,Set.of("0064")));
+                ids.addAll(page.hits().stream().map(LexicalIndex.Hit::recordId).toList());
+            }
+            assertEquals(65,ids.size());assertEquals(65,new HashSet<>(ids).size());assertEquals("0064",ids.getFirst());
+            assertEquals(source.records.keySet().stream().filter(id->!id.equals("0064")).toList(),ids.subList(1,ids.size()));
+            assertThrows(IllegalArgumentException.class,()->new LexicalIndex.Query("",10,65,5000,1000,Map.of(),Optional.empty(),65,Set.of()));
+        }
+    }
     @Test void queryUtf8LimitsAndImmutableInputs() {
         assertEquals(10,new LexicalIndex.Query("word").pageSize());assertEquals(1000,new LexicalIndex.Query("word").timeoutMillis());
         assertThrows(IllegalArgumentException.class,()->new LexicalIndex.Query("é".repeat(1025)));
