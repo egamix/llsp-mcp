@@ -28,19 +28,26 @@ public final class SourceAdmission {
     public static String relative(Path root, Path file) {
         return root.relativize(file).toString().replace('\\', '/');
     }
+    /** Incremental admission also used before appending any path to the retained universe. */
+    static final class Budget {
+        private int files;
+        private long bytes;
+        void admit(String path) {
+            int size=path.getBytes(StandardCharsets.UTF_8).length;
+            if(size>MAX_PATH_BYTES)throw new IllegalArgumentException("SOURCE_PATH_TOO_LARGE");
+            if(files>=MAX_FILES || bytes+size>MAX_TOTAL_PATH_BYTES)throw new IllegalArgumentException("SOURCE_ENUMERATION_LIMIT");
+            files++;bytes+=size;
+        }
+    }
     public static List<Path> enumerate(Path root) {
         List<Path> files = new ArrayList<>();
-        long pathBytes = 0;
+        Budget budget=new Budget();
         try (var walk = Files.walk(root)) {
             var iterator = walk.iterator();
             while (iterator.hasNext()) {
                 Path file = iterator.next();
                 if (!Files.isRegularFile(file)) continue;
-                int size = relative(root, file).getBytes(StandardCharsets.UTF_8).length;
-                if (size > MAX_PATH_BYTES) throw new IllegalArgumentException("SOURCE_PATH_TOO_LARGE");
-                pathBytes += size;
-                if (files.size() >= MAX_FILES || pathBytes > MAX_TOTAL_PATH_BYTES)
-                    throw new IllegalArgumentException("SOURCE_ENUMERATION_LIMIT");
+                budget.admit(relative(root,file));
                 files.add(file);
             }
         } catch (IOException e) { throw new UncheckedIOException("SOURCE_ENUMERATION_FAILED", e); }

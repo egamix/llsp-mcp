@@ -1,0 +1,34 @@
+{
+  "inventoryVersion": 1,
+  "buildId": "b-09b33ecb94ba0a2939ff303eafccafe5d95120cba4f65d2422e371b613e78ca4",
+  "sdkVersion": "1",
+  "independent": true,
+  "inventoryComplete": true,
+  "records": [
+    {
+      "recordId": "8b6b84a3768c1c05e5b4fa6231a6bec7dc1f6db43fd57f500ff20d0583c079cb",
+      "recordType": "NARRATIVE",
+      "member": false,
+      "sections": [
+        {
+          "ordinal": 0,
+          "payloadSha256": "55e4edfc41a4185d6df4a3fdcba2c50e18309871991b1e5a30f24aca2ef0449b",
+          "blocks": [
+            {
+              "kind": "PARAGRAPH",
+              "label": "description",
+              "textSha256": "65d71c245927a48684acde20a8d6358852f974699a2e70972ee92fb7719ff013",
+              "fieldsSha256": "a66bfb283d7ca25befc25a6cddfa8a7daf6802d45bd224a4f551f9a629c89919"
+            },
+            {
+              "kind": "NOTE",
+              "label": "API Note",
+              "textSha256": "1a358499068862a9d0c13b459b9317dce4f71897cbeac9ee09709a19a0228bc3",
+              "fieldsSha256": "0c4191414f859c2a1f0340812e408e5d455a19aaeab73d4b24749a3cf7f597a5"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

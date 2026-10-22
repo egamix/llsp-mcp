@@ -1,6 +1,6 @@
 # Contract freeze — read-tools/2 candidate
 
-Story 2.10 implements durable structured API documentation and package/overview narratives. Scoped contract adoption remains recorded in sign-offs.json; schema/3 technical ratification and other interface/evaluation/release approvals remain pending. Retrieval/MCP handlers and coverage reconciliation remain downstream. Current executed evidence is documented in STORY-2-10-VERIFICATION.md; API-DOCUMENTATION-STORAGE.md records the historical Story 2.9 storage design.
+Story 2.10 implements durable structured API documentation and package/overview narratives. Scoped contract adoption remains recorded in sign-offs.json; schema/3 technical ratification and other interface/evaluation/release approvals remain pending. Retrieval/MCP handlers remain downstream; Story 2.11 adds coverage reconciliation and an optional independent fidelity audit. Current executed evidence is documented in STORY-2-10-VERIFICATION.md; API-DOCUMENTATION-STORAGE.md records the historical Story 2.9 storage design.
 
 ## Identity and independent digests
 
@@ -64,3 +64,80 @@ Traversal defaults/caps: depth 3/8 (DIRECT forces one hop), visited nodes 1000/1
 Run `python tools/contracts/verify_contracts.py`, `python tools/contracts/portable_fixture.py`, `python tools/contracts/verify_mutations.py`, then `app/gradlew.bat --no-daemon check` using the documented local Gradle workaround. Mutation screening restores sources byte-for-byte and requires actual selected-test failures, not compiler errors. `VERIFICATION.md` records executed evidence and limitations; `sign-offs.json` records the still-pending human approvals. Story 10.1 acceptance/private-corpus evaluation is separate and has not run.
 
 Current structured API and narrative persistence uses schema/3; see [Story 2.10 support and verification](STORY-2-10-VERIFICATION.md). [Story 2.9 API storage adoption](API-DOCUMENTATION-STORAGE.md) is historical and scoped to that story. Schema/3 technical ratification and unrelated sign-offs remain pending.
+
+
+## Ingestion accounting and independent audit (Story 2.11)
+
+Report version 2 separates pages, unique logical record associations and payload sections.
+Every discovered HTML page is EXCLUDED, COMPLETE, PARTIAL or FAILED, and the four buckets
+sum to discovered. Only positively recognized navigation/non-content is excluded; unknown
+content and hand-authored doc-file pages remain unavailable/failed. A complete page has
+persisted records and no extraction issues. Partial pages retained some records but have
+issues or missing writes; failed pages retained none. Emitted = persisted + failed for
+records and sections. Identical puts and retries never inflate logical counts; a new
+catalog attempt replaces the previous ledger. Sections are counted when a payload is
+assembled, rather than inferred for unprocessed or rejected records. Expected independent
+denominators remain null until separately supplied to the audit.
+
+Outcome cells are sorted by page type, disposition and reason. Each page has one primary
+reason (source failure/unknown, extraction issue, payload rejection, identity/storage failure,
+unprocessed, preserved or positive non-content); extraction reason precedence is oversized
+source, oversized payload, unsupported structure, duplicate identity, generic extraction issue.
+Discovery-level disagreements also prevent COMPLETE_FOR_PROFILE. All original extraction
+failures remain in the ordinary failure list. Coverage completeness is evidence of the
+implemented profile only; technical ratification remains PENDING.
+
+`ingestion-coverage.bin` lives beside the checkpoint under the build staging directory. It
+contains coverage/1, build/SDK/input/recipe/runtime binding, counts and ordered outcome cells,
+with a SHA-256 checksum. Writes replace the sidecar atomically before catalog checkpointing.
+Restores read at most 1 MiB plus one byte, validate framing/checksum/binding/reconciliation,
+and return UNAVAILABLE for missing, corrupt or mismatched evidence. A skipped catalog with
+unavailable evidence reports PARTIAL and a recoverable coverage failure; it never substitutes
+zero or COMPLETE. A catalog retry resets the old sidecar and replaces all totals.
+
+Source admission reads at most 8 MiB plus one byte per HTML/search-index read. At exactly
+8 MiB the file is admitted; above that it is explicitly rejected. Input sealing streams
+original-byte SHA-256 and preserves existing admitted digests. Before sorting/materializing
+an input root, enumeration admits at most 100,000 regular files, 4,096 UTF-8 bytes per
+relative path and 16 MiB aggregate relative-path bytes. Boundaries are inclusive. Exceeding
+an enumeration budget aborts before the universe is known: the invocation is unsuccessful
+and coverage is unavailable, rather than inventing a discovered denominator. Existing
+payload section/block/byte, ownership traversal and storage framing caps still apply.
+
+`tools/contracts/audit_ingestion.py` accepts an independently authored build/SDK-bound
+inventory defined by `ingestion-audit-inventory.schema.json`. Inventory must explicitly
+attest independent and complete coverage of the evaluated store. Each record declares its
+physical type and whether it is a member; each section declares its ordinal, SHA-256 of
+actual encoded payload bytes and ordered block expectations. A block expectation includes
+kind, label, SHA-256 of UTF-8 text and SHA-256 of the block's independently framed canonical
+fields. Field frames are a big-endian signed 32-bit count followed by signed 32-bit UTF-8
+byte lengths (null = -1) and exact field bytes. Section payload frames and canonical block
+field order follow DocumentationCodec/schema/3. Use independently derived expectations;
+exporting the evaluated store's hashes is not an independent inventory.
+
+The audit opens SQLite in read-only mode, pins a transaction, compares actual section bytes
+and decodes actual blocks. It does not accept content_hash columns as fidelity evidence.
+Missing/changed sections, notes, blocks, members and narratives remain aggregate discrepancies,
+including equal-count mutations. Store SDK scope must match. Limits are 8 MiB inventory,
+100,000 records, 256 sections per record, 4,096 blocks per section, 65,536 framed fields,
+1,310,724 encoded bytes per section, 256 MiB compared payload and 10 million SQL VM steps.
+Diagnostics contain fixed categories/counts only; identifiers, bodies and raw errors are absent.
+
+Private mode is the default. Before either inventory or store access, it requires explicit
+`--approval10_1 --approvalB2 --approvalB6 --corpusOwnerApproved --developmentOnly
+--heldOutExcluded --independentInventoryAttested`. Missing gates yield NOT_RUN; invalid or
+unreadable inputs yield BLOCKED. These flags record the caller's attestations and do not
+create approvals. No private run has been performed. `--synthetic` explicitly attests that
+both inputs are synthetic and keeps development verification runnable. Exit 0 means PASS;
+all other statuses exit 2. A PASS verifies the supplied independent inventory and does not
+ratify the technical contract or claim Story 10.1 acceptance.
+
+Run `python -m unittest discover -s tools/contracts -p test_audit_ingestion.py -v` for the
+synthetic discrepancy/gate matrix. The checked-in synthetic inventory and source fixture
+were authored from explicit canonical fields and independent build/identity framing.
+`CoverageIntegrationTest.independentAuditSpecimenUsesRealStoredPayload` can export the real
+Java-ingested store to `LUCIAD_AUDIT_STORE`; then compare it with:
+
+```text
+python tools/contracts/audit_ingestion.py --synthetic --inventory docs/contracts/fixtures/ingestion-audit.synthetic.json --store <exported-catalog.sqlite>
+```

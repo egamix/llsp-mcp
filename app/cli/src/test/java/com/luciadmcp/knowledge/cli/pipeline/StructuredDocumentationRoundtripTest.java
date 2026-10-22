@@ -46,7 +46,9 @@ class StructuredDocumentationRoundtripTest {
             assertEquals(result.manifest(),runner.runToResult(args).manifest());
             Map<String,StoredCatalogRecord> api=new HashMap<>();
             try(var catalog=new SqliteCatalogStore(result.buildContext().catalogDbPath())) { catalog.allRecords().forEach(r->api.put(r.record().canonicalKey(),r));assertEquals(3,api.size());assertTrue(catalog.validateBuild(new StandardBuildValidator(),BuildValidator.Operation.CLI,result.manifest().buildId(),"1").valid()); }
+            var coverage=CoverageSnapshot.restore(result.buildContext()).orElseThrow();
             removeInputs(args.javadoc());
+            assertEquals(coverage,CoverageSnapshot.restore(result.buildContext()).orElseThrow());
             try(var store=new SqliteDocumentationStore(result.buildContext().catalogDbPath())) {
                 var type=blocks(store,api.get("p.T").recordId(),result.manifest().buildId());assertEquals("signature",type.get(0).label());assertStructured(type.subList(1,type.size()));
                 var method=store.readSections(api.get("p.T#run()").recordId(),result.manifest().buildId(),"1",0,50).orElseThrow();

@@ -16,4 +16,13 @@ class SourceAdmissionTest {
         Files.writeString(root.resolve("z.js"),"z");Files.writeString(root.resolve("a.html"),"a");
         assertEquals(java.util.List.of("a.html","z.js"),SourceAdmission.enumerate(root).stream().map(p->SourceAdmission.relative(root,p)).toList());
     }
+    @Test void exactAndAboveEnumerationFilePathAndAggregateBoundaries() {
+        var files=new SourceAdmission.Budget();
+        for(int i=0;i<100_000;i++)files.admit("a");
+        assertEquals("SOURCE_ENUMERATION_LIMIT",assertThrows(IllegalArgumentException.class,()->files.admit("a")).getMessage());
+        var path=new SourceAdmission.Budget();path.admit("\u00e9".repeat(2048));
+        assertEquals("SOURCE_PATH_TOO_LARGE",assertThrows(IllegalArgumentException.class,()->path.admit("\u00e9".repeat(2048)+"a")).getMessage());
+        var aggregate=new SourceAdmission.Budget();for(int i=0;i<4096;i++)aggregate.admit("a".repeat(4096));
+        assertEquals("SOURCE_ENUMERATION_LIMIT",assertThrows(IllegalArgumentException.class,()->aggregate.admit("a")).getMessage());
+    }
 }

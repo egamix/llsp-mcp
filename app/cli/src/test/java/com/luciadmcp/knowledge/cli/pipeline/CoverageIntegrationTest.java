@@ -65,4 +65,32 @@ class CoverageIntegrationTest {
         var coverage=CoverageSnapshot.restore(result.buildContext()).orElseThrow();assertEquals(2,coverage.discovered());assertEquals(1,coverage.failed());assertEquals(1,coverage.partial());assertEquals(0,coverage.complete());
         assertTrue(coverage.outcomes().stream().anyMatch(o->o.reason().equals("SOURCE_FILE_TOO_LARGE")));
     }
+    @Test void independentAuditSpecimenUsesRealStoredPayload() throws Exception {
+        var args=StructuredDocumentationRoundtripTest.args(temp);
+        Path fixture=StructuredDocumentationRoundtripTest.repo().resolve("docs/contracts/fixtures/ingestion-audit-source.html");
+        Files.writeString(args.javadoc().resolve("package-summary.html"),Files.readString(fixture).replace("\r\n","\n"));
+        var result=IngestPipelineRunner.withCatalogStage(FailurePolicy.COLLECT_AND_CONTINUE,args).runToResult(args);
+        assertTrue(result.failures().isEmpty(),result.failures().toString());
+        assertTrue(CoverageSnapshot.restore(result.buildContext()).orElseThrow().completeForProfile());
+        String export=System.getenv("LUCIAD_AUDIT_STORE");
+        if(export!=null && !export.isBlank()) {
+            Path target=Path.of(export).toAbsolutePath();Files.createDirectories(target.getParent());
+            Files.copy(result.buildContext().catalogDbPath(),target,StandardCopyOption.REPLACE_EXISTING);
+        }
+    }
+    @Test void realIdentityClashCountsFailedAssociationAndPreservesOriginalContent() throws Exception {
+        var args=StructuredDocumentationRoundtripTest.args(temp);
+        StructuredDocumentationRoundtripTest.copy(StructuredDocumentationRoundtripTest.fixtures().resolve("modern"),args.javadoc());
+        var result=IngestPipelineRunner.withCatalogStage(FailurePolicy.COLLECT_AND_CONTINUE,args).runToResult(args);
+        String original;
+        try(var db=DriverManager.getConnection("jdbc:sqlite:"+result.buildContext().catalogDbPath());var st=db.createStatement();var rows=st.executeQuery("SELECT group_concat(hex(payload),'') FROM documentation_sections ORDER BY record_id,ordinal")) { rows.next();original=rows.getString(1); }
+        Path file=args.javadoc().resolve("p/T.html");Files.writeString(file,Files.readString(file)+"\n<!-- changed source bytes -->\n");
+        List<StageFailure> failures=new ArrayList<>();
+        new CatalogStage(args.javadoc(),new JavadocCatalogSource(),c->new SqliteCatalogStore(c.catalogDbPath())).execute(result.buildContext(),failures::add);
+        assertTrue(failures.stream().anyMatch(f->f.severity()==FailureSeverity.BUILD_INVALIDATING));
+        var coverage=CoverageSnapshot.restore(result.buildContext()).orElseThrow();
+        assertEquals(5,coverage.emittedRecords());assertEquals(2,coverage.persistedRecords());assertEquals(3,coverage.emittedRecords()-coverage.persistedRecords());
+        assertTrue(coverage.outcomes().stream().anyMatch(o->o.reason().equals("IDENTITY_CLASH")));
+        try(var db=DriverManager.getConnection("jdbc:sqlite:"+result.buildContext().catalogDbPath());var st=db.createStatement();var rows=st.executeQuery("SELECT group_concat(hex(payload),'') FROM documentation_sections ORDER BY record_id,ordinal")) { rows.next();assertEquals(original,rows.getString(1)); }
+    }
 }
