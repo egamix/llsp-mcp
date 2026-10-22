@@ -178,4 +178,42 @@ class StructuredDocumentationRoundtripTest {
             assertEquals(List.of("T","value","Failure"),b.stream().flatMap(v->v.links().stream()).map(DocumentationPayload.Link::label).toList());assertEquals(List.of("#T","#value","Failure.html"),b.stream().flatMap(v->v.links().stream()).map(DocumentationPayload.Link::originalTarget).toList());
         }
     }
+    @Test void onlyGeneratedMemberHeadingsAreExcluded() throws Exception {
+        for(boolean legacy:List.of(false,true)) {
+            var input=args(temp.resolve(legacy?"legacy":"modern"));
+            String member=legacy?"<div class='details'><h3>Method Detail</h3><ul class='blockList'><li class='blockList'><h4>run</h4><pre>void run()</pre><h4><a href='Guide.html'>Authored caveat</a></h4><div class='block'>Run.</div></li></ul></div>":"<section class='method-details'><section class='detail' id='run'><h3>run</h3><div class='member-signature'>void run()</div><h3><a href='Guide.html'>Authored caveat</a></h3><div class='block'>Run.</div></section></section>";
+            Files.writeString(input.javadoc().resolve("T.html"),"<html><body class='class-declaration-page'><section class='class-description'><div class='type-signature'>class T</div><div class='block'>T.</div></section>"+member+"</body></html>");
+            var result=IngestPipelineRunner.withCatalogStage(FailurePolicy.COLLECT_AND_CONTINUE,input).runToResult(input);assertFalse(result.aborted(),result.failures().toString());
+            assertEquals(1,result.failures().stream().filter(f->f.message().contains("PARTIAL_UNSUPPORTED: authored heading")).count(),result.failures().toString());removeInputs(input.javadoc());
+            try(var catalog=new SqliteCatalogStore(result.buildContext().catalogDbPath());var store=new SqliteDocumentationStore(result.buildContext().catalogDbPath())) {
+                var b=blocks(store,catalog.findByKey("1","T#run()").orElseThrow().recordId(),result.manifest().buildId());
+                assertEquals(List.of("signature","unsupported HTML","description"),b.stream().map(DocumentationPayload.Block::label).toList());
+                assertTrue(b.get(1).text().contains("Authored caveat"));assertEquals("Guide.html",b.get(1).links().getFirst().originalTarget());assertEquals("Run.",b.get(2).text());
+            }
+        }
+    }
+    @Test void explicitSignatureWinsOverEarlierExampleAndDefinitionEvidenceSurvives() throws Exception {
+        var input=args(temp);
+        Files.writeString(input.javadoc().resolve("T.html"),"<html><body class='class-declaration-page'><section class='class-description'><div class='block'><pre>  example();\n</pre></div><div class='type-signature'>class T</div><div class='block'>T.</div><dl><dt>Since:</dt><dd>1</dd><dt>Author:</dt><dd>Team</dd><dt>Version:</dt><dd>2</dd></dl><dl class='notes'><dt>Unpaired term</dt></dl><dl><dt><a href='History.html'>Since:</a></dt><dd>Historical caveat.</dd></dl></section></body></html>");
+        var result=IngestPipelineRunner.withCatalogStage(FailurePolicy.COLLECT_AND_CONTINUE,input).runToResult(input);assertFalse(result.aborted(),result.failures().toString());
+        assertEquals(2,result.failures().stream().filter(f->f.message().contains("PARTIAL_UNSUPPORTED: definition list")).count(),result.failures().toString());removeInputs(input.javadoc());
+        try(var catalog=new SqliteCatalogStore(result.buildContext().catalogDbPath());var store=new SqliteDocumentationStore(result.buildContext().catalogDbPath())) {
+            var b=blocks(store,catalog.findByKey("1","T").orElseThrow().recordId(),result.manifest().buildId());
+            assertEquals(List.of("signature","description","description","since","author","version","unsupported HTML","unsupported HTML"),b.stream().map(DocumentationPayload.Block::label).toList());
+            assertEquals("class T",b.get(0).text());assertEquals("  example();\n",b.get(1).text());assertEquals(List.of("1","Team","2"),b.subList(3,6).stream().map(DocumentationPayload.Block::text).toList());
+            assertTrue(b.get(6).text().contains("<dt>Unpaired term</dt>"));assertTrue(b.get(7).text().contains("Historical caveat."));assertEquals("History.html",b.get(7).links().getFirst().originalTarget());assertEquals("Since:",b.get(7).links().getFirst().label());
+        }
+    }
+    @Test void legacyNarrativeMarkerAndClasslessGeneratedNotesPersist() throws Exception {
+        var input=args(temp);
+        for(String kind:List.of("package","overview"))Files.writeString(input.javadoc().resolve(kind+"-summary.html"),"<html><body class='"+(kind.equals("package")?"package-declaration-page":"package-index-page")+"'><a id='"+kind+".description'></a><div class='description'><p>Owned prose.</p><dl><dt><span class='simpleTagLabel'>API Note:</span></dt><dd>Keep this caveat.</dd><dt><span class='simpleTagLabel'>Since:</span></dt><dd>1</dd></dl></div></body></html>");
+        var result=IngestPipelineRunner.withCatalogStage(FailurePolicy.COLLECT_AND_CONTINUE,input).runToResult(input);assertTrue(result.failures().isEmpty(),result.failures().toString());removeInputs(input.javadoc());
+        try(var store=new SqliteDocumentationStore(result.buildContext().catalogDbPath())) {
+            for(String kind:List.of("package","overview")) {
+                String id=KnowledgeRecord.narrativeId("1",kind+"-summary.html",kind.toUpperCase(Locale.ROOT));var page=store.readSections(id,result.manifest().buildId(),"1",0,50).orElseThrow();var b=page.sections().getFirst().blocks();
+                assertEquals(Optional.of(kind+".description"),page.sections().getFirst().locator().anchor());assertEquals(List.of("Owned prose.","Keep this caveat.","1"),b.stream().map(DocumentationPayload.Block::text).toList());assertEquals(DocumentationPayload.BlockKind.NOTE,b.get(1).kind());assertEquals("API Note",b.get(1).label());assertEquals("since",b.get(2).label());
+            }
+        }
+    }
+
 }

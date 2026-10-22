@@ -13,13 +13,21 @@ final class OwnedDocumentationExtractor {
     private long bytes;
     private boolean apiOwner=true;
     private Element signature;
+    private Element generatedMemberHeading;
     private OwnedDocumentationExtractor(String path,List<String> issues) { this.path=path;this.issues=issues; }
     static List<DocumentationPayload.Block> extract(Element owner,String path,List<String> issues) {
         if(owner==null)return List.of();
         var parser=new OwnedDocumentationExtractor(path,issues);
-        Element signature=JavadocFieldExtractor.firstOwned(owner,".type-signature,.typeSignature,.member-signature,.memberSignature,pre");
+        Element signature=JavadocFieldExtractor.firstOwned(owner,".type-signature,.typeSignature,.member-signature,.memberSignature");
+        if(signature==null)signature=JavadocFieldExtractor.firstOwned(owner,"pre:not(.block pre)");
         if(signature!=null && signature.closest(".block")==null) {
             parser.signature=signature;
+            if(owner.is("section.detail,li.blockList,li.blockListLast")) {
+                for(Element child:owner.children()) {
+                    if(child==signature || child.getAllElements().contains(signature))break;
+                    if(parser.generatedMemberHeading==null && child.tagName().equals(owner.is("section.detail")?"h3":"h4"))parser.generatedMemberHeading=child;
+                }
+            }
             parser.add(new DocumentationPayload.Block(DocumentationPayload.BlockKind.CODE,"signature",signature.tagName().equals("pre")?signature.wholeText():signature.text(),parser.links(signature)));
         }
         parser.walk(owner,owner,"description",0);
@@ -43,7 +51,7 @@ final class OwnedDocumentationExtractor {
         guard(depth);if(foreign(el,owner))return;
         if(el==signature)return;
         if(el!=owner && el.is("h1,h2,h3,h4,h5,h6")) {
-            boolean memberHeading=el.parent()==owner && (owner.is("section.detail") && el.tagName().equals("h3") || owner.is("li.blockList,li.blockListLast") && el.tagName().equals("h4"));
+            boolean memberHeading=el==generatedMemberHeading;
             if(!memberHeading)unsupported(el,"authored heading "+el.tagName());
             return;
         }
@@ -76,11 +84,19 @@ final class OwnedDocumentationExtractor {
     }
     private static boolean noteLabel(String label) { return Set.of("API Note","Implementation Note","Implementation Requirements","deprecated").contains(label); }
     private boolean generatedNotes(Element dl) {
+        if(dl.selectFirst("dt a[href]")!=null)return false;
+        boolean hasDefinition=false;
+        for(Element child:dl.children()) {
+            if(child.tagName().equals("dt")) { if(!hasDefinition && child!=dl.children().first())return false;hasDefinition=false; }
+            else if(child.tagName().equals("dd")) { if(child==dl.children().first())return false;hasDefinition=true; }
+            else return false;
+        }
+        if(!hasDefinition)return false;
         if(dl.hasClass("notes"))return true;
         // Legacy API notes have known tag labels; narrative prose requires the doclet's label markup.
         if(!apiOwner && dl.selectFirst("dt > .simpleTagLabel,dt > .paramLabel,dt > .returnLabel,dt > .throwsLabel,dt > .seeLabel") == null)return false;
         var labels=dl.children().stream().filter(el->el.tagName().equals("dt")).toList();
-        return !labels.isEmpty() && labels.stream().allMatch(el->Set.of("parameters","type parameters","returns","throws","exceptions","since","see also","overrides","specified by","api note","implementation note","implementation requirements").contains(el.text().replaceFirst(":\\s*$","").trim().toLowerCase(Locale.ROOT)));
+        return !labels.isEmpty() && labels.stream().allMatch(el->Set.of("parameters","type parameters","returns","throws","exceptions","since","author","version","serial","serial data","serial field","see also","overrides","specified by","api note","implementation note","implementation requirements").contains(el.text().replaceFirst(":\\s*$","").trim().toLowerCase(Locale.ROOT)));
     }
     private void notes(Element dl,Element owner,int depth) {
         // An author definition list is richer than our DTO; retain explicit evidence.
@@ -109,6 +125,15 @@ final class OwnedDocumentationExtractor {
         }
     }
     private void table(Element el,String label,int depth) {
+        // Admit every descendant before selector/text traversal, including inline-only cells.
+        Node node=el;int relativeDepth=0;
+        while(true) {
+            guard(depth+relativeDepth);
+            if(node.firstChild()!=null) { node=node.firstChild();relativeDepth++;continue; }
+            while(node!=el && node.nextSibling()==null) { node=node.parent();relativeDepth--; }
+            if(node==el)break;
+            node=node.nextSibling();
+        }
         var rows=el.select("tr");
         boolean unsupported=el.selectFirst("caption")!=null || rows.isEmpty() || !el.select("[rowspan],[colspan],[scope=row],[scope=rowgroup],table table").isEmpty();
         List<String> headers=new ArrayList<>();List<List<String>> values=new ArrayList<>();

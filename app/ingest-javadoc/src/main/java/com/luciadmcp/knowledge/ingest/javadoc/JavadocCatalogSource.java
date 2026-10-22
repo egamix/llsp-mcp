@@ -57,6 +57,8 @@ public final class JavadocCatalogSource {
             var doc=org.jsoup.Jsoup.parse(new java.io.ByteArrayInputStream(bytes),null,"");
             String selector=page.type()==PageType.PACKAGE?"section.package-description, .packageDescription, #package-description, [id='package.description']":"section.overview-description, .overview-description, #overview-description, [id='overview.description'], .overviewDescription";
             var owners=doc.select(selector);
+            var markers=new org.jsoup.select.Elements(owners.stream().filter(el->el.tagName().equals("a") && el.text().isBlank() && el.children().isEmpty()).toList());
+            owners=new org.jsoup.select.Elements(owners.stream().filter(el->!markers.contains(el)).toList());
             // Legacy descriptions are wrapped separately from summary tables and navigation.
             if(owners.isEmpty())owners=doc.select("div.description");
             // Doclet root overviews commonly use a single header block as the overview prose.
@@ -73,6 +75,7 @@ public final class JavadocCatalogSource {
             if(anchor.isEmpty())for(var alias:aliases)if(alias==owner || alias.parents().contains(owner)) {
                 anchor=JavadocFieldExtractor.actualAnchor(alias);if(anchor.isPresent())break;
             }
+            if(anchor.isEmpty() && markers.contains(owner.previousElementSibling()))anchor=JavadocFieldExtractor.actualAnchor(owner.previousElementSibling());
             return new NarrativePage(path,page.type(),blocks,anchor,java.util.Optional.of(com.luciadmcp.knowledge.domain.ContentHashes.sourceHash(bytes)),issues);
         } catch(java.io.IOException | RuntimeException e) {
             issues.add(path+": narrative extraction failed: "+e.getMessage());

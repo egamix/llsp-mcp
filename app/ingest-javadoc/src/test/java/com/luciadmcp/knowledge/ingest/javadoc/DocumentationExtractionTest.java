@@ -24,4 +24,12 @@ class DocumentationExtractionTest {
         var error=assertThrows(IllegalArgumentException.class,()->OwnedDocumentationExtractor.narrative(owner,"package-summary.html",new ArrayList<>()));
         assertEquals("PAYLOAD_TOO_LARGE: owned documentation package-summary.html",error.getMessage());
     }
+    @Test void tableInlineWidthAndDepthConsumeTheExtractionBudget() {
+        for(String content:List.of("<span></span>".repeat(65537),"<span>".repeat(33)+"deep"+"</span>".repeat(33))) {
+            var owner=Jsoup.parse("<section class='package-description'><table><tr><th>h</th></tr><tr><td>"+content+"</td></tr></table></section>").selectFirst("section.package-description");
+            var error=assertThrows(IllegalArgumentException.class,()->OwnedDocumentationExtractor.narrative(owner,"package-summary.html",new ArrayList<>()));
+            assertEquals("PAYLOAD_TOO_LARGE: owned documentation package-summary.html",error.getMessage());
+        }
+    }
+
 }
