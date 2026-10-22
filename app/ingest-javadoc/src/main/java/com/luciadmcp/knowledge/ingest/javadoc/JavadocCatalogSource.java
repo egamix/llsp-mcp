@@ -42,7 +42,7 @@ public final class JavadocCatalogSource {
         }
         List<NarrativePage> narratives=new ArrayList<>();
         for(ClassifiedPage page:discovered.narrativePages())narratives.add(narrative(javadocRoot,page));
-        return new Result(discovered.warnings(), pages,narratives);
+        return new Result(discovered.warnings(), pages,narratives,discovered.pages());
     }
 
     public record NarrativePage(String relativePath,PageType kind,List<com.luciadmcp.knowledge.domain.DocumentationPayload.Block> blocks,java.util.Optional<String> anchor,java.util.Optional<String> sourceHash,List<String> issues) {
@@ -51,9 +51,7 @@ public final class JavadocCatalogSource {
     private NarrativePage narrative(Path root,ClassifiedPage page) {
         List<String> issues=new ArrayList<>();String path=page.relativePath();
         try {
-            if(java.nio.file.Files.size(root.resolve(path))>8_388_608)throw new IllegalArgumentException("PAYLOAD_TOO_LARGE");
-            byte[] bytes=java.nio.file.Files.readAllBytes(root.resolve(path));
-            if(bytes.length>8_388_608)throw new IllegalArgumentException("PAYLOAD_TOO_LARGE");
+            byte[] bytes=com.luciadmcp.knowledge.domain.SourceAdmission.read(root.resolve(path));
             var doc=org.jsoup.Jsoup.parse(new java.io.ByteArrayInputStream(bytes),null,"");
             String selector=page.type()==PageType.PACKAGE?"section.package-description, .packageDescription, #package-description, [id='package.description']":"section.overview-description, .overview-description, #overview-description, [id='overview.description'], .overviewDescription";
             var owners=doc.select(selector);
@@ -115,10 +113,12 @@ public final class JavadocCatalogSource {
      * @param discoveryWarnings non-fatal discovery/classification warnings (AD-4)
      * @param pages             per-type-page minted records and issues, in discovery order
      */
-    public record Result(List<String> discoveryWarnings, List<PageResult> pages,List<NarrativePage> narratives) {
-        public Result(List<String> discoveryWarnings,List<PageResult> pages) { this(discoveryWarnings,pages,List.of()); }
+    public record Result(List<String> discoveryWarnings, List<PageResult> pages,List<NarrativePage> narratives,List<ClassifiedPage> inventory) {
+        public Result(List<String> warnings,List<PageResult> pages,List<NarrativePage> narratives) { this(warnings,pages,narratives,List.of()); }
+        public Result(List<String> discoveryWarnings,List<PageResult> pages) { this(discoveryWarnings,pages,List.of(),List.of()); }
 
         public Result {
+            inventory=List.copyOf(inventory);
             narratives=List.copyOf(narratives);
             discoveryWarnings = discoveryWarnings == null ? List.of() : List.copyOf(discoveryWarnings);
             pages = pages == null ? List.of() : List.copyOf(pages);
