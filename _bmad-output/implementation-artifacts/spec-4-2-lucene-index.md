@@ -49,12 +49,12 @@ Never reparse original HTML for search, create another database/search framework
 
 ## Tasks & Acceptance
 
-- [ ] `app/domain/...` -- lexical port/immutable DTOs and minimal documentation-read source port.
-- [ ] `app/catalog-sqlite/.../SqliteSymbolSource.java`, `SqliteDocumentationStore.java` -- bounded KnowledgeRecord/section/ID reads from the existing validated snapshot, reusing codec/metadata helpers.
-- [ ] `app/search-lucene/...`, module build -- persistent BM25 adapter, explicit fields/filters, bounded search/browse/highlights, stable ordering and commit binding validation; rollback failed writes.
-- [ ] `app/cli/.../pipeline/LexicalIndexStage.java`, `BuildContext.java`, `IngestPipelineRunner.java` -- execute lexical stage in existing pipeline and preserve retry/resume semantics and unsupported-stage reporting.
-- [ ] Corresponding module tests -- actual importer-to-index roundtrip, prose/notes/structured/narrative discovery, partial/camel symbols, filters/browse, reopen/source deletion, mismatch/failed build, bounds/ties and unchanged DB bytes. Update existing tests affected by newly implemented lexical stage truthfully.
-- [ ] Story verification note -- actual executed evidence and remaining Epic3 integrations, no fake technical approval.
+- [x] `app/domain/...` -- lexical port/immutable DTOs and minimal documentation-read source port.
+- [x] `app/catalog-sqlite/.../SqliteSymbolSource.java`, `SqliteDocumentationStore.java` -- bounded KnowledgeRecord/section/ID reads from the existing validated snapshot, reusing codec/metadata helpers.
+- [x] `app/search-lucene/...`, module build -- persistent BM25 adapter, explicit fields/filters, bounded search/browse/highlights, stable ordering and commit binding validation; rollback failed writes.
+- [x] `app/cli/.../pipeline/LexicalIndexStage.java`, `BuildContext.java`, `IngestPipelineRunner.java` -- execute lexical stage in existing pipeline and preserve retry/resume semantics and unsupported-stage reporting.
+- [x] Corresponding module tests -- actual importer-to-index roundtrip, prose/notes/structured/narrative discovery, partial/camel symbols, filters/browse, reopen/source deletion, mismatch/failed build, bounds/ties and unchanged DB bytes. Update existing tests affected by newly implemented lexical stage truthfully.
+- [x] Story verification note -- actual executed evidence and remaining Epic3 integrations, no fake technical approval.
 
 Acceptance: Given a Javadoc-only imported source, when queried with description words after HTML deletion/index reopen, then the expected stable record appears with useful context. Given a different source/build or incompatible index, when opening, then reads fail explicitly. Given interrupted/failed indexing or resumed ingest, then only committed matching indices count as completed. Given exact4.1 fixtures, when existing tests run, then identities and ambiguity remain unchanged.
 
