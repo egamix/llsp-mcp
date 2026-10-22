@@ -26,6 +26,9 @@ import java.util.Optional;
  */
 public interface RelationshipStore extends AutoCloseable {
 
+    /** Admission identity of a validated read-only serving handle; write handles have none. */
+    default Optional<SymbolSourceBinding> servingBinding() { return Optional.empty(); }
+
     /** Bounded consumer traversal; supported only by a trusted immutable-build handle. */
     default TraversalResult traverse(TraversalRequest request) {
         throw new UnsupportedOperationException("bounded traversal requires a pinned build handle");
