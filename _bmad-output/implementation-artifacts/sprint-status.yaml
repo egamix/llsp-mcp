@@ -285,7 +285,7 @@ source_documentation_adoption:
 # Usable connection slice; broad story acceptance and technical approval remain open.
 javadoc_mvp_connection:
   spec: "spec-mvp-javadoc-mcp.md"
-  state: "implemented; parent final verification/review pending"
+  state: "verified locally; first Javadoc connection slice"
   tools: [search_knowledge, resolve_symbol, get_record]
   verification: "docs/contracts/MVP-JAVADOC-MCP-VERIFICATION.md"
   launch: "docs/MVP-JAVADOC-MCP.md"

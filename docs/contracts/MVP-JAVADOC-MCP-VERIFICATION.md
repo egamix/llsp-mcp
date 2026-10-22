@@ -1,4 +1,4 @@
-# Javadoc MVP connection verification — 2026-10-22
+# Javadoc MVP connection verification - 2026-10-22
 
 Implemented existing Javadoc slices of Stories 5.7, 5.1, 5.3, 5.5, 5.6 and minimum
 6.1, 6.2, 6.5. Broad stories remain in progress; technical ratification is pending.
@@ -54,3 +54,13 @@ Startup and reload now admit exactly the captured pointer snapshot and record th
 snapshot as observed, preventing an intervening activation from being marked observed
 while a different build is served. Existing replacement/lease tests and installDist passed
 after this repair.
+
+## Parent final verification
+
+- Full Windows Gradle check: PASS, 55 tasks, after narrow inbound-server classpath guard repair and Jetty12.1.14 update.
+- Canonical contract verifier: PASS, 127 synthetic schema/example/adverse checks.
+- Final focused independent code review: no high-confidence findings; no review deferrals.
+- Authorized local-shape smoke:432 discovered HTML pages,3087 persisted/indexed records; ingestion remains PARTIAL (104 complete,110 partial,218 excluded,0 failed pages). This is local development smoke evidence, not controlled evaluation or technical ratification.
+- Real immutable bundle publication/activation and official SDK HTTP connection: PASS, protocol2025-11-25 and exactly search_knowledge, resolve_symbol, get_record. Exact ILcdShape, contains2D lexical results and saved structured fetch succeeded. Canonical Python response schema/semantic checks, source local-shape with target2023.1 and no automatic notices, text/structured parity and final response size checks all passed.
+- Parent audit fixes have focused regressions: post-admission binding retention, resolve enrichment work, fetch candidate admission. Pointer snapshot consistency repaired without changing the public lifecycle surface.
+- Live Java endpoint is local development operator state, not a committed deployment. Proprietary source, database, generated bundle, smoke outputs and local configuration remain outside version control. Prior Python demo stopped.

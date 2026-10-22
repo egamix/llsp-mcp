@@ -2,7 +2,7 @@
 title: 'Javadoc MVP first MCP connection — existing Epic 5/6 slice'
 type: feature
 created: '2026-10-22'
-status: in-progress
+status: done
 route: dispatch
 story_key: ''
 baseline_commit: '420b4fca68209264ef4b1149703774e32d6b9169'
@@ -53,7 +53,7 @@ Never build another runtime, database, browser UI, embedding system or retained-
 - [x] app/config, app/cli, build scripts — validated configuration, immutable publication/admission/leases, CLI commands and runnable distribution; tests for lifecycle matrix.
 - [x] app/domain, app/catalog-sqlite, app/retrieval, app/mcp — bounded fetch port, shared read-tools/2 envelopes/handlers and schema-conformant tests including budgets/cursors/partial coverage.
 - [x] app/mcp, app/cli — SDK transports and real protocol integration test; shared query diagnostics equal logical tool results.
-- [ ] docs, application.example.yaml, tracker/verification — short launch/connection instructions with actual tool names; story-attributed commits and accurate partial story statuses.
+- [x] docs, application.example.yaml, tracker/verification — short launch/connection instructions with actual tool names; story-attributed commits and accurate partial story statuses.
 
 Given a synthetic Javadoc import whose original files are removed, when published and queried by an SDK client, then search/resolve/fetch return persisted cited content. Given interrupted or incompatible publication, then no invalid build is served. Given concurrent replacement, then each request retains one source/build throughout.
 
@@ -68,3 +68,7 @@ Focused module tests and real SDK protocol tests; contract schema/semantic valid
 ## Spec Change Log
 
 ## Review Triage Log
+
+Parent verification: full Gradle check PASS (55 tasks); 127 synthetic contract/schema/adverse checks PASS; independent official SDK client against authorized local-shape corpus PASS, including protocol2025-11-25, three tools, actual-source citations, exact ILcdShape, contains2D search and stored get_record content. Text/structured parity, actual response size and canonical Python response schema/semantic checks passed. Partial corpus coverage remains explicit. Focused final reviewer reported no high-confidence findings; nothing deferred by final review.
+
+Parent acceptance audit repaired before final review: bound errors, resolve enrichment work charges, fetch candidate admission, and startup/reload pointer snapshot consistency. Existing outbound-client guard retained with narrow inbound servlet exception; Jetty pin12.1.14 verified and tested. Old Python demo retired. Runtime local configuration and proprietary data remain ignored.
