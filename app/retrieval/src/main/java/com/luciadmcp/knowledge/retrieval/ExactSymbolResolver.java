@@ -75,7 +75,8 @@ public final class ExactSymbolResolver {
         int hash=key.indexOf('#');
         if(hash<0)return r.kind().equals("TYPE") && q.indexOf('.')<0 && q.equals(r.simpleName());
         String owner=key.substring(0,hash),member=key.substring(hash+1);
-        int open=member.indexOf('(');String name=open<0?member:member.substring(0,open);
+        int open=member.indexOf('(');String name=r.simpleName();
+        member=name+(open<0?"":member.substring(open));
         // Qualified owners stay qualified. A missing owner never searches unrelated members.
         String simpleOwner=owner.substring(owner.lastIndexOf('.')+1);
         for(String prefix:List.of(owner+"#",owner+".",simpleOwner+"#",simpleOwner+".")) {
@@ -104,4 +105,5 @@ public final class ExactSymbolResolver {
         return out.toString().replace("...","[]");
     }
 }
+
 

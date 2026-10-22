@@ -74,6 +74,31 @@ class ExactSymbolResolverTest {
             for(String absent:List.of("ALPHA.Widget","gamma.Widget#map(int)","map(int)","alpha.Missing"))assertEquals(UNKNOWN_IN_SCOPE,resolver.resolve(page(absent,10)).proof(),absent);
         }
     }
+    @Test void sameNameMethodAndConstructorSharePublicAliasButKeepCanonicalIdentity() {
+        Path path=catalog();
+        String constructor="alpha.Collision#Collision(int)",method="alpha.Collision#method:Collision(int)";
+        Map<String,String> ids=new HashMap<>();
+        try(var catalog=new SqliteCatalogStore(path)) {
+            put(catalog,constructor,"CONSTRUCTOR","alpha.Collision","Collision","constructor-int");
+            put(catalog,method,"METHOD","alpha.Collision","Collision","method-int");
+            for(String key:List.of(constructor,method))ids.put(key,catalog.findByKey(SDK,key).orElseThrow().recordId());
+        }
+        assertNotEquals(ids.get(constructor),ids.get(method));
+        try(var source=new SqliteSymbolSource(path)) {
+            var resolver=new ExactSymbolResolver(source);
+            for(String key:List.of(constructor,method)) {
+                var result=resolver.resolve(new ExactSymbolQuery(key));
+                assertEquals(EXACT,result.proof());assertEquals(ids.get(key),result.matches().getFirst().recordId());
+            }
+            for(String alias:List.of("Collision.Collision(int)","alpha.Collision.Collision(int)","Collision#Collision(int)")) {
+                var all=resolver.resolve(page(alias,50));var limited=resolver.resolve(page(alias,1));
+                assertEquals(AMBIGUOUS,all.proof(),alias);assertEquals(2,all.candidatesMatched());
+                assertEquals(Set.copyOf(ids.values()),new HashSet<>(all.matches().stream().map(ExactSymbolResult.Match::recordId).toList()));
+                assertEquals(AMBIGUOUS,limited.proof(),alias);assertEquals(2,limited.candidatesMatched());
+                assertEquals(1,limited.matches().size());assertTrue(limited.truncated());
+            }
+        }
+    }
     @Test void targetContextAndExplicitSourceFiltersAreIndependent() {
         try(var source=new SqliteSymbolSource(catalog())) {
             var resolver=new ExactSymbolResolver(source);var ordinary=resolver.resolve(new ExactSymbolQuery("alpha.Widget"));
@@ -111,6 +136,7 @@ class ExactSymbolResolverTest {
         assertThrows(IllegalArgumentException.class,()->page("Widget",51));
     }
 }
+
 
 
 
