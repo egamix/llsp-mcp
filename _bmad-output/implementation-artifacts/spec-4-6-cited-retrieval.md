@@ -2,7 +2,7 @@
 title: 'Story 4.6: Assemble bounded cited lexical results'
 type: feature
 created: '2026-10-22'
-status: in-progress
+status: done
 route: dispatch
 story_key: 4-6-assemble-bounded-cited-lexical-results
 baseline_commit: '6c986069fea679009bf00c265857375489da542a'
@@ -73,3 +73,9 @@ Implementation evidence: `story-4-6-verification.md`. Parent full Gradle check a
 ## Spec Change Log
 
 ## Review Triage Log
+
+- medium / patch — Full locator equality rejects legitimate anchorless member records because an explanatory absence reason differs from reconstructed catalog evidence. Compare identity/location fields; regression required.
+- medium / patch — matches().size() is page-bounded and undercounts ambiguous exact candidates. Charge candidatesMatched() before lexical admission; regression required.
+
+
+Parent full Gradle check passed after both review repairs (50 tasks). Authorized local-shape smoke passed: exact ILcdShape and cited contains2D / point inside shape / bounds rectangle retrieval. Both medium review findings fixed in 54b6d7f; none deferred.

@@ -91,7 +91,7 @@ development_status:
   4-3-local-onnx-vector-search-with-explicit-failure-semantics: backlog
   4-4-fuse-lexical-and-vector-results-under-exact-priority: backlog
   4-5-enforce-a-consistent-embedding-fingerprint: backlog
-  4-6-assemble-bounded-cited-lexical-results: in-progress
+  4-6-assemble-bounded-cited-lexical-results: review
   epic-4-retrospective: optional
 
   # Epic 5: Six-Tool MCP Surface
