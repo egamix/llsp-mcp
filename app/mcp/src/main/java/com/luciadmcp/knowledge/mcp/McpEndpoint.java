@@ -22,7 +22,7 @@ public final class McpEndpoint implements AutoCloseable {
             .enable(tools.jackson.databind.DeserializationFeature.FAIL_ON_TRAILING_TOKENS).build()));
         var specs=new ArrayList<McpServerFeatures.SyncToolSpecification>();
         for(String name:ReadTools.NAMES) {
-            var tool=new McpSchema.Tool(name,name,"Read persisted Javadoc evidence with actual-source citations. Source SDK filters are restrictive; target SDK is context only.",
+            var tool=new McpSchema.Tool(name,name,AgentGuidance.description(name),
                 Wire.schemaMap(name+".request"),Wire.schemaMap(name+".response"),new McpSchema.ToolAnnotations(name,true,false,true,false,false),Map.of());
             specs.add(new McpServerFeatures.SyncToolSpecification(tool,(exchange,request)-> {
                 Map<String,Object> result;
@@ -38,14 +38,14 @@ public final class McpEndpoint implements AutoCloseable {
             .allowedOrigins(List.of("http://127.0.0.1:"+port,"http://localhost:"+port)).build();
         var transport=HttpServletStreamableServerTransportProvider.builder().jsonMapper(mapper).mcpEndpoint("/mcp")
             .maxRequestSize(8*1024*1024).securityValidator(security).build();
-        servers.add(McpServer.sync(transport).jsonMapper(mapper).serverInfo("luciad-javadoc","0.1.0")
+        servers.add(McpServer.sync(transport).jsonMapper(mapper).serverInfo("luciad-javadoc","0.1.0").instructions(AgentGuidance.INSTRUCTIONS)
             .capabilities(McpSchema.ServerCapabilities.builder().tools(false).build()).validateToolInputs(false)
             .requestTimeout(Duration.ofSeconds(10)).tools(specs).build());
         http=new Server(new org.eclipse.jetty.util.thread.QueuedThreadPool(32,4,60000,new java.util.concurrent.ArrayBlockingQueue<>(64)));var connector=new ServerConnector(http);connector.setHost("127.0.0.1");connector.setPort(port);connector.setIdleTimeout(15000);http.addConnector(connector);
         var context=new ServletContextHandler();context.setContextPath("/");var holder=new ServletHolder(transport);holder.setAsyncSupported(true);context.addServlet(holder,"/mcp");http.setHandler(context);
         if(stdio) {
             var standard=new StdioServerTransportProvider(mapper,System.in,System.out,8*1024*1024);
-            servers.add(McpServer.sync(standard).jsonMapper(mapper).serverInfo("luciad-javadoc","0.1.0")
+            servers.add(McpServer.sync(standard).jsonMapper(mapper).serverInfo("luciad-javadoc","0.1.0").instructions(AgentGuidance.INSTRUCTIONS)
                 .capabilities(McpSchema.ServerCapabilities.builder().tools(false).build()).validateToolInputs(false).requestTimeout(Duration.ofSeconds(10)).tools(specs).build());
         }
     }
