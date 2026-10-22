@@ -76,7 +76,7 @@ public final class JavadocFieldExtractor {
             Document doc = Jsoup.parse(new java.io.ByteArrayInputStream(bytes), null, "");
             ExtractionResult result = extract(doc, relativePath);
             return new ExtractionResult(result.type(), result.issues(), Optional.of(com.luciadmcp.knowledge.domain.ContentHashes.sourceHash(bytes)));
-        } catch (IOException e) {
+        } catch (IOException | RuntimeException e) {
             return empty(relativePath, "failed to read/parse " + relativePath + ": " + e.getMessage());
         }
     }

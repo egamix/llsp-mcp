@@ -61,6 +61,10 @@ public final class CatalogStage implements Stage {
         // The version is optional; BuildContext already resolves an absent --sdk-version to a default
         // label, so scoping (and catalogDbPath) stay consistent without a mandatory input (AD-12).
         String version = context.sdkVersion();
+        try { java.nio.file.Files.deleteIfExists(context.stagingDir().resolve(CoverageSnapshot.FILE)); }
+        catch(java.io.IOException e) {
+            failures.accept(StageFailure.of(PipelineStage.CATALOG,FailureSeverity.BUILD_INVALIDATING,"COVERAGE_RESET_FAILED"));return;
+        }
 
         JavadocCatalogSource.Result result;
         try {
@@ -72,6 +76,11 @@ public final class CatalogStage implements Stage {
                     "Javadoc discovery/extraction failed under " + javadocRoot + ": " + e.getMessage()));
             return;
         }
+
+        CoverageAccounting accounting = new CoverageAccounting(result);
+        for (var page : result.inventory()) if (page.type() == com.luciadmcp.knowledge.ingest.javadoc.PageType.UNKNOWN)
+            failures.accept(StageFailure.ofFile(PipelineStage.CATALOG, FailureSeverity.RECOVERABLE,
+                    javadocRoot.resolve(page.relativePath()), page.reason().name()));
 
         // Discovery warnings (unreadable/unclassifiable pages, search-index disagreements) are recorded
         // issues, never silently dropped (AD-4). They are page-local, so recoverable.
@@ -90,21 +99,28 @@ public final class CatalogStage implements Stage {
                     PipelineStage.CATALOG,
                     FailureSeverity.BUILD_INVALIDATING,
                     "could not open catalog store: " + e.getMessage()));
+            saveCoverage(accounting,context,failures);
             return;
         }
         try {
             for (JavadocCatalogSource.PageResult page : result.pages()) {
-                persistPage(version, page, store, failures);
+                persistPage(version, page, store, failures, accounting);
             }
             for(var page:result.narratives()) {
+                accounting.begin(page.relativePath(),page.issues());
                 Path file=javadocRoot.resolve(page.relativePath());
                 for(String issue:page.issues())failures.accept(StageFailure.ofFile(PipelineStage.CATALOG,FailureSeverity.RECOVERABLE,file,issue));
                 if(page.blocks().isEmpty() || page.sourceHash().isEmpty())continue;
                 var documented=com.luciadmcp.knowledge.ingest.javadoc.JavadocDocumentationAssembler.assembleNarrative(version,page);
+                String key="narrative:"+page.relativePath();
+                accounting.sections(key,documented.payload().sections().size());
                 var written=store.putNarrative(documented.record(),documented.payload());
+                if(written.status()!=CatalogStore.PutStatus.IDENTITY_CLASH)accounting.persisted(key);
+                else accounting.failed(page.relativePath(),"IDENTITY_CLASH");
                 if(written.status()==CatalogStore.PutStatus.IDENTITY_CLASH)failures.accept(StageFailure.ofFile(PipelineStage.CATALOG,FailureSeverity.BUILD_INVALIDATING,file,"identity clash persisting narrative "+written.recordId()));
             }
         } catch (RuntimeException e) {
+            accounting.storageFailure();
             // A genuine storage error from a put (not the IDENTITY_CLASH status path, which is handled
             // in persistPage) compromises catalog integrity — route it through the policy, not raw.
             failures.accept(StageFailure.of(
@@ -112,6 +128,7 @@ public final class CatalogStage implements Stage {
                     FailureSeverity.BUILD_INVALIDATING,
                     "catalog persistence failed: " + e.getMessage()));
         } finally {
+            saveCoverage(accounting,context,failures);
             try {
                 store.close();
             } catch (RuntimeException e) {
@@ -123,11 +140,17 @@ public final class CatalogStage implements Stage {
         }
     }
 
+    private static void saveCoverage(CoverageAccounting accounting, BuildContext context, Consumer<StageFailure> failures) {
+        try { accounting.snapshot().write(context); }
+        catch(RuntimeException e) { failures.accept(StageFailure.of(PipelineStage.CATALOG,FailureSeverity.BUILD_INVALIDATING,"COVERAGE_WRITE_FAILED")); }
+    }
+
     private void persistPage(
             String version,
             JavadocCatalogSource.PageResult page,
             CatalogStore store,
-            Consumer<StageFailure> failures) {
+            Consumer<StageFailure> failures, CoverageAccounting accounting) {
+        accounting.begin(page.relativePath(),page.issues());
         Path file = javadocRoot.resolve(page.relativePath());
 
         for (String issue : page.issues()) {
@@ -137,9 +160,18 @@ public final class CatalogStage implements Stage {
 
         for (SymbolRecord record : page.records()) {
             CatalogRecord tuple = toCatalogRecord(version, record, com.luciadmcp.knowledge.ingest.javadoc.JavadocDocumentationAssembler.anchor(page, record).orElse(""));
-            var documented = com.luciadmcp.knowledge.ingest.javadoc.JavadocDocumentationAssembler.assemble(tuple, page, record);
+            com.luciadmcp.knowledge.ingest.javadoc.JavadocDocumentationAssembler.Documented documented;
+            try { documented = com.luciadmcp.knowledge.ingest.javadoc.JavadocDocumentationAssembler.assemble(tuple, page, record); }
+            catch (IllegalArgumentException e) {
+                accounting.failed(page.relativePath(),"PAYLOAD_REJECTED");
+                failures.accept(StageFailure.ofFile(PipelineStage.CATALOG,FailureSeverity.RECOVERABLE,file,"PAYLOAD_REJECTED"));
+                continue;
+            }
+            accounting.sections(record.canonicalKey(),documented.payload().sections().size());
             CatalogStore.PutResult result = store.putDocumented(tuple, documented.record(), documented.payload());
+            if (result.status() != CatalogStore.PutStatus.IDENTITY_CLASH) accounting.persisted(record.canonicalKey());
             if (result.status() == CatalogStore.PutStatus.IDENTITY_CLASH) {
+                accounting.failed(page.relativePath(),"IDENTITY_CLASH");
                 // A real identity clash compromises catalog integrity — never overwrite or drop (AD-4).
                 failures.accept(StageFailure.ofFile(
                         PipelineStage.CATALOG,

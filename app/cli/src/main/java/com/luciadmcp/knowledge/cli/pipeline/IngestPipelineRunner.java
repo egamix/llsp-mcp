@@ -195,6 +195,10 @@ public final class IngestPipelineRunner implements IngestPipeline {
                 statuses.put(stage, StageStatus.SKIPPED_UNSUPPORTED);
                 continue;
             }
+            if (stage == PipelineStage.CATALOG && checkpoint.isCompleted(stage) && !unsupported.isEmpty()
+                    && CoverageSnapshot.restore(context).isEmpty()) {
+                collected.add(StageFailure.of(stage,FailureSeverity.RECOVERABLE,"COVERAGE_UNAVAILABLE: missing, corrupt or mismatched snapshot"));
+            }
             if (checkpoint.isCompleted(stage) && !(stage == PipelineStage.VALIDATION && !unsupported.isEmpty())) {
                 statuses.put(stage, StageStatus.SKIPPED_ON_RESUME);
                 continue; // resume: already done in a prior run
@@ -294,7 +298,9 @@ public final class IngestPipelineRunner implements IngestPipeline {
                 activationOccurred,
                 stageEntries,
                 failureEntries,
-                resolutionSummary);
+                resolutionSummary,
+                CoverageSnapshot.restore(new BuildContext(manifest.buildId(), manifest.inputDigest(),
+                        args.out().resolve(".staging").resolve(manifest.buildId()),manifest.sdkVersion())).orElse(null));
 
         Path reportPath = args.out().resolve(manifest.buildId()).resolve(REPORT_FILE);
         try {

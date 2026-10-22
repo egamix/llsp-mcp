@@ -38,7 +38,6 @@ final class JavadocPageClassifier {
             "package-tree-page",
             "class-use-page",      // "Uses of Class/Interface X" — cross-reference, not member content
             "package-use-page",    // "Uses of Package X"
-            "doc-file-page",       // hand-authored doc-files/ pages carried alongside the API
             "help-page",
             "index-page",
             "single-index-page",
