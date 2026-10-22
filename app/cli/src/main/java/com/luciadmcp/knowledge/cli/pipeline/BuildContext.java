@@ -92,6 +92,9 @@ public record BuildContext(String buildId, String sealedInputDigest, Path stagin
         return stagingDir.resolve(sdkVersion).resolve(CATALOG_DB_FILE);
     }
 
+    /** Coordinator-owned derived lexical index, alongside the source SQLite catalog. */
+    public Path lexicalIndexPath() { return stagingDir.resolve(sdkVersion).resolve("lexical-index"); }
+
     /**
      * Computes the build identity deterministically from the ordered input set of one invocation.
      *

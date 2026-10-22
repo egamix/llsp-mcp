@@ -133,12 +133,13 @@ public final class IngestPipelineRunner implements IngestPipeline {
             stages.add(switch (stage) {
                 case CATALOG -> catalog;
                 case RELATIONSHIPS -> relationships;
+                case LEXICAL_INDEX -> new LexicalIndexStage();
                 case VALIDATION -> new BuildValidationStage(new com.luciadmcp.knowledge.domain.StandardBuildValidator(), ctx -> openBuildCatalog(ctx));
                 default -> Stage.noOp();
             });
         }
         IngestPipelineRunner runner = new IngestPipelineRunner(stages, policy);
-        runner.unsupported = java.util.Set.of(PipelineStage.EXAMPLES_WORKFLOWS, PipelineStage.LEXICAL_INDEX,
+        runner.unsupported = java.util.Set.of(PipelineStage.EXAMPLES_WORKFLOWS,
                 PipelineStage.EMBEDDINGS, PipelineStage.VECTOR_INDEX, PipelineStage.ACTIVATION);
         return runner;
     }
@@ -203,6 +204,14 @@ public final class IngestPipelineRunner implements IngestPipeline {
                     return aborted(args,context,manifest,checkpoint,collected,statuses);
                 }
             }
+            if (checkpoint.isCompleted(stage) && stages.get(i) instanceof LexicalIndexStage lexical) {
+                var failures=new ArrayList<StageFailure>();lexical.validateCompleted(context,failures::add);
+                if(!failures.isEmpty()) {
+                    checkpoint.markIncomplete(stage);
+                    collected.addAll(failures);statuses.put(stage,StageStatus.FAILED);
+                    return aborted(args,context,manifest,checkpoint,collected,statuses);
+                }
+            }
             if (checkpoint.isCompleted(stage) && !(stage == PipelineStage.VALIDATION && !unsupported.isEmpty())) {
                 statuses.put(stage, StageStatus.SKIPPED_ON_RESUME);
                 continue; // resume: already done in a prior run
@@ -264,7 +273,9 @@ public final class IngestPipelineRunner implements IngestPipeline {
             List<StageFailure> collected,
             boolean activationOccurred,
             boolean aborted) {
-        if (aborted && containsSeverity(collected, FailureSeverity.BUILD_INVALIDATING)) {
+        // A failed derived index must not modify or invalidate the authoritative source database.
+        if (aborted && collected.stream().anyMatch(f -> f.severity()==FailureSeverity.BUILD_INVALIDATING
+                && f.stage()!=PipelineStage.LEXICAL_INDEX)) {
             Path invalidPath=args.out().resolve(".staging").resolve(manifest.buildId()).resolve(manifest.sdkVersion()).resolve(BuildContext.CATALOG_DB_FILE);
             if(java.nio.file.Files.isRegularFile(invalidPath)) try(var store=new SqliteCatalogStore(invalidPath)) { store.markInvalid(); }
             catch(RuntimeException ignored) { /* Original integrity failure remains the report's authority. */ }
@@ -284,7 +295,11 @@ public final class IngestPipelineRunner implements IngestPipeline {
         IngestionReport.ResolutionSummary resolutionSummary = IngestionReport.ResolutionSummary.empty();
         Path catalogPath = args.out().resolve(".staging").resolve(manifest.buildId()).resolve(manifest.sdkVersion()).resolve(BuildContext.CATALOG_DB_FILE);
         if (java.nio.file.Files.exists(catalogPath)) {
-            try (var store = new SqliteRelationshipStore(catalogPath)) {
+            // Report reads must not rewrite source schema/runtime metadata after index generation.
+            // This handle produces no traversal continuations; its key remains local to this read.
+            byte[] reportKey=new byte[32];new java.security.SecureRandom().nextBytes(reportKey);
+            try (var store = new SqliteRelationshipStore(catalogPath,manifest.buildId(),
+                    new com.luciadmcp.knowledge.domain.RelationshipScope(manifest.sdkVersion()),reportKey)) {
                 resolutionSummary = IngestionReport.ResolutionSummary.from(store.resolutions(
                         new com.luciadmcp.knowledge.domain.RelationshipScope(manifest.sdkVersion())));
             } catch (RuntimeException e) {

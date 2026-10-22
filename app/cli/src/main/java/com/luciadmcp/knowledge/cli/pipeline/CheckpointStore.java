@@ -72,6 +72,11 @@ public final class CheckpointStore {
         persist();
     }
 
+    /** Remove completion when its durable artifact no longer passes admission. */
+    public void markIncomplete(PipelineStage stage) {
+        completed.remove(stage);persist();
+    }
+
     private void load() {
         if (!Files.isRegularFile(checkpointFile)) {
             return;
