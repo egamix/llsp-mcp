@@ -32,12 +32,14 @@ $env:JAVA_TOOL_OPTIONS='-Djdk.net.unixdomain.tmpdir=D:/workspace/luciad-mcp/.non
 ## Ingest, publish, activate and serve
 
 Existing `ingest` writes completed staging and a report; it does not activate a build.
-The current lexical Javadoc profile still accepts the historical samples/guides/model
-invocation paths, but reports deferred stages as unsupported. Supply your local paths:
+The current lexical Javadoc profile still requires the historical samples/guides invocation
+paths, but reports those deferred stages as unsupported. Existing empty directories work
+for `--samples` and `--guides`. No model directory or `--model` argument is needed.
+Supply your local paths:
 
 ```powershell
 $app='./app/cli/build/install/cli/bin/cli.bat'
-& $app ingest --javadoc C:/docs/javadoc --samples C:/docs/samples --guides C:/docs/guides --model C:/docs/model --out C:/index-staging --sdk-version 2023.5
+& $app ingest --javadoc C:/docs/javadoc --samples C:/docs/samples --guides C:/docs/guides --out C:/index-staging --sdk-version 2023.5
 ```
 
 Read the resulting `C:/index-staging/<buildId>/ingestion-report.json` for its build ID
