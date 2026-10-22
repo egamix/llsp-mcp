@@ -87,7 +87,7 @@ development_status:
   # Epic 4: Exact and Lexical Retrieval; Gated Semantic Enhancement
   epic-4: in-progress
   4-1-detect-and-prioritize-exact-symbol-queries: review
-  4-2-index-canonical-and-lexical-fields-for-bm25: in-progress
+  4-2-index-canonical-and-lexical-fields-for-bm25: review
   4-3-local-onnx-vector-search-with-explicit-failure-semantics: backlog
   4-4-fuse-lexical-and-vector-results-under-exact-priority: backlog
   4-5-enforce-a-consistent-embedding-fingerprint: backlog

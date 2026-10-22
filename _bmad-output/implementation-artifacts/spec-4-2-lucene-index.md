@@ -2,7 +2,7 @@
 title: 'Story 4.2: Index canonical and lexical fields for BM25'
 type: feature
 created: '2026-10-22'
-status: in-progress
+status: done
 route: dispatch
 story_key: 4-2-index-canonical-and-lexical-fields-for-bm25
 baseline_commit: 'ecd00e95051c9b28da6739800ede112a994c6102'
@@ -69,3 +69,9 @@ Run focused domain/catalog/search-lucene/CLI affected tests plus checkDependency
 ## Spec Change Log
 
 ## Review Triage Log
+
+- medium / patch: Unicode lowercasing changed offsets and could omit a hit from its excerpt. Original-string case-insensitive matching now retains correct UTF-16 spans; Unicode/emoji regression passes (dbf7526).
+- medium / patch (parent): candidateLimit stopped scanning at physical first matches, omitting better later BM25 results. Limit now bounds retained hits; work/time bound scored documents, and late-best-match regression passes (b65d073).
+- No deferred findings. Parent full Windows Gradle check passed after repairs (50tasks).
+
+Authorized local smoke: shape subtree staged under correct com/luciad/shape input layout, source label local-shape (release not identified). Imported3087 stored records; exact ILcdShape lookup and actual Lucene prose queries passed. Coverage remains PARTIAL:104 complete/110 partial/218 excluded/0 failed pages; this is not a benchmark or full-corpus acceptance. All proprietary files/data remain ignored under app/build; no source content committed.
