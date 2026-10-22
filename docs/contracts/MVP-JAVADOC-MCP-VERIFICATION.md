@@ -32,3 +32,14 @@ those final outcomes are recorded separately after handoff. No proprietary fixtu
 The existing empty-link storage/wire mismatch has an explicit per-record INAPPLICABLE outcome;
 see the launch guide. No performance, production release, complete supported-content or
 technical-sign-off claim follows from these synthetic results.
+
+## Final-check repair
+
+The existing NoNetworkClasspathTest blanket Jetty ban conflicted with the planned inbound
+servlet transport. Its exception now names only the seven required server/servlet artifact
+families, with stable versioned JAR filenames. Jetty client, HTTP/2 client, WebSocket client,
+HTTP-client, browser-automation and crawler families remain rejected, including misleading
+filenames that resemble an admitted server artifact. The real classpath test and rejection
+matrix both passed. Jetty is pinned to 12.1.14, superseding 12.1.3 after upstream advisory
+[GHSA-wjpw-4j6x-6rwh](https://github.com/jetty/jetty.project/security/advisories/GHSA-wjpw-4j6x-6rwh) identified affected releases through 12.1.4. Focused MCP admission/CLI
+connection verification and installDist were rerun for the corrected pin.

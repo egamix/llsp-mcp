@@ -6,6 +6,7 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -13,7 +14,9 @@ import org.junit.jupiter.api.Test;
  * the {@code cli} runtime classpath (the offline serving-image ingest graph, at this pre-packaging
  * stage). This is a structural, JDK-version-proof guard that complements {@code
  * :checkDependencyDirection}: that task bans the engine/parser groups as direct module edges; this
- * catches network-capable libraries specifically, wherever on the classpath they appear.
+ * catches outbound-client and unsanctioned network libraries wherever they appear.
+ * The exact Jetty server/servlet artifact families required by Story 5.5 are permitted;
+ * Jetty client and other Jetty modules remain forbidden.
  *
  * <p>The training-materials network tooling (docling) is the AD-28 exception and ships only in the
  * separate ingest-time image (Epic 8/9) — never on this classpath.
@@ -42,9 +45,17 @@ class NoNetworkClasspathTest {
             // needing the parser at all, so the guard for jsoup lives with its usage, not here.
             "crawler", "webmagic", "jaunt");
 
-    @Test
-    void noNetworkCapableLibraryOnClasspath() {
-        String classpath = System.getProperty("java.class.path", "");
+    /** Only the inbound SDK servlet container and its required server dependencies. */
+    private static final List<String> INBOUND_JETTY_ARTIFACTS = List.of(
+            "jetty-ee11-servlet", "jetty-server", "jetty-security", "jetty-session",
+            "jetty-http", "jetty-io", "jetty-util");
+
+    private static boolean inboundJettyArtifact(String name) {
+        return INBOUND_JETTY_ARTIFACTS.stream().anyMatch(artifact ->
+                name.matches(Pattern.quote(artifact) + "-[0-9]+\\.[0-9]+\\.[0-9]+\\.jar"));
+    }
+
+    private static List<String> offenders(String classpath) {
         List<String> offenders = new ArrayList<>();
 
         for (String entry : classpath.split(File.pathSeparator)) {
@@ -53,14 +64,33 @@ class NoNetworkClasspathTest {
             }
             String name = new File(entry).getName().toLowerCase(Locale.ROOT);
             for (String banned : BANNED_FRAGMENTS) {
-                if (name.contains(banned)) {
+                if (name.contains(banned) && !(banned.equals("jetty") && inboundJettyArtifact(name))) {
                     offenders.add(entry + " (matched '" + banned + "')");
                 }
             }
         }
 
+        return offenders;
+    }
+
+    @Test
+    void noNetworkCapableLibraryOnClasspath() {
+        List<String> offenders = offenders(System.getProperty("java.class.path", ""));
         assertTrue(offenders.isEmpty(),
-                () -> "network-capable library found on the cli classpath (AD-9 violation): "
+                () -> "outbound-client or unsanctioned network library on cli classpath (AD-9 violation): "
                         + offenders);
+    }
+
+    @Test
+    void inboundServletExceptionStillRejectsOutboundClientFamilies() {
+        String inbound = String.join(File.pathSeparator, INBOUND_JETTY_ARTIFACTS.stream()
+                .map(artifact -> artifact + "-12.1.14.jar").toList());
+        assertTrue(offenders(inbound).isEmpty());
+        for (String forbidden : List.of("jetty-client-12.1.14.jar", "jetty-http2-client-12.1.14.jar",
+                "jetty-websocket-jetty-client-12.1.14.jar", "jetty-http-12.1.14-httpclient.jar",
+                "httpclient5-5.4.jar", "okhttp-4.12.jar", "netty-handler-4.1.jar",
+                "async-http-client-2.12.jar", "selenium-java-4.0.jar", "crawler-1.0.jar")) {
+            assertTrue(!offenders(forbidden).isEmpty(), forbidden);
+        }
     }
 }
