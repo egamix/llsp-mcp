@@ -52,11 +52,11 @@ Never implement transport, activation, vectors, new databases or a UI here. Do n
 
 ## Tasks & Acceptance
 
-- [ ] `app/retrieval/...` -- shared service for cited exact/lexical/browse results, source checks, governance/applicability, aggregate budgets and typed outcomes.
-- [ ] `app/domain/...`, `app/search-lucene/...` -- minimal bounded paging support and shared text projection where necessary; preserve all4.1/4.2 behaviour/tests.
-- [ ] `app/retrieval/...` -- compact authenticated cursor binding; deterministic pages and bounded optional relationship context using existing domain traversal.
-- [ ] Corresponding module tests -- actual stored structured content and index; correct source/section associations, exact-before-lexical dedup, source/target filters, >50-result paging without overlap, cursor rebinding rejection before work, budget exhaustion, missing/mismatched content, governed exclusions and persisted bounded graph context.
-- [ ] Story verification note -- executed evidence and precise Javadoc slice boundary; no completion claim for future content producers or Epic5.
+- [x] `app/retrieval/...` -- shared service for cited exact/lexical/browse results, source checks, governance/applicability, aggregate budgets and typed outcomes.
+- [x] `app/domain/...`, `app/search-lucene/...` -- minimal bounded paging support and shared text projection where necessary; preserve all4.1/4.2 behaviour/tests.
+- [x] `app/retrieval/...` -- compact authenticated cursor binding; deterministic pages and bounded optional relationship context using existing domain traversal.
+- [x] Corresponding module tests -- actual stored structured content and index; correct source/section associations, exact-before-lexical dedup, source/target filters, >50-result paging without overlap, cursor rebinding rejection before work, budget exhaustion, missing/mismatched content, governed exclusions and persisted bounded graph context.
+- [x] Story verification note -- executed evidence and precise Javadoc slice boundary; no completion claim for future content producers or Epic5.
 
 Acceptance: Given an ingested source reopened without its HTML, when searched by prose, then source-faithful cited snippets are usable. Given exact and lexical overlap, when searched, then exact identity is first with no duplicates. Given matching next-page request, then ordering is stable and pages do not overlap; changed cursor binding fails before source reads. Given any configured budget, then enrichment/context cannot exceed it while reporting truthful coverage/truncation.
 
@@ -67,6 +67,8 @@ Worktree C:/Users/UserAdmin/.codex/worktrees/story-2-10-structured-documentation
 ## Verification
 
 Focused domain/search/retrieval/CLI regressions and checkDependencyDirection; parent full Gradle check and one focused review. Existing Windows env: GRADLE_USER_HOME=C:/Users/UserAdmin/.gradle; GRADLE_OPTS=-Djavax.net.ssl.trustStoreType=Windows-ROOT; JAVA_TOOL_OPTIONS=-Djdk.net.unixdomain.tmpdir=D:/workspace/luciad-mcp/.nonexistent-unix-socket-dir. Graft refresh after changes. Do not commit proprietary data; parent has authorized shape smoke data only under ignored app/build.
+
+Implementation evidence: `story-4-6-verification.md`. Parent full Gradle check and focused review remain workflow-level verification.
 
 ## Spec Change Log
 

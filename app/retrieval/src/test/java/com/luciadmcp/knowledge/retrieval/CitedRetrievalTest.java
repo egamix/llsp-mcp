@@ -90,6 +90,10 @@ class CitedRetrievalTest {
                 assertEquals(CitedRetrieval.Outcome.FILTERED_CONTENT,service.search(request("",Map.of("approval","CANDIDATE"),CitedRetrieval.Limits.DEFAULT,"")).outcome());
                 assertThrows(CitedRetrieval.RetrievalException.class,()->service.search(request("",Map.of(),new CitedRetrieval.Limits(100,1,5000,10,1_048_576),"")));
                 assertEquals(CitedRetrieval.Failure.PAYLOAD_LIMIT,assertThrows(CitedRetrieval.RetrievalException.class,()->service.search(request("",Map.of(),new CitedRetrieval.Limits(100,5000,5000,10,4096),""))).failure());
+                var narrow=new CitedRetrieval.Limits(1,5000,5000,1,1_048_576);
+                var retained=service.search(request("Widget0",Map.of(),narrow,""));assertTrue(retained.candidatesExamined()<=1);
+                assertEquals(CitedRetrieval.Failure.CANDIDATE_LIMIT,assertThrows(CitedRetrieval.RetrievalException.class,
+                    ()->service.searchWithRelated(request("p.Widget0",Map.of(),narrow,""),graph,"p.Widget0")).failure());
                 var related=service.searchWithRelated(new CitedRetrieval.Request("p.Widget0"),graph,"p.Widget0");assertFalse(related.related().items().isEmpty());assertEquals(BUILD,related.related().buildId());assertEquals(1,related.related().appliedLimits().depth());
                 assertTrue(related.related().scannedRows()+related.related().visitedNodes()+related.primary().workCharged()<=5000);
             }

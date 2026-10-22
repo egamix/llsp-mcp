@@ -73,13 +73,14 @@ public final class CitedRetrieval {
         if(request.buildId().filter(s->!s.equals(source.buildId())).isPresent())throw error(Failure.BUILD_MISMATCH,"unavailable pinned build");
         String digest=digest(request);int offset=request.continuation().isEmpty()?0:decode(request.continuation(),digest,request.limits().candidates());
         Budget budget=new Budget(request.limits());
-        ExactSymbolResult.Proof proof=ExactSymbolResult.Proof.UNKNOWN_IN_SCOPE;Set<String> priority=Set.of();
+        ExactSymbolResult.Proof proof=ExactSymbolResult.Proof.UNKNOWN_IN_SCOPE;Set<String> priority=Set.of();int exactCandidates=0;
         if(!request.text().isEmpty()) {
             // Reserve work for lexical discovery and authoritative enrichment. Incomplete aliases never prove identity.
             int exactWork=Math.max(1,Math.min(1000,budget.remaining()/4));budget.charge(exactWork);
-            var exact=new ExactSymbolResolver(timedSymbols(budget)).resolve(new ExactSymbolQuery(request.text(),true,50,
+            var exact=new ExactSymbolResolver(timedSymbols(budget)).resolve(new ExactSymbolQuery(request.text(),true,1,
                     Math.min(50,request.limits().candidates()),exactWork,Optional.of(source.sdkVersion()),Optional.of(source.buildId()),request.targetSdk()));
             budget.refund(exactWork-exact.workCharged());proof=exact.proof();
+            if(proof!=ExactSymbolResult.Proof.EXACT)exactCandidates=exact.matches().size();
             if(proof==ExactSymbolResult.Proof.EXACT) {
                 var match=exact.matches().getFirst();budget.charge(1);
                 var record=content.knowledgeRecord(match.recordId()).orElseThrow(()->error(Failure.INVALID_CONTENT,"exact symbol has no saved content"));
@@ -89,6 +90,10 @@ public final class CitedRetrieval {
                 priority=Set.of(match.recordId());
             }
         }
+        int windowLimit=request.limits().candidates()-exactCandidates;
+        if(windowLimit<1)return new Page(source,request.targetSdk(),List.of(),proof,Outcome.INSUFFICIENT_EVIDENCE,0,CountRelation.UNKNOWN,
+                budget.used,exactCandidates,true,"CANDIDATE_LIMIT","");
+        if(offset>=windowLimit)throw error(Failure.INVALID_CONTINUATION,"cursor beyond admitted candidate window");
         var filters=new HashMap<>(request.filters());
         if(filters.containsKey("approval") && !filters.get("approval").equals("APPROVED")
                 || "CANDIDATE_LEARNING".equals(filters.get("knowledgeKind")))
@@ -97,7 +102,7 @@ public final class CitedRetrieval {
         budget.check();
         int lexicalWork=Math.max(1,budget.remaining()-Math.min(request.limits().pageSize()*2,budget.remaining()/2));
         budget.charge(lexicalWork);
-        var lexical=index.search(new LexicalIndex.Query(request.text(),request.limits().pageSize(),request.limits().candidates(),
+        var lexical=index.search(new LexicalIndex.Query(request.text(),request.limits().pageSize(),windowLimit,
                 lexicalWork,budget.millis(),filters,request.targetSdk(),offset,priority));
         if(lexical.workCharged()<0 || lexical.workCharged()>lexicalWork || !lexical.binding().equals(binding)
                 || lexical.hits().size()>request.limits().pageSize())throw error(Failure.INVALID_CONTENT,"invalid lexical response");
@@ -117,16 +122,16 @@ public final class CitedRetrieval {
             }
         }
         budget.check();int next=offset+consumed;
-        boolean more=next<request.limits().candidates() && (next<lexical.matchedCount() || consumed<lexical.hits().size());
+        boolean more=next<windowLimit && (next<lexical.matchedCount() || consumed<lexical.hits().size());
         // A bounded/partial ranking cannot be safely replayed as a stable continuation.
         boolean stable=lexical.countRelation()==LexicalIndex.CountRelation.EXACT;
         String cursor=more && stable && consumed>0?encode(digest,next):"";
         boolean truncated=lexical.truncated() || consumed<lexical.hits().size() || filtered>0;
-        if(next>=request.limits().candidates() && lexical.matchedCount()>next)reason="CANDIDATE_WINDOW_EXHAUSTED";
+        if(next>=windowLimit && lexical.matchedCount()>next)reason="CANDIDATE_WINDOW_EXHAUSTED";
         var relation=filtered>0?CountRelation.UNKNOWN:stable?CountRelation.EXACT:CountRelation.LOWER_BOUND;
         var outcome=!items.isEmpty()?Outcome.MATCHES:filtered>0 || !filters.equals(Map.of("approval","APPROVED"))?Outcome.FILTERED_CONTENT:
                 proof==ExactSymbolResult.Proof.INCOMPLETE_EVIDENCE || !stable?Outcome.INSUFFICIENT_EVIDENCE:Outcome.NO_MATCH;
-        return new Page(source,request.targetSdk(),items,proof,outcome,lexical.matchedCount(),relation,budget.used,consumed,truncated,reason,cursor);
+        return new Page(source,request.targetSdk(),items,proof,outcome,lexical.matchedCount(),relation,budget.used,exactCandidates+(int)Math.min(windowLimit,Math.min(lexical.matchedCount(),offset+request.limits().pageSize())),truncated,reason,cursor);
     }
     private SymbolSource timedSymbols(Budget budget) {
         return new SymbolSource() {
