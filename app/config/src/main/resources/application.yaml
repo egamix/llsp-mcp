@@ -1,5 +1,6 @@
-# application.yaml — sole runtime configuration source (AD-16).
-#
-# Placeholder for the module skeleton (Story 1.1). Concrete keys (ingest sources, index
-# paths, active-build pointer, embedding model, MCP transport binding) are introduced by
-# later epics as their features land. Do NOT invent schema here.
+# application.yaml is the sole operator runtime configuration.
+# Relative paths resolve against this YAML file's directory.
+indexRoot: ./app/build/published-index
+sourceDefault: local-javadoc
+port: 8766
+stdio: false

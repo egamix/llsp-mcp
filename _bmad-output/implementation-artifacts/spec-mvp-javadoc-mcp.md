@@ -50,9 +50,9 @@ Never build another runtime, database, browser UI, embedding system or retained-
 
 ## Tasks & Acceptance
 
-- [ ] app/config, app/cli, build scripts — validated configuration, immutable publication/admission/leases, CLI commands and runnable distribution; tests for lifecycle matrix.
-- [ ] app/domain, app/catalog-sqlite, app/retrieval, app/mcp — bounded fetch port, shared read-tools/2 envelopes/handlers and schema-conformant tests including budgets/cursors/partial coverage.
-- [ ] app/mcp, app/cli — SDK transports and real protocol integration test; shared query diagnostics equal logical tool results.
+- [x] app/config, app/cli, build scripts — validated configuration, immutable publication/admission/leases, CLI commands and runnable distribution; tests for lifecycle matrix.
+- [x] app/domain, app/catalog-sqlite, app/retrieval, app/mcp — bounded fetch port, shared read-tools/2 envelopes/handlers and schema-conformant tests including budgets/cursors/partial coverage.
+- [x] app/mcp, app/cli — SDK transports and real protocol integration test; shared query diagnostics equal logical tool results.
 - [ ] docs, application.example.yaml, tracker/verification — short launch/connection instructions with actual tool names; story-attributed commits and accurate partial story statuses.
 
 Given a synthetic Javadoc import whose original files are removed, when published and queried by an SDK client, then search/resolve/fetch return persisted cited content. Given interrupted or incompatible publication, then no invalid build is served. Given concurrent replacement, then each request retains one source/build throughout.
