@@ -57,10 +57,24 @@ class LuceneLexicalIndexTest {
         try(var index=new LuceneLexicalIndex(path,LexicalIndex.Binding.of(source))) {
             for(String text:List.of("","lexeme")) {
                 var page=index.search(query(text,10,100,100,Map.of()));assertEquals(List.of("a","b","c"),page.hits().stream().map(LexicalIndex.Hit::recordId).toList());assertEquals(3,page.matchedCount());assertEquals(LexicalIndex.CountRelation.EXACT,page.countRelation());
-                var capped=index.search(query(text,10,1,100,Map.of()));assertEquals(1,capped.hits().size());assertTrue(capped.truncated());assertEquals(LexicalIndex.CountRelation.LOWER_BOUND,capped.countRelation());
+                var capped=index.search(query(text,10,1,100,Map.of()));assertEquals(1,capped.hits().size());assertTrue(capped.truncated());assertEquals(LexicalIndex.CountRelation.EXACT,capped.countRelation());assertEquals(3,capped.matchedCount());assertEquals(3,capped.workCharged());
                 var work=index.search(query(text,10,100,1,Map.of()));assertEquals(1,work.workCharged());assertEquals(LexicalIndex.CountRelation.LOWER_BOUND,work.countRelation());
                 var paged=index.search(query(text,1,100,100,Map.of()));assertTrue(paged.truncated());assertEquals(3,paged.matchedCount());
             }
+        }
+    }
+    @Test void candidateRetentionLimitStillRanksLaterBetterMatchesWithinWorkBudget() {
+        var source=new Source();
+        for(int n=0;n<10;n++)source.add(String.format("%04d",n),"","needle "+"padding ".repeat(200));
+        source.add("9999","","needle");Path path=temp.resolve("index");LuceneLexicalIndex.build(path,source);
+        try(var index=new LuceneLexicalIndex(path,LexicalIndex.Binding.of(source))) {
+            var page=index.search(query("needle",10,2,100,Map.of()));
+            assertEquals(2,page.hits().size());assertEquals("9999",page.hits().getFirst().recordId());
+            assertEquals(11,page.matchedCount());assertEquals(11,page.workCharged());
+            assertEquals(LexicalIndex.CountRelation.EXACT,page.countRelation());assertTrue(page.truncated());assertEquals("CANDIDATE_LIMIT",page.reason());
+            var bounded=index.search(query("needle",10,2,5,Map.of()));
+            assertEquals(2,bounded.hits().size());assertEquals(5,bounded.matchedCount());assertEquals(5,bounded.workCharged());
+            assertEquals(LexicalIndex.CountRelation.LOWER_BOUND,bounded.countRelation());assertTrue(bounded.truncated());assertEquals("WORK_LIMIT",bounded.reason());
         }
     }
     @Test void mismatchedBindingsMissingIndicesAndFailedGenerationFailClearly() {

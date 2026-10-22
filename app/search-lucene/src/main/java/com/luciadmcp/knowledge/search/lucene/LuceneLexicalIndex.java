@@ -158,7 +158,8 @@ public final class LuceneLexicalIndex implements LexicalIndex {
         try {
             var terms=tokens(request.text());var searcher=new IndexSearcher(reader);searcher.setSimilarity(new BM25Similarity());
             searcher.setTimeout(()->System.nanoTime()>=deadline);
-            var heap=new PriorityQueue<Candidate>(request.pageSize(),ORDER.reversed());
+            int retainedLimit=Math.min(request.pageSize(),request.candidateLimit());
+            var heap=new PriorityQueue<Candidate>(retainedLimit,ORDER.reversed());
             int[] work={0};long[] matched={0};boolean[] bounded={false};String[] reason={"COMPLETE"};
             var collector=new SimpleCollector() {
                 Scorable scorer;int base;SortedDocValues ids;
@@ -166,12 +167,12 @@ public final class LuceneLexicalIndex implements LexicalIndex {
                 @Override public void setScorer(Scorable scorer) { this.scorer=scorer; }
                 @Override public ScoreMode scoreMode() { return ScoreMode.COMPLETE; }
                 @Override public void collect(int doc) throws IOException {
-                    if(System.nanoTime()>=deadline || work[0]>=request.workLimit() || matched[0]>=request.candidateLimit()) {
-                        bounded[0]=true;reason[0]=System.nanoTime()>=deadline?"TIME_LIMIT":"WORK_OR_CANDIDATE_LIMIT";throw new BudgetReached();
+                    if(System.nanoTime()>=deadline || work[0]>=request.workLimit()) {
+                        bounded[0]=true;reason[0]=System.nanoTime()>=deadline?"TIME_LIMIT":"WORK_LIMIT";throw new BudgetReached();
                     }
                     work[0]++;matched[0]++;if(!ids.advanceExact(doc))throw new IllegalStateException("CORRUPT_INDEX_ID");
                     var c=new Candidate(base+doc,ids.lookupOrd(ids.ordValue()).utf8ToString(),request.text().isEmpty()?0:scorer.score());
-                    if(heap.size()<request.pageSize())heap.add(c);else if(ORDER.compare(c,heap.peek())<0) { heap.poll();heap.add(c); }
+                    if(heap.size()<retainedLimit)heap.add(c);else if(ORDER.compare(c,heap.peek())<0) { heap.poll();heap.add(c); }
                 }
             };
             try { searcher.search(query(request,terms),collector); }catch(BudgetReached ignored) { }
@@ -190,7 +191,7 @@ public final class LuceneLexicalIndex implements LexicalIndex {
                 payloadBytes+=(int)bytes;hits.add(hit);
             }
             if(payloadLimited)reason[0]="PAYLOAD_LIMIT";
-            else if(!bounded[0] && matched[0]>hits.size())reason[0]="PAGE_LIMIT";
+            else if(!bounded[0] && matched[0]>hits.size())reason[0]=request.candidateLimit()<request.pageSize()?"CANDIDATE_LIMIT":"PAGE_LIMIT";
             return new Page(binding,request.targetSdkVersion(),hits,matched[0],bounded[0]?CountRelation.LOWER_BOUND:CountRelation.EXACT,
                     work[0],bounded[0]||payloadLimited||matched[0]>hits.size(),reason[0]);
         }catch(IOException e) { throw new UncheckedIOException("LEXICAL_SEARCH_FAILED",e); }
