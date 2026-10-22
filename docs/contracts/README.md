@@ -74,7 +74,9 @@ sum to discovered. Only positively recognized navigation/non-content is excluded
 content and hand-authored doc-file pages remain unavailable/failed. A complete page has
 persisted records and no extraction issues. Partial pages retained some records but have
 issues or missing writes; failed pages retained none. Emitted = persisted + failed for
-records and sections. Identical puts and retries never inflate logical counts; a new
+records and sections. Associations are scoped by source-relative page and canonical key,
+so a losing conflicting source cannot borrow another page's successful write. Identical puts
+and same-source retries never inflate logical counts; a new
 catalog attempt replaces the previous ledger. Sections are counted when a payload is
 assembled, rather than inferred for unprocessed or rejected records. Expected independent
 denominators remain null until separately supplied to the audit.
@@ -103,6 +105,8 @@ relative path and 16 MiB aggregate relative-path bytes. Boundaries are inclusive
 an enumeration budget aborts before the universe is known: the invocation is unsuccessful
 and coverage is unavailable, rather than inventing a discovered denominator. Existing
 payload section/block/byte, ownership traversal and storage framing caps still apply.
+Private traversal work caps also admit at most 200,001 total filesystem entries and depth
+128, including empty directories. Explicit attribute-read failures abort enumeration.
 
 `tools/contracts/audit_ingestion.py` accepts an independently authored build/SDK-bound
 inventory defined by `ingestion-audit-inventory.schema.json`. Inventory must explicitly
@@ -120,7 +124,13 @@ and decodes actual blocks. It does not accept content_hash columns as fidelity e
 Missing/changed sections, notes, blocks, members and narratives remain aggregate discrepancies,
 including equal-count mutations. Store SDK scope must match. Limits are 8 MiB inventory,
 100,000 records, 256 sections per record, 4,096 blocks per section, 65,536 framed fields,
-1,310,724 encoded bytes per section, 256 MiB compared payload and 10 million SQL VM steps.
+1,310,724 encoded bytes per record, 100,000 stored section rows, 256 MiB admitted payload,
+16 MiB admitted metadata/hash fields and 10 million SQL VM steps. All stored sections,
+including unexpected ones, consume byte admission before any payload blob is fetched.
+Documentation parents, complete section ordinals and the canonical 19 metadata fields
+are checked against stored knowledge columns and usable identity/scope associations.
+Inventory section arrays may list ordinals in any order; label length is measured in
+Unicode code points, matching JSON Schema maxLength.
 Diagnostics contain fixed categories/counts only; identifiers, bodies and raw errors are absent.
 
 Private mode is the default. Before either inventory or store access, it requires explicit

@@ -49,7 +49,8 @@
                 "ordinal": {
                   "type": "integer",
                   "minimum": 0,
-                  "maximum": 255
+                  "maximum": 255,
+                  "description": "Zero-based stored ordinal; inventory array order is immaterial."
                 },
                 "payloadSha256": {
                   "type": "string",
@@ -72,7 +73,8 @@
                       },
                       "label": {
                         "type": "string",
-                        "maxLength": 4096
+                        "maxLength": 4096,
+                        "description": "Length is measured in Unicode code points, matching JSON Schema maxLength."
                       },
                       "textSha256": {
                         "type": "string",
