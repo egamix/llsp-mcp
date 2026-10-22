@@ -327,7 +327,7 @@ public final class IngestPipelineRunner implements IngestPipeline {
         } catch (UncheckedIOException e) {
             // The in-memory result (already computed by the caller) is still returned; a report-write
             // failure must not mask a run's actual outcome behind an unrelated I/O exception.
-            System.err.println("warning: failed to write ingestion report to " + reportPath + ": " + e.getMessage());
+            throw new IllegalStateException("BUILD_INVALID: REQUIRED_REPORT_WRITE_FAILED",e);
         }
     }
 

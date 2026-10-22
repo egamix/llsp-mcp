@@ -218,6 +218,11 @@ public final class LuceneLexicalIndex implements LexicalIndex {
         }
         return new Hit(c.id(),c.score(),ids[chosen],labels[chosen],excerpt,spans);
     }
+    /** Full segment checksum verification at immutable bundle admission. */
+    public void verifyIntegrity() {
+        try { for(var leaf:reader.leaves())leaf.reader().checkIntegrity(); }
+        catch(IOException e) { throw new UncheckedIOException("CORRUPT_LEXICAL_INDEX",e); }
+    }
     @Override public void close() {
         analyzer.close();try { reader.close(); }catch(IOException e) { throw new UncheckedIOException(e); }
         finally { try { directory.close(); }catch(IOException e) { throw new UncheckedIOException(e); } }
