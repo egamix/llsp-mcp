@@ -292,3 +292,10 @@ javadoc_mvp_connection:
   verification: "docs/contracts/MVP-JAVADOC-MCP-VERIFICATION.md"
   launch: "docs/MVP-JAVADOC-MCP.md"
   exclusions: "Other three tools, additional producers, retained-source endpoints, rollback/backup completion, performance and release approval"
+
+# Three-tool agent guidance verified; broad guidance stories retain their current status.
+javadoc_agent_guidance:
+  spec: spec-5-8-luciad-agent-guidance.md
+  state: verified locally
+  skill: .agents/skills/luciad/SKILL.md
+  evidence: HTTP and stdio initialization/discovery tests; real-shape source-backed smoke; skill validator; independent review

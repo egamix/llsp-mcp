@@ -2,7 +2,7 @@
 title: 'Story 5.8 / 7.1 Javadoc agent guidance'
 type: feature
 created: '2026-10-22'
-status: in-progress
+status: done
 route: dispatch
 story_key: 5-8-draft-the-agent-retrieval-policy-skeleton
 baseline_commit: '4f5b1904b4a2607052f1ca7e9125eeb83531b7f1'
@@ -44,9 +44,9 @@ Use a concise SKILL.md description to match Luciad questions, implementation and
 
 ## Tasks & Acceptance
 
-- [ ] Create skill and dependency metadata with concrete three-tool workflow and a small grounded request example; no invented SDK example names.
-- [ ] Wire shared server initialization guidance and distinct tool descriptions; SDK integration confirms guidance arrives and tools remain callable.
-- [ ] Validate skill with C:/Users/UserAdmin/.codex/skills/.system/skill-creator/scripts/quick_validate.py; run affected CLI connection/MCP tests and installDist; update guide/tracker and verify scope against matrix.
+- [x] Create skill and dependency metadata with concrete three-tool workflow and a small grounded request example; no invented SDK example names.
+- [x] Wire shared server initialization guidance and distinct tool descriptions; SDK integration confirms guidance arrives and tools remain callable.
+- [x] Validate skill with C:/Users/UserAdmin/.codex/skills/.system/skill-creator/scripts/quick_validate.py; run affected CLI connection/MCP tests and installDist; update guide/tracker and verify scope against matrix.
 
 Given a client connecting to this server, when it initializes, then it receives retrieval-first instructions and descriptions for only the three implemented tools. Given a Luciad task, when the skill is used, then it directs source-backed retrieval and preserves unresolved evidence. Instructions support rather than guarantee model behavior.
 
@@ -61,3 +61,5 @@ Affected SDK connection/admission tests, skill validation, parent review and rea
 ## Spec Change Log
 
 ## Review Triage Log
+
+Parent verification: skill quick_validate PASS; installed user-level skill and dependency metadata after confirming the destination was absent; installed hashes match reviewed source. Existing Codex luciad configuration already points at the expected local URL and was left intact. Live rebuilt server33212 initialization returned retrieval-first guidance, and real-shape search/resolve/fetch plus canonical Python schema/semantic checks passed. Independent focused review returned no high-confidence findings; nothing deferred by review. Natural-language model obedience and controlled6-tool/evaluation acceptance are not claimed. This specification completes the Javadoc slice; full5.8/7.1 tracking remains in-progress pending their broader acceptance.

@@ -13,10 +13,10 @@ Before making Luciad SDK claims or generating Luciad API calls, use the local `l
 4. Generate an answer or code grounded in that evidence. Cite returned record IDs, actual source SDK/build and source paths/anchors. Preserve missing anchors; do not fabricate links or imply a local source path is an accessible web URL.
 5. Compile/test externally when a project and tooling are available. Repair failures by retrieving the relevant symbol/documentation evidence. Report whether generated code was actually compiled/tested: source membership alone does not establish correctness.
 
-Start a task such as loading raster data with this `search_knowledge` request:
+Start a task such as checking whether a point is inside a shape with this `search_knowledge` request:
 
 ```json
-{"contractVersion":"read-tools/2","query":"load raster data"}
+{"contractVersion":"read-tools/2","query":"point inside shape"}
 ```
 
 Use the returned IDs in `get_record`; copy exact symbols from the evidence into `resolve_symbol`. Do not substitute guessed SDK names for missing evidence.

@@ -154,8 +154,8 @@ same Streamable HTTP URL, start the service, then refresh skill/MCP discovery or
 new chat as required by the client. Dependency metadata does not start the Java service.
 
 The skill permits normal automatic invocation for Luciad questions, implementation and
-debugging. To request it explicitly, use `$luciad`, for example: “Use $luciad to explain
-how to load raster data using the connected Javadoc evidence.” General programming
+debugging. To request it explicitly, use `$luciad`, for example: Use $luciad to explain
+how to check whether a point is inside a shape using the connected Javadoc evidence. General programming
 questions do not require this skill.
 
 The workflow retrieves relevant knowledge, resolves exact symbols/overloads when needed,
