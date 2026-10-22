@@ -17,4 +17,11 @@ class DocumentationExtractionTest {
             var member=type.members().get(0);assertEquals(List.of(new Param("R","the result type")),member.typeParameters());assertEquals(List.of(new Param("n","the count")),member.params());assertEquals(Optional.of("actual-map"),member.anchor());
         }
     }
+
+    @Test void tableRowsAndCellsConsumeTheExtractionWorkBudget() {
+        String html="<section class='package-description'><table><tr><th>h</th></tr>"+"<tr><td>v</td></tr>".repeat(32769)+"</table></section>";
+        var owner=Jsoup.parse(html).selectFirst("section.package-description");
+        var error=assertThrows(IllegalArgumentException.class,()->OwnedDocumentationExtractor.narrative(owner,"package-summary.html",new ArrayList<>()));
+        assertEquals("PAYLOAD_TOO_LARGE: owned documentation package-summary.html",error.getMessage());
+    }
 }

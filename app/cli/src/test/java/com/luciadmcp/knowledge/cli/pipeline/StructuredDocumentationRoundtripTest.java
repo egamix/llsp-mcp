@@ -63,13 +63,33 @@ class StructuredDocumentationRoundtripTest {
     }
     private static String readId(ResultSet r) { try{return r.getString(1);}catch(SQLException e){throw new IllegalStateException(e);} }
     @Test void unsupportedStructuresPersistEvidenceAndReportPartial() throws Exception {
+        Map<String,List<String>> expected=Map.of(
+                "spans",List.of("<table>","<th colspan=\"2\">h</th>","<td>a</td>","<td>b</td>"),
+                "ragged",List.of("<th>a</th>","<th>b</th>","<td>v</td>"),
+                "row-header",List.of("<th>a</th>","<th>v</th>"),
+                "rich-cell",List.of("<td>","<ul>","<li>rich</li>"),
+                "mixed-list",List.of("<ol>","<li>a", "<ul>","<li>b</li>"),
+                "rich-list",List.of("<ul>","<p>paragraph</p>","<pre>code</pre>"),
+                "definition-list",List.of("<dl>","<dt>term</dt>","<dd>definition</dd>"),
+                "image",List.of("<img src=\"local.png\" alt=\"diagram\">"),
+                "line-break-list",List.of("<ul>","<li>Before", "<br>","After</li>"),
+                "owned-definition-list",List.of("<dl>","<dt><a href=\"Term.html\">Term Label</a></dt>","<dd>Definition Value</dd>"));
         var args=args(temp);copy(fixtures().resolve("unsupported"),args.javadoc());
         var result=IngestPipelineRunner.withCatalogStage(FailurePolicy.COLLECT_AND_CONTINUE,args).runToResult(args);assertFalse(result.aborted());
-        assertEquals(8,result.failures().stream().filter(f->f.message().contains("PARTIAL_UNSUPPORTED")).count(),result.failures().toString());
+        assertEquals(expected.size(),result.failures().stream().filter(f->f.message().contains("PARTIAL_UNSUPPORTED")).count(),result.failures().toString());
         removeInputs(args.javadoc());
         try(var catalog=new SqliteCatalogStore(result.buildContext().catalogDbPath());var store=new SqliteDocumentationStore(result.buildContext().catalogDbPath())) {
-            assertTrue(catalog.allRecords().isEmpty());var ids=store.enumerateIds(result.manifest().buildId(),"1","",50);assertEquals(8,ids.size());
-            for(String id:ids) { var b=blocks(store,id,result.manifest().buildId());assertEquals(1,b.size());assertEquals("unsupported HTML",b.get(0).label());assertEquals(DocumentationPayload.BlockKind.CODE,b.get(0).kind());assertTrue(b.get(0).text().contains("<")); }
+            assertTrue(catalog.allRecords().isEmpty());assertEquals(expected.size(),store.enumerateIds(result.manifest().buildId(),"1","",50).size());
+            for(var fixture:expected.entrySet()) {
+                String id=KnowledgeRecord.narrativeId("1",fixture.getKey()+".html","PACKAGE");
+                var b=blocks(store,id,result.manifest().buildId());assertEquals(1,b.size());assertEquals("unsupported HTML",b.get(0).label());assertEquals(DocumentationPayload.BlockKind.CODE,b.get(0).kind());
+                String evidence=b.get(0).text().replaceAll("\\s+"," ").replaceAll(">\\s+<","><");
+                for(String fragment:fixture.getValue())assertTrue(evidence.contains(fragment),fixture.getKey()+": missing "+fragment+" in "+evidence);
+                if(fixture.getKey().equals("owned-definition-list")) {
+                    assertEquals(List.of("Term Label"),b.get(0).links().stream().map(DocumentationPayload.Link::label).toList());
+                    assertEquals(List.of("Term.html"),b.get(0).links().stream().map(DocumentationPayload.Link::originalTarget).toList());
+                }
+            }
         }
     }
     @Test void unknownEmptyAndAmbiguousNarrativeLayoutsHaveExplicitIssues() throws Exception {
@@ -108,6 +128,54 @@ class StructuredDocumentationRoundtripTest {
             assertEquals(List.of("signature","deprecated","description","throws Failure"),b.stream().map(DocumentationPayload.Block::label).toList());
             assertEquals(List.of("Base.html","New.html","Failure.html"),b.stream().flatMap(v->v.links().stream()).map(DocumentationPayload.Link::originalTarget).toList());
             assertEquals(1,b.stream().filter(v->v.label().equals("deprecated")).count());
+        }
+    }
+
+    @Test void authoredHeadingsAndDirectExamplesSurviveWithPreformattedSignatures() throws Exception {
+        var input=args(temp);
+        String typeSignature="public class T {\n  // signature\n}\n",memberSignature="public void run(\n    int n)\n";
+        Files.writeString(input.javadoc().resolve("T.html"),"<html><body class='class-declaration-page'><section class='class-description'><pre>"+typeSignature+"</pre><h2 id='owned-heading'><a href='Guide.html'>Authored caveat</a></h2><pre>  example();\n    next();\n</pre><div class='block'>Owned.</div></section><section class='method-details'><section class='detail' id='run-real'><h3>run</h3><pre>"+memberSignature+"</pre><div class='block'>Run.</div><pre>  run(1);\n</pre></section></section></body></html>");
+        Files.writeString(input.javadoc().resolve("package-summary.html"),"<html><body class='package-declaration-page'><section class='package-description'><h3 id='level-three'><a href='Topic.html'>Narrative caveat</a></h3><p>Narrative.</p></section></body></html>");
+        var result=IngestPipelineRunner.withCatalogStage(FailurePolicy.COLLECT_AND_CONTINUE,input).runToResult(input);assertFalse(result.aborted(),result.failures().toString());
+        assertEquals(2,result.failures().stream().filter(f->f.message().contains("PARTIAL_UNSUPPORTED: authored heading")).count(),result.failures().toString());removeInputs(input.javadoc());
+        try(var catalog=new SqliteCatalogStore(result.buildContext().catalogDbPath());var store=new SqliteDocumentationStore(result.buildContext().catalogDbPath())) {
+            var type=blocks(store,catalog.findByKey("1","T").orElseThrow().recordId(),result.manifest().buildId());
+            assertEquals(List.of("signature","unsupported HTML","description","description"),type.stream().map(DocumentationPayload.Block::label).toList());
+            assertEquals(typeSignature,type.get(0).text());assertEquals("  example();\n    next();\n",type.get(2).text());
+            assertTrue(type.get(1).text().contains("<h2 id=\"owned-heading\">"));assertTrue(type.get(1).text().contains("Authored caveat"));assertEquals("Guide.html",type.get(1).links().getFirst().originalTarget());
+            var member=blocks(store,catalog.findByKey("1","T#run(int)").orElseThrow().recordId(),result.manifest().buildId());
+            assertEquals(List.of(memberSignature,"Run.","  run(1);\n"),member.stream().map(DocumentationPayload.Block::text).toList());assertTrue(member.stream().noneMatch(b->b.label().equals("unsupported HTML")));
+            var narrative=blocks(store,KnowledgeRecord.narrativeId("1","package-summary.html","PACKAGE"),result.manifest().buildId());
+            assertTrue(narrative.get(0).text().contains("<h3 id=\"level-three\">"));assertTrue(narrative.get(0).text().contains("Narrative caveat"));assertEquals("Topic.html",narrative.get(0).links().getFirst().originalTarget());assertEquals("Narrative.",narrative.get(1).text());
+        }
+    }
+    @Test void literalDottedIdsAndNestedNarrativeAliasesShareOneOwner() throws Exception {
+        var input=args(temp);
+        for(String kind:List.of("package","overview"))for(boolean nested:List.of(false,true)) {
+            String name=kind+(nested?"-nested":"-literal")+".html";
+            String owner="<div id='"+kind+".description' class='"+kind+"Description'><p>"+name+" prose.</p></div>";
+            if(nested)owner="<section class='"+kind+"-description'>"+owner+"</section>";
+            Files.writeString(input.javadoc().resolve(name),"<html><body class='"+(kind.equals("package")?"package-declaration-page":"package-index-page")+"'>"+owner+"</body></html>");
+        }
+        var result=IngestPipelineRunner.withCatalogStage(FailurePolicy.COLLECT_AND_CONTINUE,input).runToResult(input);assertTrue(result.failures().isEmpty(),result.failures().toString());removeInputs(input.javadoc());
+        try(var store=new SqliteDocumentationStore(result.buildContext().catalogDbPath())) {
+            assertEquals(4,store.enumerateIds(result.manifest().buildId(),"1","",50).size());
+            for(String kind:List.of("package","overview"))for(boolean nested:List.of(false,true)) {
+                String name=kind+(nested?"-nested":"-literal")+".html",id=KnowledgeRecord.narrativeId("1",name,kind.toUpperCase(Locale.ROOT));
+                var page=store.readSections(id,result.manifest().buildId(),"1",0,50).orElseThrow();assertEquals(Optional.of(kind+".description"),page.sections().getFirst().locator().anchor());
+                assertEquals(List.of(name+" prose."),page.sections().getFirst().blocks().stream().map(DocumentationPayload.Block::text).toList());
+            }
+        }
+    }
+    @Test void emptyNamedDocumentationRetainsPrefixLinkLabelsAndTargets() throws Exception {
+        var input=args(temp);Files.writeString(input.javadoc().resolve("T.html"),"""
+            <html><body class='class-declaration-page'><section class='class-description'><div class='type-signature'>class T</div><div class='block'>Owned.</div></section><section class='method-details'><section class='detail' id='run'><h3>run</h3><div class='member-signature'>void run(int value)</div><div class='block'>Run.</div><dl class='notes'><dt>Type Parameters:</dt><dd><code><a href='#T'>T</a></code></dd><dt>Parameters:</dt><dd><code><a href='#value'>value</a></code></dd><dt>Throws:</dt><dd><code><a href='Failure.html'>Failure</a></code></dd></dl></section></section></body></html>
+            """);
+        var result=IngestPipelineRunner.withCatalogStage(FailurePolicy.COLLECT_AND_CONTINUE,input).runToResult(input);assertFalse(result.aborted(),result.failures().toString());removeInputs(input.javadoc());
+        try(var catalog=new SqliteCatalogStore(result.buildContext().catalogDbPath());var store=new SqliteDocumentationStore(result.buildContext().catalogDbPath())) {
+            var b=blocks(store,catalog.findByKey("1","T#run(int)").orElseThrow().recordId(),result.manifest().buildId()).subList(2,5);
+            assertEquals(List.of("type parameter T","parameter value","throws Failure"),b.stream().map(DocumentationPayload.Block::label).toList());assertTrue(b.stream().allMatch(v->v.text().isEmpty()));
+            assertEquals(List.of("T","value","Failure"),b.stream().flatMap(v->v.links().stream()).map(DocumentationPayload.Link::label).toList());assertEquals(List.of("#T","#value","Failure.html"),b.stream().flatMap(v->v.links().stream()).map(DocumentationPayload.Link::originalTarget).toList());
         }
     }
 }

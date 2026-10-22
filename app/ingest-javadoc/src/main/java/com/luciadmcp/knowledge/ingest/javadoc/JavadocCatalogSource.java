@@ -55,19 +55,25 @@ public final class JavadocCatalogSource {
             byte[] bytes=java.nio.file.Files.readAllBytes(root.resolve(path));
             if(bytes.length>8_388_608)throw new IllegalArgumentException("PAYLOAD_TOO_LARGE");
             var doc=org.jsoup.Jsoup.parse(new java.io.ByteArrayInputStream(bytes),null,"");
-            String selector=page.type()==PageType.PACKAGE?"section.package-description, .packageDescription, #package-description, #package.description":"section.overview-description, .overview-description, #overview-description, #overview.description, .overviewDescription";
+            String selector=page.type()==PageType.PACKAGE?"section.package-description, .packageDescription, #package-description, [id='package.description']":"section.overview-description, .overview-description, #overview-description, [id='overview.description'], .overviewDescription";
             var owners=doc.select(selector);
             // Legacy descriptions are wrapped separately from summary tables and navigation.
             if(owners.isEmpty())owners=doc.select("div.description");
             // Doclet root overviews commonly use a single header block as the overview prose.
             if(owners.isEmpty() && page.type()==PageType.OVERVIEW)owners=doc.select("main > .header > .block, .contentContainer > .block");
+            var aliases=owners;
+            owners=new org.jsoup.select.Elements(aliases.stream().filter(el->el.parents().stream().noneMatch(aliases::contains)).toList());
             if(owners.size()!=1) {
                 issues.add(path+": PARTIAL_UNSUPPORTED: "+(owners.isEmpty()?"no known narrative ownership wrapper":"ambiguous narrative ownership wrappers"));
                 return new NarrativePage(path,page.type(),List.of(),java.util.Optional.empty(),java.util.Optional.of(com.luciadmcp.knowledge.domain.ContentHashes.sourceHash(bytes)),issues);
             }
             var owner=owners.first();var blocks=OwnedDocumentationExtractor.narrative(owner,path,issues);
             if(blocks.isEmpty())issues.add(path+": PARTIAL_UNSUPPORTED: empty narrative content");
-            return new NarrativePage(path,page.type(),blocks,JavadocFieldExtractor.actualAnchor(owner),java.util.Optional.of(com.luciadmcp.knowledge.domain.ContentHashes.sourceHash(bytes)),issues);
+            var anchor=JavadocFieldExtractor.actualAnchor(owner);
+            if(anchor.isEmpty())for(var alias:aliases)if(alias==owner || alias.parents().contains(owner)) {
+                anchor=JavadocFieldExtractor.actualAnchor(alias);if(anchor.isPresent())break;
+            }
+            return new NarrativePage(path,page.type(),blocks,anchor,java.util.Optional.of(com.luciadmcp.knowledge.domain.ContentHashes.sourceHash(bytes)),issues);
         } catch(java.io.IOException | RuntimeException e) {
             issues.add(path+": narrative extraction failed: "+e.getMessage());
             return new NarrativePage(path,page.type(),List.of(),java.util.Optional.empty(),java.util.Optional.empty(),issues);
