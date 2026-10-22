@@ -80,4 +80,34 @@ class StructuredDocumentationRoundtripTest {
         var result=IngestPipelineRunner.withCatalogStage(FailurePolicy.COLLECT_AND_CONTINUE,args).runToResult(args);assertFalse(result.aborted());assertEquals(3,result.failures().stream().filter(f->f.message().contains("PARTIAL_UNSUPPORTED")).count());
         try(var store=new SqliteDocumentationStore(result.buildContext().catalogDbPath())) { assertTrue(store.enumerateIds(result.manifest().buildId(),"1","",50).isEmpty()); }
     }
+
+    @Test void sourceSpecificNarrativeIdsAndIndependentHashesAcrossEditsAndRelocation() throws Exception {
+        var observed=new ArrayList<List<String>>();
+        for(int n=0;n<5;n++) {
+            var base=args(temp.resolve("case"+n));String sdk=n==4?"2":"1";
+            var input=new IngestArguments(base.javadoc(),base.samples(),base.guides(),base.model(),base.out(),base.trainings(),Optional.of(sdk));
+            String html="<html><body class='package-declaration-page'><section class='package-description'><p>"+(n==2?"Changed":"Original")+" caveat.</p><pre>  code();\r\n</pre></section>"+(n==3?"<!-- source-only edit -->":"")+"</body></html>";
+            Files.writeString(input.javadoc().resolve("package-summary.html"),html);
+            var result=IngestPipelineRunner.withCatalogStage(FailurePolicy.COLLECT_AND_CONTINUE,input).runToResult(input);assertTrue(result.failures().isEmpty(),result.failures().toString());
+            String id=KnowledgeRecord.narrativeId(sdk,"package-summary.html","PACKAGE");removeInputs(input.javadoc());
+            try(var store=new SqliteDocumentationStore(result.buildContext().catalogDbPath());var db=DriverManager.getConnection("jdbc:sqlite:"+result.buildContext().catalogDbPath());var st=db.createStatement();var rows=st.executeQuery("SELECT source_hash,content_hash FROM documentation")) {
+                assertTrue(rows.next());observed.add(List.of(id,rows.getString(1),rows.getString(2)));
+                var b=store.readSections(id,result.manifest().buildId(),sdk,0,50).orElseThrow().sections().get(0).blocks();assertEquals("  code();\r\n",b.get(1).text());
+            }
+        }
+        assertEquals(observed.get(0),observed.get(1));assertEquals(observed.get(0).get(0),observed.get(2).get(0));assertNotEquals(observed.get(0).get(1),observed.get(2).get(1));assertNotEquals(observed.get(0).get(2),observed.get(2).get(2));
+        assertEquals(observed.get(0).get(0),observed.get(3).get(0));assertNotEquals(observed.get(0).get(1),observed.get(3).get(1));assertEquals(observed.get(0).get(2),observed.get(3).get(2));assertNotEquals(observed.get(0).get(0),observed.get(4).get(0));
+    }
+    @Test void signatureDeprecationAndNamedNotesRetainHrefAndLabels() throws Exception {
+        var input=args(temp);Files.writeString(input.javadoc().resolve("T.html"),"""
+            <html><body class='class-declaration-page'><section class='class-description'><div class='type-signature'>class T extends <a href='Base.html'>Base</a></div><div class='deprecation-block'><span class='deprecated-label'>Deprecated.</span><div class='deprecation-comment'>Use <a href='New.html'>New</a>.</div></div><div class='block'>Owned.</div><dl class='notes'><dt>Throws:</dt><dd><code><a href='Failure.html'>Failure</a></code> - if it fails</dd></dl></section></body></html>
+            """);
+        var result=IngestPipelineRunner.withCatalogStage(FailurePolicy.COLLECT_AND_CONTINUE,input).runToResult(input);assertFalse(result.aborted());removeInputs(input.javadoc());
+        try(var catalog=new SqliteCatalogStore(result.buildContext().catalogDbPath());var store=new SqliteDocumentationStore(result.buildContext().catalogDbPath())) {
+            var b=blocks(store,catalog.findByKey("1","T").orElseThrow().recordId(),result.manifest().buildId());
+            assertEquals(List.of("signature","deprecated","description","throws Failure"),b.stream().map(DocumentationPayload.Block::label).toList());
+            assertEquals(List.of("Base.html","New.html","Failure.html"),b.stream().flatMap(v->v.links().stream()).map(DocumentationPayload.Link::originalTarget).toList());
+            assertEquals(1,b.stream().filter(v->v.label().equals("deprecated")).count());
+        }
+    }
 }

@@ -32,7 +32,7 @@ class ApplicationPortabilitySnapshotTest {
         Path javadoc = Files.createDirectories(root.resolve("javadoc/com/example"));
         String base = page("Base", "<section class='class-description'><div class='block'>Synthetic base.</div></section>");
         String widget = page("Widget", """
-            <section class="class-description"><div class="block">Synthetic widget.</div>
+            <section class="class-description"><div class="block">Synthetic widget.<p>Ordered caveat.</p><pre>  int n = 1;\n    n++;\n</pre><ol><li>One<ol><li>Nested</li></ol></li><li>Two</li></ol><table><tr><th>Key</th><th>Value</th></tr><tr><td>n</td><td>count</td></tr></table></div><dl class="notes"><dt>API Note:</dt><dd>Portable caveat.</dd></dl>
             <div class="type-signature"><span class="modifiers">public class </span><span class="element-name">Widget</span>
             <span class="extends-implements">extends <a href="Base.html">Base</a></span></div></section>
             <section class="method-details" id="method-detail"><ul class="member-list">
@@ -50,6 +50,8 @@ class ApplicationPortabilitySnapshotTest {
             Files.writeString(javadoc.resolve("Base.html"), base, StandardCharsets.UTF_8);
             Files.writeString(javadoc.resolve("Widget.html"), widget, StandardCharsets.UTF_8);
         }
+        Files.writeString(javadoc.resolve("package-summary.html"),"<html><body class='package-declaration-page'><h1>Package com.example</h1><section class='package-description' id='package-description'><p>Package caveat.</p><pre>  packageCode();\n</pre><ul><li>Package item</li></ul></section></body></html>\n",StandardCharsets.UTF_8);
+        Files.writeString(javadoc.resolve("overview-summary.html"),"<html><body class='package-index-page'><h1>Overview</h1><section class='overview-description'><p>Overview <a href='Widget.html'>widget</a>.</p><table><tr><th>Topic</th></tr><tr><td>Overview</td></tr></table><dl class='notes'><dt>Implementation Note:</dt><dd>Keep this caveat.</dd></dl></section></body></html>\n",StandardCharsets.UTF_8);
         var arguments = new IngestArguments(root.resolve("javadoc"), Files.createDirectories(root.resolve("samples")),
                 Files.createDirectories(root.resolve("guides")), root.resolve("unused-model"), root.resolve("out"),
                 Optional.empty(), Optional.of("2024.0"));
@@ -83,9 +85,13 @@ class ApplicationPortabilitySnapshotTest {
             logical.put("schemaVersion", query(connection, "PRAGMA user_version"));
             logical.put("schemaMetadata", query(connection, "SELECT singleton,identity_version,runtime_fingerprint FROM contract_metadata ORDER BY singleton"));
             logical.put("buildMetadata", query(connection, "SELECT build_id,sdk_product,sdk_version,profile,input_digest,recipe_digest,runtime_digest,capabilities,validation_reasons FROM build_metadata ORDER BY build_id"));
-            logical.put("knowledgeRows", query(connection,"SELECT record_id,sdk_product,sdk_version,record_type,knowledge_kind,symbol_coordinate,locator_kind,source_path,source_anchor,source_first_line,source_last_line,source_section,absent_reason,approval,owner,provenance,approval_evidence,applicability FROM knowledge_records ORDER BY record_id"));
+            logical.put("knowledgeRows", query(connection,"SELECT record_id,sdk_product,sdk_version,record_type,knowledge_kind,symbol_coordinate,locator_kind,source_path,source_anchor,source_first_line,source_last_line,source_section,absent_reason,approval,owner,provenance,approval_evidence,applicability,narrative_kind FROM knowledge_records ORDER BY record_id"));
             logical.put("documentation", query(connection,"SELECT record_id,source_hash,content_hash,section_count,hex(metadata) FROM documentation ORDER BY record_id"));
             logical.put("documentationSections", query(connection,"SELECT record_id,ordinal,hex(payload),content_hash FROM documentation_sections ORDER BY record_id,ordinal"));
+        }
+        try(var docs=new com.luciadmcp.knowledge.catalog.sqlite.SqliteDocumentationStore(result.buildContext().catalogDbPath())) {
+            assertEquals(6,docs.enumerateIds(result.manifest().buildId(),"2024.0","",50).size());
+            assertTrue(docs.readSections(KnowledgeRecord.narrativeId("2024.0","com/example/package-summary.html","PACKAGE"),result.manifest().buildId(),"2024.0",0,50).isPresent());
         }
         String report = Files.readString(arguments.out().resolve(result.manifest().buildId()).resolve(IngestPipelineRunner.REPORT_FILE), StandardCharsets.UTF_8);
         assertTrue(report.contains("SKIPPED_UNSUPPORTED"));

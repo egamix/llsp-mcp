@@ -35,8 +35,11 @@
       "type": "array",
       "items": {
         "enum": [
+          "api-documentation",
           "catalog",
-          "relationships"
+          "narrative-documentation",
+          "relationships",
+          "structured-documentation"
         ]
       }
     },

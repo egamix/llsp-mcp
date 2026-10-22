@@ -24,3 +24,9 @@ Independent review corrections enforce complete persisted SDK-scope validation i
 ## 2026-10-21 â€” Story 2.9 scoped adoption
 
 Adopt identity/1, DocumentationPayload, typed locators and bounded DocumentationStore for API persistence. schema/2 adds atomic catalog/knowledge/document/section storage, rejects older stores unchanged, and versions javadoc-lexical/2 and catalog-runtime/2. Production capabilities add api-documentation; read-tools/2 guidance is unchanged. Interface, evaluation and release sign-offs remain pending.
+
+## 2026-10-22 — Story 2.10 structured documentation implementation
+
+Rebuild-only schema/3 moves the documentation foreign key to knowledge_records and adds explicit PACKAGE/OVERVIEW narrative kind metadata. Narratives reuse narrative/1 source-specific IDs and have no symbol or API catalog row. API identity/1, content/1, existing block DTO wire shape and read-tools/2 guidance remain unchanged. javadoc-lexical/3, catalog-runtime/3, javadoc-parser/3 and schema/3 toolchain components invalidate incompatible builds; declared capabilities add narrative-documentation and structured-documentation.
+
+Owned paragraphs, whitespace-preserving code, homogeneous simple nested lists, rectangular column-header tables, labeled notes and offline href provenance persist through production ingestion. Unrepresentable shapes report PARTIAL_UNSUPPORTED and preserve HTML evidence where ownership is known. Unknown/ambiguous/empty narrative ownership reports issues. Coverage reconciliation, search, MCP and lifecycle handlers remain outside this story; technical human ratification and private-corpus acceptance are not claimed.

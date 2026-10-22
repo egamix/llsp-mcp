@@ -1,15 +1,18 @@
 {
   "buildId": "b-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
   "sdkVersion": "2024.0",
-  "toolchainFingerprint": "38f9128067cdf5e6a2f7526f79fc2e56a0682edce83ba3837d50d67646effa4d",
+  "toolchainFingerprint": "9f1e6240b623cfc1e7303ea8d4960d5014877722575750b6ed4598a2a0c1b099",
   "manifestVersion": 1,
   "profile": "javadoc-lexical",
   "inputDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-  "recipeDigest": "6bc9e4363a01485cd0151d13b46a8c77d9001c236182f34e169cb8c334fdaf15",
-  "runtimeDigest": "38f9128067cdf5e6a2f7526f79fc2e56a0682edce83ba3837d50d67646effa4d",
+  "recipeDigest": "f629ca6a8675873cffc95d3178b6c4005c26cf8e3148247329d2864817a94519",
+  "runtimeDigest": "9f1e6240b623cfc1e7303ea8d4960d5014877722575750b6ed4598a2a0c1b099",
   "capabilities": [
+    "api-documentation",
     "catalog",
-    "relationships"
+    "narrative-documentation",
+    "relationships",
+    "structured-documentation"
   ],
-  "capabilityFingerprint": "f511bedd2d7f4a94aee9fa72eaa44dcd2f9f171e351908ad40607a579d5c48e5"
+  "capabilityFingerprint": "01c8fc8f142baa0af2922b38413e6fe2bbb205f29af8f5ff229d19860d14a0bc"
 }

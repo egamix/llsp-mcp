@@ -7,6 +7,7 @@ class PortableFixtureTest {
     @Test void javaMatchesIndependentPortableKnownAnswers() throws Exception {
         Path root=Path.of("").toAbsolutePath();while(!Files.isDirectory(root.resolve("docs/contracts/fixtures"))) root=root.getParent();
         Properties expected=new Properties();try(var reader=Files.newBufferedReader(root.resolve("docs/contracts/fixtures/portable.properties"))) { expected.load(reader); }
+        assertEquals(expected.getProperty("narrativeId"),KnowledgeRecord.narrativeId("1","p/package-summary.html","PACKAGE"));
         var symbol=new SymbolCoordinate("p","1","java","a","a.T","m",List.of("x.Value[]","y.Value"),"METHOD");
         assertEquals(expected.getProperty("symbol"),symbol.serialize());
         assertEquals(expected.getProperty("recordId"),ContentHashes.recordHash("MethodElement",List.of(symbol.serialize(),"1")));

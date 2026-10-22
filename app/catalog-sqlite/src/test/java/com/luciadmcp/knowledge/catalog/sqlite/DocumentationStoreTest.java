@@ -150,6 +150,6 @@ class DocumentationStoreTest {
         try(var store=new SqliteDocumentationStore(path)) { assertThrows(IllegalStateException.class,()->store.putAtomically(record,payload(record)));assertEquals(1,store.enumerateIds(BUILD,"1","",50).size()); }
         try(var db=DriverManager.getConnection("jdbc:sqlite:"+path);var st=db.createStatement();var r=st.executeQuery("SELECT count(*) FROM knowledge_records WHERE record_type='NARRATIVE'")) { r.next();assertEquals(0,r.getInt(1)); }
         Path old=temp.resolve("schema2.db");try(var db=DriverManager.getConnection("jdbc:sqlite:"+old);var st=db.createStatement()) { st.execute("PRAGMA user_version=2"); }
-        byte[] before=Files.readAllBytes(old);assertThrows(IllegalStateException.class,()->new SqliteCatalogStore(old));assertArrayEquals(before,Files.readAllBytes(old));
+        byte[] before=Files.readAllBytes(old);assertThrows(IllegalStateException.class,()->new SqliteCatalogStore(old));assertArrayEquals(before,Files.readAllBytes(old));assertThrows(IllegalStateException.class,()->new SqliteRelationshipStore(old,BUILD,new RelationshipScope("1"),new byte[32]));assertArrayEquals(before,Files.readAllBytes(old));
     }
 }

@@ -23,12 +23,12 @@ public final class JavadocDocumentationAssembler {
                 new KnowledgeRecord.Applicability("LuciadLightspeed",List.of(tuple.sdkVersion()),List.of()));
         List<DocumentationPayload.Block> blocks=new ArrayList<>();
         if(symbol.memberIndex()<0) {
-            var type=page.type();add(blocks,"signature",type.signature());if(type.documentationBlocks().isEmpty())add(blocks,"description",type.description());else blocks.addAll(scoped(type.documentationBlocks(),tuple.sdkVersion()));
+            var type=page.type();if(type.documentationBlocks().stream().noneMatch(b->b.label().equals("signature")))add(blocks,"signature",type.signature());if(type.documentationBlocks().isEmpty())add(blocks,"description",type.description());else blocks.addAll(scoped(type.documentationBlocks(),tuple.sdkVersion()));
             if(type.documentationBlocks().isEmpty()) { for(var param:type.typeParameters())add(blocks,"type parameter "+param.name(),param.description());
             add(blocks,"since",type.since()); } deprecation(blocks,type.deprecation());
         } else {
             var member=page.type().members().get(symbol.memberIndex());
-            add(blocks,"signature",member.signature());if(member.documentationBlocks().isEmpty())add(blocks,"description",member.description());else blocks.addAll(scoped(member.documentationBlocks(),tuple.sdkVersion()));
+            if(member.documentationBlocks().stream().noneMatch(b->b.label().equals("signature")))add(blocks,"signature",member.signature());if(member.documentationBlocks().isEmpty())add(blocks,"description",member.description());else blocks.addAll(scoped(member.documentationBlocks(),tuple.sdkVersion()));
             if(member.documentationBlocks().isEmpty()) { for(var param:member.typeParameters())add(blocks,"type parameter "+param.name(),param.description());
             for(var param:member.params())add(blocks,"parameter "+param.name(),param.description());
             add(blocks,"returns",member.returns());for(var exception:member.throwsTypes())add(blocks,"throws "+exception.type(),exception.description());
@@ -53,6 +53,6 @@ public final class JavadocDocumentationAssembler {
         if(!text.isEmpty() || label.startsWith("parameter ") || label.startsWith("type parameter ") || label.startsWith("throws "))blocks.add(new DocumentationPayload.Block(label.equals("signature")?DocumentationPayload.BlockKind.CODE:DocumentationPayload.BlockKind.PARAGRAPH,label,text,List.of()));
     }
     private static void deprecation(List<DocumentationPayload.Block> blocks,Deprecation deprecation) {
-        if(deprecation.present())blocks.add(new DocumentationPayload.Block(DocumentationPayload.BlockKind.NOTE,"deprecated",deprecation.comment(),List.of()));
+        if(deprecation.present() && blocks.stream().noneMatch(b->b.label().equals("deprecated")))blocks.add(new DocumentationPayload.Block(DocumentationPayload.BlockKind.NOTE,"deprecated",deprecation.comment(),List.of()));
     }
 }

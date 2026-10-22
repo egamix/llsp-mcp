@@ -16,6 +16,8 @@ final class OwnedDocumentationExtractor {
     static List<DocumentationPayload.Block> extract(Element owner,String path,List<String> issues) {
         if(owner==null)return List.of();
         var parser=new OwnedDocumentationExtractor(path,issues);
+        Element signature=JavadocFieldExtractor.firstOwned(owner,".type-signature,.typeSignature,.member-signature,.memberSignature,pre");
+        if(signature!=null && signature.closest(".block")==null)parser.add(new DocumentationPayload.Block(DocumentationPayload.BlockKind.CODE,"signature",signature.text(),parser.links(signature)));
         parser.walk(owner,owner,"description",0);
         return List.copyOf(parser.blocks);
     }
@@ -31,23 +33,27 @@ final class OwnedDocumentationExtractor {
         blocks.add(block);
     }
     private boolean foreign(Element el,Element owner) {
-        return el!=owner && (el.is("section.detail, nav, .summary, .details, .member-summary, .memberSummary, .overviewSummary, .type-signature, .typeSignature, .member-signature, .memberSignature, .deprecation-block, .deprecationBlock, .deprecated-label, .deprecatedLabel, .deprecation-comment, .deprecationComment, header, footer, script, style") || el.is("li.blockList, li.blockListLast") && el.children().stream().anyMatch(c->c.tagName().equals("h4")));
+        return el!=owner && (el.is("section.detail, nav, .summary, .details, .member-summary, .memberSummary, .overviewSummary, .type-signature, .typeSignature, .member-signature, .memberSignature, .deprecated-label, .deprecatedLabel, .deprecation-comment, .deprecationComment, header, footer, script, style") || el.is("li.blockList, li.blockListLast") && el.children().stream().anyMatch(c->c.tagName().equals("h4")));
     }
     private void walk(Element el,Element owner,String label,int depth) {
         guard(depth);if(foreign(el,owner))return;
         if(el!=owner && el.is("h1,h2,h3,h4,h5,h6"))return;
         if(el!=owner && el.is("pre") && signatures && label.equals("description") && el.closest(".block")==null)return; // member signature
-        if(el!=owner && el.is(".block") && el.selectFirst(".deprecated-label,.deprecatedLabel")!=null)return;
+        if(el!=owner && (el.is(".deprecation-block,.deprecationBlock") || el.hasClass("block") && el.selectFirst(".deprecated-label,.deprecatedLabel")!=null)) {
+            Element value=el.clone();value.select(".deprecated-label,.deprecatedLabel").remove();
+            for(Element comment:value.select(".deprecation-comment,.deprecationComment"))comment.removeAttr("class");
+            walk(value,value,"deprecated",depth+1);return;
+        }
         if(el.tagName().equals("dl")) { notes(el,owner,depth);return; }
         if(el.tagName().equals("pre")) { add(new DocumentationPayload.Block(DocumentationPayload.BlockKind.CODE,label,el.wholeText(),links(el)));return; }
         if(el.tagName().equals("table")) { table(el,label);return; }
         if((el.tagName().equals("ul") || el.tagName().equals("ol")) && !el.hasClass("blockList") && !el.hasClass("blockListLast") && !el.hasClass("member-list")) { list(el,label);return; }
-        if(el.is("img,svg,iframe,video,audio,canvas,object")) { unsupported(el,"rich element "+el.tagName());return; }
+        if(el.is("img,svg,iframe,video,audio,canvas,object,input,button,select,textarea,math")) { unsupported(el,"rich element "+el.tagName());return; }
         // Flush adjacent inline nodes as a paragraph, splitting at structural children in source order.
         Element inline=new Element("span");
         for(Node node:el.childNodes()) {
             guard(depth+1);
-            if(node instanceof Element child && (child.isBlock() || child.is("img,svg,iframe,video,audio,canvas,object"))) {
+            if(node instanceof Element child && (child.isBlock() || child.is("img,svg,iframe,video,audio,canvas,object,input,button,select,textarea,math") || child.selectFirst("img,svg,iframe,video,audio,canvas,object,input,button,select,textarea,math")!=null)) {
                 flush(inline,label);walk(child,owner,label,depth+1);
             } else if(node instanceof Element child && (foreign(child,owner)||child.is("h1,h2,h3,h4,h5,h6"))) {
                 flush(inline,label);
@@ -60,7 +66,7 @@ final class OwnedDocumentationExtractor {
         if(!text.isBlank())add(new DocumentationPayload.Block(noteLabel(label)?DocumentationPayload.BlockKind.NOTE:DocumentationPayload.BlockKind.PARAGRAPH,label,text,links(inline)));
         inline.empty();
     }
-    private static boolean noteLabel(String label) { return Set.of("API Note","Implementation Note","Implementation Requirements").contains(label); }
+    private static boolean noteLabel(String label) { return Set.of("API Note","Implementation Note","Implementation Requirements","deprecated").contains(label); }
     private void notes(Element dl,Element owner,int depth) {
         // An author definition list is richer than our DTO; retain explicit evidence.
         if(dl.closest(".block")!=null) { unsupported(dl,"definition list");return; }
@@ -70,28 +76,32 @@ final class OwnedDocumentationExtractor {
             else if(child.tagName().equals("dd") && label!=null) {
                 String normalized=label.toLowerCase(Locale.ROOT);
                 String stored=switch(normalized) { case "api note"->"API Note";case "implementation note"->"Implementation Note";case "implementation requirements"->"Implementation Requirements";default->normalized; };
-                Element value=child.clone();
+                Element value=child.clone();List<DocumentationPayload.Link> prefixLinks=List.of();
                 if(Set.of("parameters","type parameters","throws","exceptions").contains(normalized)) {
                     Element name=value.selectFirst("code");
                     if(name==null) { unsupported(child,"unnamed "+label);continue; }
                     stored=(normalized.equals("parameters")?"parameter ":normalized.equals("type parameters")?"type parameter ":"throws ")+name.text();
-                    name.remove();
+                    prefixLinks=links(name);name.remove();
                     if(!value.childNodes().isEmpty() && value.childNode(0) instanceof TextNode text)text.text(text.getWholeText().replaceFirst("^\\s*-\\s*",""));
                 }
                 int before=blocks.size();walk(value,value,stored,depth+1);
+                if(!prefixLinks.isEmpty() && blocks.size()>before) {
+                    var first=blocks.get(before);var all=new ArrayList<>(prefixLinks);all.addAll(first.links());
+                    blocks.set(before,new DocumentationPayload.Block(first.kind(),first.label(),first.text(),all,first.table(),first.items(),first.ordered()));
+                }
                 if(before==blocks.size())add(new DocumentationPayload.Block(noteLabel(stored)?DocumentationPayload.BlockKind.NOTE:DocumentationPayload.BlockKind.PARAGRAPH,stored,"",List.of()));
             } else if(!child.tagName().equals("dt"))unsupported(child,"ambiguous note ownership");
         }
     }
     private void table(Element el,String label) {
         var rows=el.select("tr");
-        boolean unsupported=el.selectFirst("caption")!=null || rows.isEmpty() || !el.select("[rowspan],[colspan],table table").isEmpty();
+        boolean unsupported=el.selectFirst("caption")!=null || rows.isEmpty() || !el.select("[rowspan],[colspan],[scope=row],[scope=rowgroup],table table").isEmpty();
         List<String> headers=new ArrayList<>();List<List<String>> values=new ArrayList<>();
         for(int i=0;i<rows.size();i++) {
             var cells=rows.get(i).children();List<String> row=new ArrayList<>();
             if(cells.isEmpty())unsupported=true;
             for(Element cell:cells) {
-                if(!cell.tagName().equals(i==0?"th":"td") || !cell.select("p,pre,ul,ol,dl,table,img,svg,br").isEmpty())unsupported=true;
+                if(!cell.tagName().equals(i==0?"th":"td") || !cell.select("p,pre,ul,ol,dl,table,img,svg,br,input,button,select,textarea,math,video,audio,canvas,object,iframe").isEmpty())unsupported=true;
                 row.add(cell.text());
             }
             if(i==0)headers=row;else { if(row.size()!=headers.size())unsupported=true;values.add(row); }
@@ -113,7 +123,7 @@ final class OwnedDocumentationExtractor {
             Element prose=li.clone();var children=new ArrayList<DocumentationPayload.ListItem>();boolean nested=false;
             for(Element child:li.children()) {
                 if(child.tagName().equals("ul")||child.tagName().equals("ol")) { if(nested)throw new UnsupportedOperationException("multiple nested lists");nested=true;children.addAll(items(child,order,depth+1)); }
-                else if(nested || child.isBlock() || !child.select("ul,ol,table,pre,img,svg").isEmpty())throw new UnsupportedOperationException("rich list item or text after nested list");
+                else if(nested || child.isBlock() || !child.select("ul,ol,table,pre,img,svg,input,button,select,textarea,math,video,audio,canvas,object,iframe").isEmpty())throw new UnsupportedOperationException("rich list item or text after nested list");
             }
             for(Node child:li.childNodes())if(nested && child instanceof TextNode text && !text.isBlank() && child.siblingIndex()>li.children().stream().filter(c->c.is("ul,ol")).findFirst().orElseThrow().siblingIndex())throw new UnsupportedOperationException("text after nested list");
             prose.select("ul,ol").remove();result.add(new DocumentationPayload.ListItem(prose.text(),children));

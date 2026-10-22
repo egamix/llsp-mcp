@@ -1,4 +1,4 @@
--- SQLite schema/3; source API storage adoption approved 2026-10-21. Other gates remain pending.
+-- SQLite schema/3 implementation. Story 2.9 approval covered source API storage only; schema/3 technical ratification remains pending.
 
 PRAGMA user_version=3;
 

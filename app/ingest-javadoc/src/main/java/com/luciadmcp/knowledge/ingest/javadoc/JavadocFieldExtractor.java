@@ -524,7 +524,7 @@ public final class JavadocFieldExtractor {
         }
         return true;
     }
-    private static Element firstOwned(Element scope,String selector) {
+    static Element firstOwned(Element scope,String selector) {
         for(Element element:scope.select(selector))if(owned(scope,element))return element;
         return null;
     }
