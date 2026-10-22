@@ -67,7 +67,7 @@ development_status:
   2-7-bounded-cycle-safe-relationship-traversal: done
   2-8-contract-and-verification-freeze: review
   2-9-persist-source-faithful-api-documentation: review
-  2-10-preserve-structured-javadoc-and-narrative-content: backlog
+  2-10-preserve-structured-javadoc-and-narrative-content: review
   2-11-account-for-ingestion-coverage-and-fidelity: backlog
   epic-2-retrospective: optional
 
