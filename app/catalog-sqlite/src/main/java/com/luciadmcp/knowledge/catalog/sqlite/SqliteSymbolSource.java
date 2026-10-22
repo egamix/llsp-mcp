@@ -7,7 +7,7 @@ import java.util.*;
 import static com.luciadmcp.knowledge.domain.SymbolSourceException.Code.*;
 
 /** Serving handle: never initializes schemas or opens a writable catalog. */
-public final class SqliteSymbolSource implements SymbolSource {
+public final class SqliteSymbolSource implements SymbolSource, DocumentationSource {
     private static final String COLUMNS="record_id,sdk_version,canonical_key,kind,type_fqn,simple_name,relative_path,anchor";
     private final Connection db;
     private final SymbolSourceBinding binding;
@@ -60,6 +60,42 @@ public final class SqliteSymbolSource implements SymbolSource {
             try(var r=p.executeQuery()) { while(r.next())rows.add(new StoredCatalogRecord(r.getString(1),new CatalogRecord(r.getString(2),r.getString(3),r.getString(4),r.getString(5),r.getString(6),r.getString(7),r.getString(8)))); }
             return List.copyOf(rows);
         }catch(SQLException e) { throw new SymbolSourceException(BUILD_UNAVAILABLE,"Pinned source read failed",e); }
+    }
+    @Override public synchronized String runtimeFingerprint() {
+        try(var s=db.createStatement();var r=s.executeQuery("SELECT runtime_digest FROM build_metadata LIMIT 1")) {
+            if(!r.next())throw new IllegalStateException("MISSING_METADATA");return r.getString(1);
+        }catch(SQLException e) { throw new SymbolSourceException(BUILD_UNAVAILABLE,"Pinned metadata read failed",e); }
+    }
+    @Override public synchronized List<String> documentationIdsAfter(String after,int limit) {
+        boundedBatch(after,limit);
+        try(var p=db.prepareStatement("SELECT d.record_id FROM documentation d JOIN knowledge_records k USING(record_id) WHERE k.sdk_version=? AND d.record_id>? ORDER BY d.record_id LIMIT ?")) {
+            p.setString(1,binding.sdkVersion());p.setString(2,after);p.setInt(3,limit);
+            var ids=new ArrayList<String>();try(var r=p.executeQuery()) { while(r.next())ids.add(r.getString(1)); }return List.copyOf(ids);
+        }catch(SQLException e) { throw new SymbolSourceException(BUILD_UNAVAILABLE,"Pinned documentation enumeration failed",e); }
+    }
+    private static void boundedBatch(String cursor,int limit) {
+        if(cursor==null || limit<1 || limit>256)throw new IllegalArgumentException("bounded cursor and batch required");
+        if(!cursor.isEmpty())ExactSymbolQuery.text(cursor);
+    }
+    @Override public synchronized Optional<KnowledgeRecord> knowledgeRecord(String id) {
+        ExactSymbolQuery.text(id);
+        try(var p=db.prepareStatement("SELECT CASE WHEN octet_length(d.metadata)<=1310724 THEN d.metadata END FROM documentation d JOIN knowledge_records k USING(record_id) WHERE d.record_id=? AND k.sdk_version=?")) {
+            p.setString(1,id);p.setString(2,binding.sdkVersion());
+            try(var r=p.executeQuery()) { if(!r.next())return Optional.empty();return Optional.of(SqliteDocumentationStore.decodeMetadata(DocumentationCodec.decode(r.getBytes(1)))); }
+        }catch(SQLException e) { throw new SymbolSourceException(BUILD_UNAVAILABLE,"Pinned knowledge read failed",e); }
+    }
+    @Override public synchronized List<DocumentationPayload.Section> sections(String id,int offset,int limit) {
+        boundedBatch(id,limit);
+        if(offset<0 || offset>DocumentationPayload.MAX_SECTIONS)throw new IllegalArgumentException("INVALID_OFFSET");
+        // Read bounded, verified sections from this connection, never a second SQLite snapshot.
+        try(var p=db.prepareStatement("SELECT section_count FROM documentation WHERE record_id=?")) {
+            p.setString(1,id);try(var r=p.executeQuery()) {
+                if(!r.next())throw new IllegalArgumentException("MISSING_CONTENT");int count=r.getInt(1);
+                if(count<1 || count>256)throw new IllegalStateException("CORRUPT_CONTENT");
+                if(offset>=count)return List.of();
+                return List.copyOf(SqliteDocumentationStore.read(db,id,offset,Math.min(limit,count-offset),DocumentationCodec.MAX_ENCODED_BYTES));
+            }
+        }catch(SQLException e) { throw new SymbolSourceException(BUILD_UNAVAILABLE,"Pinned section read failed",e); }
     }
     @Override public synchronized void close() {
         try { db.close(); }catch(SQLException e) { throw new SymbolSourceException(BUILD_UNAVAILABLE,"Source close failed",e); }
