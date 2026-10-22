@@ -62,6 +62,60 @@ class CitedRetrievalTest {
             assertEquals(CitedRetrieval.Outcome.NO_MATCH,service.search(new CitedRetrieval.Request("zzzzabsent")).outcome());
         }
     }
+    private static void putApi(CatalogStore store,CatalogRecord tuple,String reason,String text) {
+        String id=IdentityFields.recordId(tuple);
+        var locator=new SourceLocator(SourceLocator.Kind.SOURCE,tuple.relativePath(),Optional.empty(),reason);
+        var record=new KnowledgeRecord(id,SDK,KnowledgeRecord.RecordType.API,KnowledgeRecord.KnowledgeKind.AUTHORITATIVE_FACT,
+                Optional.of(SymbolCoordinate.from(tuple)),locator,governance(),new KnowledgeRecord.Applicability("LuciadLightspeed",List.of(SDK),List.of()));
+        var section=new DocumentationPayload.Section("body","Documentation",locator,List.of(
+                new DocumentationPayload.Block(DocumentationPayload.BlockKind.PARAGRAPH,"description",text,List.of())));
+        store.putDocumented(tuple,record,payload(id,List.of(section)));
+    }
+    @Test void anchorlessMemberRetainsStoredLocatorExplanationWithExactProof() {
+        Path path=database(1);Path lexical=temp.resolve("index");
+        try(var store=new SqliteCatalogStore(path)) {
+            putApi(store,new CatalogRecord(SDK,"p.Widget0#paint()","METHOD","p.Widget0","paint","p/Widget0.html",""),
+                    "member anchor absent in source","Paints elevation contours");
+        }
+        try(var source=new SqliteSymbolSource(path)) {
+            LuceneLexicalIndex.build(lexical,source);
+            try(var index=new LuceneLexicalIndex(lexical,LexicalIndex.Binding.of(source))) {
+                var page=new CitedRetrieval(source,source,index,KEY).search(new CitedRetrieval.Request("p.Widget0#paint()"));
+                assertEquals(ExactSymbolResult.Proof.EXACT,page.symbolProof());
+                var member=page.items().getFirst();assertTrue(member.exactIdentity());
+                assertEquals("member anchor absent in source",member.locator().reason());
+                assertTrue(member.locator().anchor().isEmpty());assertEquals("p/Widget0.html",member.locator().relativePath());
+            }
+        }
+    }
+    @Test void twoAmbiguousCandidatesExhaustLimitBeforeThirdLexicalCandidate() {
+        Path path=database(0);Path lexical=temp.resolve("index");
+        try(var store=new SqliteCatalogStore(path)) {
+            for(String owner:List.of("alpha.Widget","beta.Widget"))
+                putApi(store,new CatalogRecord(SDK,owner,"TYPE",owner,"Widget",owner.replace('.','/')+".html",""),"","Widget guidance");
+            putApi(store,new CatalogRecord(SDK,"gamma.Extra","TYPE","gamma.Extra","Extra","gamma/Extra.html",""),"","Widget thirdonly guidance");
+        }
+        try(var source=new SqliteSymbolSource(path)) {
+            LuceneLexicalIndex.build(lexical,source);
+            try(var index=new LuceneLexicalIndex(lexical,LexicalIndex.Binding.of(source))) {
+                int[] lexicalCalls={0};
+                LexicalIndex thirdCandidate=new LexicalIndex() {
+                    public Binding binding() { return index.binding(); }
+                    public Page search(Query query) {
+                        lexicalCalls[0]++;
+                        return index.search(new Query("thirdonly",query.pageSize(),query.candidateLimit(),query.workLimit(),
+                                query.timeoutMillis(),query.filters(),query.targetSdkVersion(),query.offset(),query.priorityRecordIds()));
+                    }
+                    public void close() {}
+                };
+                var limits=new CitedRetrieval.Limits(2,5000,5000,10,1_048_576);
+                var page=new CitedRetrieval(source,source,thirdCandidate,KEY).search(request("Widget",Map.of(),limits,""));
+                assertEquals(ExactSymbolResult.Proof.AMBIGUOUS,page.symbolProof());assertEquals(2,page.candidatesExamined());
+                assertEquals(0,lexicalCalls[0]);assertTrue(page.items().isEmpty());assertTrue(page.truncated());
+                assertEquals("CANDIDATE_LIMIT",page.reason());assertEquals("",page.continuation());
+            }
+        }
+    }
     @Test void overFiftyStablePagesCursorReplayRebindingAndCandidateWindow() {
         Path path=database(65);Path lexical=temp.resolve("index");
         try(var source=new SqliteSymbolSource(path)) {

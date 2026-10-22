@@ -80,12 +80,12 @@ public final class CitedRetrieval {
             var exact=new ExactSymbolResolver(timedSymbols(budget)).resolve(new ExactSymbolQuery(request.text(),true,1,
                     Math.min(50,request.limits().candidates()),exactWork,Optional.of(source.sdkVersion()),Optional.of(source.buildId()),request.targetSdk()));
             budget.refund(exactWork-exact.workCharged());proof=exact.proof();
-            if(proof!=ExactSymbolResult.Proof.EXACT)exactCandidates=exact.matches().size();
+            if(proof!=ExactSymbolResult.Proof.EXACT)exactCandidates=exact.candidatesMatched();
             if(proof==ExactSymbolResult.Proof.EXACT) {
                 var match=exact.matches().getFirst();budget.charge(1);
                 var record=content.knowledgeRecord(match.recordId()).orElseThrow(()->error(Failure.INVALID_CONTENT,"exact symbol has no saved content"));
                 if(!record.id().equals(match.recordId()) || !record.sdkVersion().equals(source.sdkVersion())
-                        || !record.symbol().equals(Optional.of(match.symbol())) || !record.locator().equals(match.locator()))
+                        || !record.symbol().equals(Optional.of(match.symbol())) || !sameLocation(record.locator(),match.locator()))
                     throw error(Failure.INVALID_CONTENT,"exact identity/content association differs");
                 priority=Set.of(match.recordId());
             }
@@ -132,6 +132,12 @@ public final class CitedRetrieval {
         var outcome=!items.isEmpty()?Outcome.MATCHES:filtered>0 || !filters.equals(Map.of("approval","APPROVED"))?Outcome.FILTERED_CONTENT:
                 proof==ExactSymbolResult.Proof.INCOMPLETE_EVIDENCE || !stable?Outcome.INSUFFICIENT_EVIDENCE:Outcome.NO_MATCH;
         return new Page(source,request.targetSdk(),items,proof,outcome,lexical.matchedCount(),relation,budget.used,exactCandidates+(int)Math.min(windowLimit,Math.min(lexical.matchedCount(),offset+request.limits().pageSize())),truncated,reason,cursor);
+    }
+    private static boolean sameLocation(SourceLocator saved,SourceLocator resolved) {
+        // Explanations describe source omissions; they are not location identity.
+        return saved.kind()==resolved.kind() && saved.relativePath().equals(resolved.relativePath())
+                && saved.anchor().equals(resolved.anchor()) && saved.lines().equals(resolved.lines())
+                && saved.section().equals(resolved.section());
     }
     private SymbolSource timedSymbols(Budget budget) {
         return new SymbolSource() {
