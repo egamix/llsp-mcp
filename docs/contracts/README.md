@@ -1,6 +1,6 @@
 # Contract freeze — read-tools/2 candidate
 
-Story 2.10 implements durable structured API documentation and package/overview narratives. Scoped contract adoption remains recorded in sign-offs.json; schema/3 technical ratification and other interface/evaluation/release approvals remain pending. Retrieval/MCP handlers remain downstream; Story 2.11 adds coverage reconciliation and an optional independent fidelity audit. Current executed evidence is documented in STORY-2-10-VERIFICATION.md; API-DOCUMENTATION-STORAGE.md records the historical Story 2.9 storage design.
+Story 2.10 implements durable structured API documentation and package/overview narratives. Scoped contract adoption remains recorded in sign-offs.json; schema/3 technical ratification and other interface/evaluation/release approvals remain pending. Retrieval/MCP handlers remain downstream; Story 2.11 adds coverage reconciliation and an optional independent fidelity audit. Current executed evidence is documented in STORY-2-11-VERIFICATION.md and STORY-2-10-VERIFICATION.md; API-DOCUMENTATION-STORAGE.md records the historical Story 2.9 storage design.
 
 ## Identity and independent digests
 

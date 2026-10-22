@@ -2,7 +2,8 @@
 title: 'Story 2.11: Account for ingestion coverage and fidelity'
 type: 'feature'
 created: '2026-10-22'
-status: 'ready-for-dev'
+status: 'done'
+baseline_commit: 'b6ad6ad08eccb18fdebf0b6e9989e85926dd5650'
 route: 'dispatch'
 review_loop_iteration: 0
 story_key: '2-11-account-for-ingestion-coverage-and-fidelity'
@@ -14,13 +15,13 @@ context:
 
 ## Intent
 
-Expose what ingestion preserved, skipped or lost, so successful processing cannot conceal missing documentation. Close Story 2.10's production ingestion/reopen path with reconciled reporting, bounded admission and an optional independent fidelity audit before lexical indexing consumes it.
+Report what ingestion preserved, skipped or lost. Close Story 2.10 with reconciled accounting, bounded admission and an optional independent fidelity audit before lexical indexing.
 
 ## Boundaries & Constraints
 
-**Always:** Count pages, logical records and payload sections separately. Every discovered page has one documented EXCLUDED/COMPLETE/PARTIAL/FAILED disposition. Exclusion requires positive non-content classification; unsupported/unknown/malformed pages are visible, never complete. INSERTED and identical retries each count one persisted logical association. Preserve structured content, stable IDs, scope, atomic rollback and useful cross-version guidance. Unknown independent denominators stay absent. Version changed report contracts and retain pending technical ratification honestly.
+**Always:** Count pages, logical records and payload sections separately. Each discovered page is EXCLUDED/COMPLETE/PARTIAL/FAILED; only positively classified non-content is excluded. Unsupported/unknown/malformed content is never complete. Inserts/retries count one logical association. Preserve structure, IDs, scope, rollback and cross-version guidance. Independent unknown denominators stay absent; version reports without inventing technical ratification.
 
-**Never:** Access private corpus or held-out gold during this build; fabricate approvals, inventory, counts or completeness; dump source bodies in audit diagnostics; change storage schema/identity/content/read-tools contracts; implement search, MCP, lifecycle or retained-source HTTP serving. Preserve unrelated original-checkout edits and existing story commits. No push or merge of Story 2.11.
+**Never:** Access private/held-out material; invent approvals/counts/completeness; dump source bodies; change storage/identity/content/read-tools contracts; implement search/MCP/lifecycle/HTTP serving. Preserve original-checkout edits and separate commits. No push or Story 2.11 merge.
 
 ## I/O & Edge-Case Matrix
 
@@ -39,25 +40,17 @@ Expose what ingestion preserved, skipped or lost, so successful processing canno
 
 ## Code Map
 
-Paths below are under app/ unless stated otherwise.
-
-- ingest-javadoc/JavadocDiscovery:83-192 parses unrestricted files and materializes sorted walks/index text; JavadocCatalogSource:31-46,118-125 loses full discovery inventory. Preserve typed discovery/producer outcomes.
-- cli/pipeline/CatalogStage:64-153 writes atomic documented associations but outer catch can stop remaining pages; return per-page outcomes and logical persistence counts, with unprocessed pages explicit.
-- cli/pipeline/IngestPipelineRunner:198-200,252-307 skips checkpointed catalog and constructs reports; BuildContext:137-166 materializes all paths/file bytes before parser guards. Restore validated accounting on resume; bound enumeration and stream original-byte hashing without changing digests.
-- cli/pipeline/IngestionReport:107-159 emits report/1 null coverage; domain/DocumentationStore:37-39 Coverage is unused and lacks partial. Use a coherent reporting model without changing the storage port contract.
-- ingest-javadoc/JavadocFieldExtractor:69-87 and JavadocCatalogSource:52-79 stat then readAllBytes; replace with shared capped readers. Reuse OwnedDocumentationExtractor and DocumentationPayload work/shape caps.
-- StructuredDocumentationRoundtripTest, DocumentationRoundtripTest, DocumentationStoreTest and ApplicationPortabilitySnapshotTest provide real pipeline, source removal, retry/rollback and platform oracles.
-- docs/contracts/ingestion-report.schema.json, example, README and tools/contracts contain schema verification/oracles; DocumentationCodec defines actual persisted section encoding for the audit.
+Under app/: ingest-javadoc/JavadocDiscovery:83-192 has unbounded reads/walks; JavadocCatalogSource:31-46,118-125 drops full inventory. cli/pipeline/CatalogStage:64-153 owns atomic writes; IngestPipelineRunner:198-200,252-307 owns resume/report; BuildContext:137-166 hashes materialized inputs; IngestionReport:107-159 emits null coverage. JavadocFieldExtractor:69-87 needs capped reads. Reuse payload/extractor limits, DocumentationCodec, and StructuredDocumentationRoundtripTest/DocumentationRoundtripTest/DocumentationStoreTest/ApplicationPortabilitySnapshotTest. docs/contracts and tools/contracts own schemas/oracles.
 
 ## Tasks & Acceptance
 
-- [ ] ingest-javadoc discovery/source/results plus cli/CatalogStage — retain complete inventory and typed reason codes, derive disjoint page outcomes after writes and separate emitted/persisted/failed association/section totals; keep compatibility constructors where callers require them.
-- [ ] cli reporting/context/runner and new build-scoped coverage snapshot — write deterministic versioned accounting atomically before catalog checkpointing; bind build/SDK/recipe/runtime and validate bounded restore. Retry recomputes instead of increments. Unavailable accounting cannot imply complete. Use report/2 with explicit coverage availability, counting rules, sorted reasons/outcomes and unknown independent expectations; update its schema/examples/verifier and affected version fixtures.
-- [ ] ingest-javadoc bounded input utility and cli/BuildContext — capped limit+1 reads for HTML/search indexes (8 MiB); streaming SHA-256; finite enumeration (100,000 files/root, 4,096 UTF-8 bytes/path, 16 MiB aggregate path bytes/root). Document these implementation admission limits and preserve existing payload/storage caps. Abort beyond enumerated universe honestly rather than inventing unseen counts.
-- [ ] tools/contracts/audit_ingestion.py and synthetic tests — optional bounded read-only audit of externally supplied build/SDK-bound inventory with independent expected record/section/block values or hashes. Validate/recompute from actual payload bytes, not trusted hash columns alone. Private mode first checks explicit 10.1/B2/B6, corpus-owner/development-only/held-out-exclusion/inventory attestations; missing gates produce NOT_RUN/BLOCKED before opening inventory/store. Emit aggregate categories/counts only, including sanitized errors.
-- [ ] module tests, contract docs and verification evidence — exercise every matrix row through production storage and real failures, boundary pairs, source removal and restart/retry; mutation-like audit specimens must catch lost notes/blocks/members/narratives. Update portability snapshots and Graft.
+- [x] ingest-javadoc discovery/source/results, cli/CatalogStage — retain inventory/typed reasons; reconcile disjoint page dispositions and emitted/persisted/failed record/section totals after writes. Retries count once; unprocessed pages stay explicit.
+- [x] cli report/context/runner and new coverage snapshot — atomic deterministic build/SDK/recipe/runtime-bound sidecar before checkpoint. Missing/corrupt/mismatched restore is unavailable; retry replaces totals. Report/2 exposes availability, counting rules, sorted outcomes/reasons and unknown expectations; completion considers coverage. Update contracts/oracles.
+- [x] ingest-javadoc shared bounded reader, cli/BuildContext — limit+1 HTML/search-index reads (8 MiB), streaming original-byte SHA-256, enumeration caps (100,000 files/root, 4,096 UTF-8 bytes/path, 16 MiB aggregate path bytes/root). Document limits; preserve payload/storage caps and admitted digests. Abort beyond enumerated universe honestly.
+- [x] tools/contracts/audit_ingestion.py plus synthetic tests — bounded read-only comparison of independently supplied build/SDK-bound record/section/block expectations. Verify actual payload bytes, not hash columns alone. Before private inventory/store access, require explicit 10.1/B2/B6, corpus-owner/development-only/held-out-exclusion/inventory attestations. Missing gates yield NOT_RUN/BLOCKED. Diagnostics contain aggregate categories/counts only, including sanitized errors.
+- [x] module tests and contract docs/evidence — execute every matrix row, real rollback/failures, exact/above boundaries, retry and source deletion. Independent audit specimens detect missing notes/blocks/members/narratives. Update portability snapshots and Graft.
 
-**Acceptance:** Given admitted synthetic inputs, when real ingestion and restart finish, then truthful accounting reconciles with durable API/narrative content and incomplete work cannot appear complete. Given independently supplied expectations, when the optional audit compares actual stored payload, then fidelity discrepancies remain visible without proprietary output.
+**Acceptance:** Given synthetic inputs, when real ingestion/restart finish, then accounting reconciles with durable API/narrative content and incomplete work cannot appear complete. Given independent expectations, when auditing stored payload, then fidelity discrepancies remain visible without proprietary output.
 
 ## Implementation Notes
 
@@ -67,10 +60,56 @@ Paths below are under app/ unless stated otherwise.
 
 ## Design Notes
 
-One goal: trustworthy ingestion accounting. No unresolved user intent gap or irreversible operation. A build-scoped sidecar avoids SQLite schema churn; report/2 explicitly replaces the old deferred placeholders. Independent expected denominators are never inferred from producer output. User authorized the review/merge/next-story sequence; planning follows the existing Story 2.11 intent. Synthetic work proceeds independently of private access; no private audit will be executed.
-
-Work exclusively on codex/story-2-11-ingestion-coverage in this managed worktree. Commit each verified cohesive slice with its tests; parent owns final review/tracking. Use escalated exec here as needed. Windows environment: GRADLE_USER_HOME=C:/Users/UserAdmin/.gradle; GRADLE_OPTS=-Djavax.net.ssl.trustStoreType=Windows-ROOT; JAVA_TOOL_OPTIONS=-Djdk.net.unixdomain.tmpdir=D:/workspace/luciad-mcp/.nonexistent-unix-socket-dir (keep nonexistent). If a planned detail conflicts with repository evidence, choose the smallest compatible implementation and record it; never alter frozen intent.
+No intent gap or irreversible operation. Sidecar avoids SQLite churn; report/2 replaces placeholders. Private execution remains NOT_RUN. Commit verified slices on this feature branch; parent owns final review. Escalated exec needed. Windows environment: GRADLE_USER_HOME=C:/Users/UserAdmin/.gradle; GRADLE_OPTS=-Djavax.net.ssl.trustStoreType=Windows-ROOT; JAVA_TOOL_OPTIONS=-Djdk.net.unixdomain.tmpdir=D:/workspace/luciad-mcp/.nonexistent-unix-socket-dir (keep nonexistent). Record compatible routine decisions.
 
 ## Verification
 
-Focused tests per slice, then full Gradle check, Python contract verifier/oracle/audit synthetic tests. Audit every matrix row against tests that actually ran. Fresh content-inclusive Windows/Linux snapshots must match as bytes/JSON. Parent independently reads the complete diff and runs the configured review lenses. Record actual counts/skips and private audit NOT_RUN. Finish with whitespace checks, Graft refresh and a clean feature branch.
+Run focused tests, full Gradle check, Python contracts/oracle/audit tests. Audit executed matrix tests. Compare fresh Windows/Linux snapshot bytes/JSON. Parent reads full diff and runs review lenses. Record counts/skips/NOT_RUN; refresh Graft, check whitespace, finish clean.
+
+### 2026-10-22 — Independent review pass
+
+- verdicts: 14 findings — high 0, medium 13, low 0, false 1, maybe-false 0. Eleven unique patch entries; no intent gap, bad spec or deferred entry. Every patch is an internal correction/verification of demonstrated state, without expanding the public contract.
+- findings:
+  - `[false]` `[reject]` Blind: unprocessed records have zero emitted sections — sections are explicitly counted when a payload is assembled, not inferred from extracted records. CatalogStage calls sections only after successful assembly; unprocessed records/pages are separately failed and independent denominators remain null. The published counting rule intentionally makes no claim about unknown/unassembled sections.
+  - `[medium]` `[patch]` Blind: conflicting source pages share a persistence flag — CoverageAccounting keys globally by canonical key, so a losing page can borrow another page's success. Keep source-specific association outcomes while deduplicating true same-source retries. Fixed in 16c8c8c; focused and final platform checks passed.
+  - `[medium]` `[patch]` Blind: narrative payload rejection becomes a storage failure — assembleNarrative is outside the local IllegalArgumentException handling used for APIs. Handle rejection per page so later narratives continue. Fixed in 16c8c8c; focused and final platform checks passed.
+  - `[medium]` `[patch]` Blind: audit accepts missing documentation parents — it reads section rows without checking the parent required by production read/enumeration. Check parent and section-count/association integrity with production-store mutations. Fixed in 5495bca; focused and final platform checks passed.
+  - `[medium]` `[patch]` Blind: metadata column mutations evade audit — only ID/type/SDK columns are compared. Existing documentation.metadata already carries the canonical 19 metadata fields; bounded comparison against all stored knowledge columns and association invariants catches demonstrated product/locator/governance/kind corruption without adding inventory fields. Fixed in 5495bca; focused and final platform checks passed.
+  - `[medium]` `[patch]` Blind: payload aggregate admission follows fetch — up to 257 blobs are materialized before charging their lengths; unexpected sections escape charging. Admit lengths, including unexpected sections, before blob fetch. Fixed in 5495bca; focused and final platform checks passed.
+  - `[medium]` `[patch]` Blind: directory traversal is unbounded — only regular files consume admission. Add private visited-entry/depth guards and real traversal coverage. Fixed in 16c8c8c; focused and final platform checks passed.
+  - `[medium]` `[patch]` Blind: indeterminate file attributes silently omit input — isRegularFile maps errors to false after walker admission. Explicit attribute failures must abort admission or become visible failures. Fixed in 16c8c8c; focused and final platform checks passed.
+  - `[medium]` `[patch]` Blind: inventory schema/runtime disagree — schema allows reordered ordinals and 4096-character multibyte labels; runtime rejects them by index/byte length. Align accepted inputs and add shared specimens. Fixed in 5495bca; focused and final platform checks passed.
+  - `[medium]` `[patch]` Blind: missing coverage bypasses fail-fast — restore failure is added directly to collected, outside stage failure policy. Abort FAIL_FAST before later stages. Fixed in 16c8c8c; focused and final platform checks passed.
+  - `[medium]` `[patch]` Edge: narrative admission aborts later pages — shares blind narrative root cause; same local rejection repair. Fixed in 16c8c8c; focused and final platform checks passed.
+  - `[medium]` `[patch]` Edge: resume coverage failure bypasses policy — shares blind fail-fast root cause; same policy repair. Fixed in 16c8c8c; focused and final platform checks passed.
+  - `[medium]` `[patch]` Verification gap: production enumeration admission is untested — removing enumerate's admit call leaves direct Budget tests green. Exercise rejection through the actual traversal path. Fixed in 16c8c8c; focused and final platform checks passed.
+  - `[medium]` `[patch]` Verification gap: audit structured decoder lacks evidence — all fixtures have absent tables, no list items and no links. Add genuine Java-written structured payload plus independent expectations and structural mutations. Fixed in 5495bca; focused and final platform checks passed.
+
+## Build Result — 2026-10-22
+
+Story 2.11 implemented on codex/story-2-11-ingestion-coverage. Report/2 now reconciles source-specific logical associations, disjoint pages and assembled sections; build-bound atomic accounting survives resume. Admission is bounded before reads/walk materialization, and the optional independent audit verifies actual structured bytes and usable metadata/parent associations. Storage schema/3, identity/1, content/1 and read-tools/2 stay unchanged.
+
+Review: three independent lenses completed; 14 individual findings, 13 medium patch rows in 11 root-cause entries, one false/rejected finding with its refutation above. All patch entries resolved in 16c8c8c and 5495bca. Nothing deferred; no remaining findings. Parent read the complete baseline diff and both repair diffs and audited actual executed tests.
+
+Final parent verification on repair commit 5495bca:
+- Full Windows and native Ubuntu-24.04 Gradle check --rerun-tasks: PASS, all 46 tasks executed each. 269 discovered tests per platform, zero failures/errors; Windows has one pre-existing symlink skip, Linux none. Thirty-three matrix-relevant extraction/storage/admission/accounting methods ran and passed on each.
+- Python audit suite: 22 tests passed on Windows and Linux, no skips. LUCIAD_AUDIT_STORE exported a fresh genuine Java-produced structured SQLite store per platform, so all four real-store tests executed, including all 19 metadata column mutations and table/list/link changes.
+- The independent synthetic audit of each native Java export: PASS, one record/section each. Private mode without attestations returns NOT_RUN before input access; actual private execution remains NOT_RUN.
+- Windows contract/schema/oracle checks: 127 passed; portable known answers agree with Java and Linux Python.
+- Fresh complete Windows/Linux snapshots match byte-for-byte and as parsed JSON: 21,767 bytes, SHA-256 ca1a13accdece56e1189a57a624e097376bba7060c02b9f7d54aa3be885fb54c.
+- Graft refreshed and whitespace checks passed. Raw final Java logs, snapshots, Linux XML archive and synthetic audit exports are in ignored app/build/story-2-11/.
+
+### Executed matrix mapping
+
+| Matrix row | Passing evidence |
+| --- | --- |
+| Mixed pages/units | reconcilesMixedPagesAndRetryWithoutInflation, conflictingPagesHaveIndependentLosingAssociations; report schema/semantic checks |
+| Malformed/unsupported/oversized | oversizedAndUnsupportedPagesCannotBeComplete, narrativeCanonicalOverflowIsLocalAndLaterNarrativePersists, authoredDocFileHeadingCannotBeExcludedOrPromotedToApi |
+| Atomic write/clash | realAtomicRollbackLeavesFailedAssociationsAndUnprocessedPagesExplicit, realIdentityClashCountsFailedAssociationAndPreservesOriginalContent; production DB mutation audit |
+| Interruption/retry/resume | cleanResumeRestoresIdenticalCoverageAndCorruptionIsUnavailable, missingAndCorruptCompletedCoverageHonorFailFastBeforeLaterStages, realAtomicRollbackLeavesFailedAssociationsAndUnprocessedPagesExplicit |
+| Source deletion/reopen | modernAndLegacyApiAndNarrativesSurviveDeletionExactly plus structuredReopenPagingScopesAndRetry and existing documentation roundtrip tests |
+| Admission boundaries | exactAndAboveReadBoundaryAndStreamingDigest, exactAndAboveEnumerationFilePathAndAggregateBoundaries, realWalkRejectsFilesEmptyDirectoriesDepthAndAttributeFailures, existing exactSectionAndBlockCapsPagingAndEncodedAdmission |
+| Missing private gates | test_private_missing_gates_touch_neither_inventory_nor_store and test_every_private_gate_is_required |
+| Independent discrepancies | Python missing/changed note/block/member/narrative tests, all four JavaStoreAuditTests, pre-fetch byte admission and schema-alignment tests |
+
+Known boundaries: independent expected denominators remain unknown unless supplied. The audit is finite and verifies the supplied independently attested inventory; it does not establish private-corpus completeness or answer-quality improvement. Technical ratification and other existing gates remain pending. No private/held-out input was accessed. Original-checkout edits were preserved. Story 2.10 was merged locally as authorized (f6d1109); Story 2.11 remains on its feature branch. Existing commits are preserved; final commit records remaining spec/tracker/evidence changes only.
