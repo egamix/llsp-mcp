@@ -37,6 +37,10 @@ public final class ReadTools {
             int page=q.path("pageSize").asInt(10),work=q.path("limits").path("work").asInt(5000),candidates=q.path("limits").path("candidates").asInt(1000);
             int millis=q.path("limits").path("executionMillis").asInt(1000),bytes=q.path("limits").path("responseBytes").asInt(1048576);
             Budget budget=new Budget(work,millis);
+            if(name.equals("get_record")) {
+                var floor=envelope(name,input,"NOT_APPLICABLE",map("records",strings(input,"recordIds").stream().map(id->verdict(id,"PAYLOAD_TOO_LARGE","Response admission budget")).toList()));
+                if(wrappedBytes(floor)>bytes-8192)return error(name,input,"PAYLOAD_TOO_LARGE");
+            }
             result=switch(name) {
                 case "search_knowledge" -> search(input,page,work,candidates,millis,bytes);
                 case "resolve_symbol" -> resolve(input,page,candidates,budget);
@@ -65,8 +69,8 @@ public final class ReadTools {
         catch(RuntimeException e) { return error(name,input,"INTERNAL_ERROR"); }
     }
     public static int wrappedBytes(Map<String,Object> result) {
-        return Wire.bytes(map("jsonrpc","2.0","id","ffffffffffffffffffffffffffffffff","result",
-            map("content",List.of(map("type","text","text","Luciad read-tools/2 result")),"structuredContent",result,"isError",result.get("error")!=null))).length;
+        return Wire.bytes(map("jsonrpc","2.0","id","f".repeat(8192),"result",
+            map("content",List.of(map("type","text","text",new String(Wire.bytes(result),StandardCharsets.UTF_8))),"structuredContent",result,"isError",result.get("error")!=null))).length;
     }
     private Map<String,Object> search(Map<String,Object> q,int page,int work,int candidates,int millis,int bytes) {
         var kinds=strings(q,"kinds");var filters=new HashMap<String,String>();
@@ -186,7 +190,7 @@ public final class ReadTools {
         var r=map("contractVersion","read-tools/2","tool",name,"sdkVersion",null,"buildId",null,"proof","NOT_APPLICABLE","data",null,
             "counts",map("value",null,"relation","UNKNOWN"),"truncated",false,"continuation",null,"targetSdkVersion",null,"versionNotices",List.of(),
             "trace",map("normalizedQuery","","matchedBy",List.of(),"candidatesExamined",0,"workCharged",0,"capabilityFingerprint",null));
-        if(q!=null && q.get("targetSdkVersion") instanceof String s && s.length()<=2048)r.put("targetSdkVersion",s);
+        if(q!=null && q.get("targetSdkVersion") instanceof String s)try { ExactSymbolQuery.text(s);r.put("targetSdkVersion",s); }catch(IllegalArgumentException ignored) { }
         ((Map<String,Object>)r.get("trace")).put("capabilityFingerprint",null);
         r.put("coverage",map("complete",false,"reason","Request did not produce evidence"));r.put("emptyReason","NOT_APPLICABLE");
         r.put("error",map("code",code,"message",code,"retryable",Set.of("BUILD_UNAVAILABLE","DEADLINE","WORK_LIMIT").contains(code)));return r;

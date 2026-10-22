@@ -1,3 +1,4 @@
+plugins { application }
 // cli -> config, all ingest.*, mcp (AD-1). The composition root: ingest | serve | validate
 // entrypoints; the only module allowed to wire ingest and serving together.
 dependencies {
@@ -14,3 +15,5 @@ dependencies {
     testImplementation(libs.junit.jupiter)
     testRuntimeOnly(libs.junit.platform.launcher)
 }
+
+application { mainClass.set("com.luciadmcp.knowledge.cli.CliMain") }
