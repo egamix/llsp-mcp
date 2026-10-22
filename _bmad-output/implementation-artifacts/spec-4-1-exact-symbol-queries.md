@@ -2,7 +2,7 @@
 title: 'Story 4.1: Detect and prioritize exact-symbol queries'
 type: feature
 created: '2026-10-22'
-status: in-progress
+status: done
 route: dispatch
 story_key: 4-1-detect-and-prioritize-exact-symbol-queries
 baseline_commit: '896a77622bac22ca4823d99551fbb0332a0d0c8e'
@@ -48,11 +48,11 @@ Never access private corpora, modify identity/schema contracts, build lexical ra
 
 ## Tasks & Acceptance
 
-- [ ] `app/domain/src/main/java/com/luciadmcp/knowledge/domain/` -- add minimal immutable source binding and exact query/result contracts.
-- [ ] `app/catalog-sqlite/src/main/java/com/luciadmcp/knowledge/catalog/sqlite/` -- implement validated read-only pinned source/catalog using existing helpers; expose bounded records for resolver without unbounded materialization.
-- [ ] `app/retrieval/src/main/java/com/luciadmcp/knowledge/retrieval/` -- implement canonical-first matching and explicit unique/ambiguous/unknown results, source filtering and target separation.
-- [ ] Corresponding module tests/build.gradle.kts -- wire JUnit where needed; test every matrix row with actual persisted catalog identity and reopen/no-mutation assertions. Include UTF-8 cap, same names in multiple packages, constructor/method overloads, query version context, and all unsupported-source outcomes.
-- [ ] `docs/contracts/` or story verification notes -- record implemented API and actual test evidence without claiming other stories complete.
+- [x] `app/domain/src/main/java/com/luciadmcp/knowledge/domain/` -- add minimal immutable source binding and exact query/result contracts.
+- [x] `app/catalog-sqlite/src/main/java/com/luciadmcp/knowledge/catalog/sqlite/` -- implement validated read-only pinned source/catalog using existing helpers; expose bounded records for resolver without unbounded materialization.
+- [x] `app/retrieval/src/main/java/com/luciadmcp/knowledge/retrieval/` -- implement canonical-first matching and explicit unique/ambiguous/unknown results, source filtering and target separation.
+- [x] Corresponding module tests/build.gradle.kts -- wire JUnit where needed; test every matrix row with actual persisted catalog identity and reopen/no-mutation assertions. Include UTF-8 cap, same names in multiple packages, constructor/method overloads, query version context, and all unsupported-source outcomes.
+- [x] `docs/contracts/` or story verification notes -- record implemented API and actual test evidence without claiming other stories complete.
 
 Acceptance: Given admitted canonical queries, when resolved after import/reopen, then exact canonical fixtures all select the correct scoped identity. Given incomplete competing aliases, when resolved at limit1, then ambiguity remains explicit rather than becoming exact. Given mismatched target context, when retrieving from available source, then useful results remain unchanged with source provenance. Given incompatible/missing source, when opening, then it fails before mutation.
 
@@ -67,3 +67,7 @@ Run focused domain/catalog/retrieval tests and checkDependencyDirection, then pa
 ## Spec Change Log
 
 ## Review Triage Log
+
+- medium / patch: same-name methods encoded method:Widget were excluded from constructor dotted aliases, causing false EXACT. Alias uses persisted simpleName; canonical identities stay distinct; collision regression passes at pageSize1. Fixed542119c; nothing deferred.
+
+Parent full Windows Gradle check passed after repair (48tasks). Source deletion/reopen and all matrix scenarios passed.
