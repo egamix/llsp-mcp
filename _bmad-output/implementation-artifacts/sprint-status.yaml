@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-08-24
-last_updated: 2026-10-21  # Story 2.9 implemented and reviewed under scoped adoption
+last_updated: 2026-10-22  # Story 2.10 follow-up reviewed and verified
 project: luciad-mcp
 project_key: NOKEY
 tracking_system: file-system
@@ -67,7 +67,7 @@ development_status:
   2-7-bounded-cycle-safe-relationship-traversal: done
   2-8-contract-and-verification-freeze: review
   2-9-persist-source-faithful-api-documentation: review
-  2-10-preserve-structured-javadoc-and-narrative-content: review
+  2-10-preserve-structured-javadoc-and-narrative-content: done
   2-11-account-for-ingestion-coverage-and-fidelity: backlog
   epic-2-retrospective: optional
 

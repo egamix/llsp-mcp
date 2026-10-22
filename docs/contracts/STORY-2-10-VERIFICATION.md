@@ -40,3 +40,11 @@ Raw implementation-run logs and snapshots are retained in ignored `app/build/sto
 ## Review handoff
 
 Blind, edge-case, verification-gap and intent-alignment lenses completed. Fourteen medium findings formed eleven repair entries; all were patched in e6ca796. No findings were deferred or rejected. The complete per-finding triage is in the story spec. Final full checks and snapshot comparison above ran after those repairs. A follow-up independent review is recommended for interactions among the repaired owner/heading/note classification branches, which have regression coverage but have not received a second independent review. This recommendation does not claim human technical approval.
+
+## Follow-up review and final verification — 2026-10-22
+
+All four follow-up lenses completed against the focused repair diff. Ten individual medium findings formed eight root-cause entries; all were fixed in c3403cc, with no deferred/rejected/decision-needed items. The story spec records each finding and resolution. Regression coverage adds modern/legacy authored member headings, explicit signature selection after examples, standard and malformed legacy notes, linked definition terms, classless PACKAGE/OVERVIEW notes with adjacent dotted anchor markers, and inline table width/depth admission.
+
+Full Windows/Linux `check --rerun-tasks` passed after repairs: 255 tests each, zero failures/errors; Windows skipped only the platform-dependent symlink test and Linux skipped none. All 46 tasks executed per platform. The 122 Python schema checks passed again. Fresh platform snapshots are byte-identical: 20,825 bytes, SHA-256 `2ca148f28c340167beff25868170cc3f596dcbea8d95a0a579b91b9c6caac241`. Graft was refreshed and whitespace checks passed. Final artifacts use the `followup-` prefix in ignored app/build/story-2-10/; native Linux artifacts are under /tmp/luciad-story210-followup/.
+
+The follow-up recommendation is now false under the follow-up-pass rule (no high finding). Earlier review recommendations and counts above are historical. Technical ratification and private-corpus acceptance remain separate from these executed synthetic checks.

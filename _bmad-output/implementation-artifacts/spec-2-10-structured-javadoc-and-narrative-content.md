@@ -5,7 +5,7 @@ created: '2026-10-22'
 status: 'done'
 review_loop_iteration: 0
 baseline_revision: '410c0aad468200bc3f42aa6af1dc5907fd759de9'
-followup_review_recommended: true
+followup_review_recommended: false
 context:
   - C:/Users/UserAdmin/.codex/worktrees/story-2-10-structured-documentation/luciad-mcp/AGENTS.md
 warnings: [oversized]
@@ -171,3 +171,26 @@ All four review lenses completed. Fourteen individually logged medium findings f
 ### Residual risks and boundaries
 
 Unsupported DTO shapes remain explicitly partial with retained owned HTML evidence. Schema/3 requires rebuilding older indexes; no migration or deletion is attempted. Technical ratification, private-corpus acceptance, coverage reconciliation, search/MCP handlers and unimplemented lifecycle operations are not claimed by this run. The original checkout's unrelated edits remain untouched. No merge, push or squash was performed.
+
+## Follow-up Review Findings — 2026-10-22
+
+Scope: focused repair commit 0be8130..e6ca796, checked against the full current Story 2.10 implementation. Four lenses completed. Ten individual findings: medium 10, high/low/false/maybe-false 0. Eight root-cause entries, all patch; no decisions, deferrals or rejections.
+
+- [x] [Review][Patch] Blind: authored direct member headings disappear — walk exempts every direct h3/h4 by tag and parent. Select only the actual generated heading preceding the signature.
+- [x] [Review][Patch] Blind: standard legacy Author/Version notes demote the whole dl — generatedNotes allMatch excludes standard doclet labels. Extend recognition while preserving authored terms as evidence.
+- [x] [Review][Patch] Blind: an earlier example prevents explicit signature selection — firstOwned's union follows DOM order. Prefer explicit signature classes before eligible legacy pre.
+- [x] [Review][Patch] Blind: unpaired dl.notes term disappears — notes only emits dd and silently consumes trailing dt. Validate term/definition pairing and preserve malformed evidence.
+- [x] [Review][Patch] Blind: table inline descendants bypass node/depth limits — row/cell guards do not charge nested spans before select/text. Bound the entire table subtree before those operations.
+- [x] [Review][Patch] Blind: dotted anchor-only marker prevents fallback narrative ownership — literal ID selects an empty anchor before div.description. Keep marker separate from prose owner and retain a genuine adjacent anchor.
+- [x] [Review][Patch] Edge: direct authored h3 lost — same root cause as blind member-heading finding.
+- [x] [Review][Patch] Verification gap: classless legacy narrative notes lack persisted-output coverage — existing narrative fixtures use dl.notes and bypass markup recognition. Add classless labeled PACKAGE/OVERVIEW deletion/reopen assertions.
+- [x] [Review][Patch] Acceptance: authored member h3/h4 lost — same root cause as blind member-heading finding.
+- [x] [Review][Patch] Acceptance: known-label authored definition list drops term href — generatedNotes accepts linked Since term by text while notes visits only dd. Preserve linked-term definition lists as explicit unsupported HTML evidence.
+
+### Follow-up resolution
+
+All ten findings (eight unique medium patch entries) were fixed in c3403cc. No decisions, deferred entries or rejected findings remain. Modern/legacy direct authored member headings now retain evidence and links; explicit signatures win over examples; standard legacy notes stay structured while malformed/linked-term definition lists retain unsupported evidence; classless narrative notes have persisted-output assertions; dotted markers remain separate from prose ownership; and table inline descendants are bounded before traversal.
+
+Final full Windows/Linux `check --rerun-tasks` passed on c3403cc: 255 tests each, no failures/errors, one Windows-only symlink skip and no Linux skips. All 46 tasks executed per platform. Python contracts: 122 checks passed. Fresh platform snapshots agree byte-for-byte: 20,825 bytes, SHA-256 2ca148f28c340167beff25868170cc3f596dcbea8d95a0a579b91b9c6caac241. Graft refresh and whitespace checks passed.
+
+Follow-up recommendation is false: this was a follow-up pass, patched high entries = 0. The original pass's recommendation and evidence above are retained as history. Story 2.10 is complete; schema/3 technical ratification remains a separate existing gate, not an approval invented by this review. User authorized local-master merge and then Story 2.11 on 2026-10-22.
