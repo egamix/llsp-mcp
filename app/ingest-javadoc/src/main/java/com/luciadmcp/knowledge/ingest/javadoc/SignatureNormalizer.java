@@ -132,6 +132,8 @@ final class SignatureNormalizer {
         return parse(signature, false);
     }
 
+    static Parsed parseQualified(String signature) { return parse(signature, true); }
+
     static List<String> qualifiedParameterTypes(String signature) {
         return parse(signature, true).parameterTypes().orElse(List.of());
     }

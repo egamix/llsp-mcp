@@ -32,11 +32,28 @@ public interface CatalogStore extends AutoCloseable {
      */
     PutResult put(CatalogRecord record);
 
+    /** Catalog identity, knowledge metadata and documentation commit as one association. */
+    default PutResult putDocumented(CatalogRecord record, KnowledgeRecord knowledge, DocumentationPayload payload) {
+        throw new UnsupportedOperationException("atomic documentation persistence unsupported");
+    }
+
+    /** Symbol-less narrative content uses the same atomic association, without a catalog tuple. */
+    default PutResult putNarrative(KnowledgeRecord record, DocumentationPayload payload) {
+        throw new UnsupportedOperationException("atomic narrative documentation persistence unsupported");
+    }
+
     /** The stored record for a version-scoped canonical key, or empty if none. */
     Optional<StoredCatalogRecord> findByKey(String sdkVersion, String canonicalKey);
 
     /** The stored record for a computed record ID, or empty if none. */
     Optional<StoredCatalogRecord> findByRecordId(String recordId);
+
+    /** Build metadata is persisted before ingestion and compared, never replaced on resume. */
+    default void markInvalid() { throw new UnsupportedOperationException("build metadata unsupported"); }
+    default void bindManifest(IndexManifest manifest) { throw new UnsupportedOperationException("build metadata unsupported"); }
+    default BuildValidator.Result validateBuild(BuildValidator validator, BuildValidator.Operation operation, String buildId, String sdkVersion) {
+        return new BuildValidator.Result(java.util.List.of(BuildValidator.Reason.UNSUPPORTED_SCHEMA));
+    }
 
     /** Every persisted record, in a deterministic order (ascending record ID). */
     List<StoredCatalogRecord> allRecords();

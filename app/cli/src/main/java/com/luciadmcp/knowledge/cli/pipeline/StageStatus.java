@@ -14,6 +14,7 @@ package com.luciadmcp.knowledge.cli.pipeline;
  */
 enum StageStatus {
     COMPLETED,
+    SKIPPED_UNSUPPORTED,
     SKIPPED_ON_RESUME,
     FAILED,
     NOT_RUN

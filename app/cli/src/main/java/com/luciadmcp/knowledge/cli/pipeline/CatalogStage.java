@@ -96,6 +96,14 @@ public final class CatalogStage implements Stage {
             for (JavadocCatalogSource.PageResult page : result.pages()) {
                 persistPage(version, page, store, failures);
             }
+            for(var page:result.narratives()) {
+                Path file=javadocRoot.resolve(page.relativePath());
+                for(String issue:page.issues())failures.accept(StageFailure.ofFile(PipelineStage.CATALOG,FailureSeverity.RECOVERABLE,file,issue));
+                if(page.blocks().isEmpty() || page.sourceHash().isEmpty())continue;
+                var documented=com.luciadmcp.knowledge.ingest.javadoc.JavadocDocumentationAssembler.assembleNarrative(version,page);
+                var written=store.putNarrative(documented.record(),documented.payload());
+                if(written.status()==CatalogStore.PutStatus.IDENTITY_CLASH)failures.accept(StageFailure.ofFile(PipelineStage.CATALOG,FailureSeverity.BUILD_INVALIDATING,file,"identity clash persisting narrative "+written.recordId()));
+            }
         } catch (RuntimeException e) {
             // A genuine storage error from a put (not the IDENTITY_CLASH status path, which is handled
             // in persistPage) compromises catalog integrity — route it through the policy, not raw.
@@ -124,12 +132,13 @@ public final class CatalogStage implements Stage {
 
         for (String issue : page.issues()) {
             failures.accept(StageFailure.ofFile(
-                    PipelineStage.CATALOG, FailureSeverity.RECOVERABLE, file, issue));
+                    PipelineStage.CATALOG, issue.contains("duplicate canonical key") ? FailureSeverity.BUILD_INVALIDATING : FailureSeverity.RECOVERABLE, file, issue));
         }
 
         for (SymbolRecord record : page.records()) {
-            CatalogRecord tuple = toCatalogRecord(version, record);
-            CatalogStore.PutResult result = store.put(tuple);
+            CatalogRecord tuple = toCatalogRecord(version, record, com.luciadmcp.knowledge.ingest.javadoc.JavadocDocumentationAssembler.anchor(page, record).orElse(""));
+            var documented = com.luciadmcp.knowledge.ingest.javadoc.JavadocDocumentationAssembler.assemble(tuple, page, record);
+            CatalogStore.PutResult result = store.putDocumented(tuple, documented.record(), documented.payload());
             if (result.status() == CatalogStore.PutStatus.IDENTITY_CLASH) {
                 // A real identity clash compromises catalog integrity — never overwrite or drop (AD-4).
                 failures.accept(StageFailure.ofFile(
@@ -149,7 +158,7 @@ public final class CatalogStage implements Stage {
      * and the {@link #anchorFor(SymbolRecord) derived anchor} that (with the path) resolves back to
      * source. The store computes the ID — this never does (AD-22).
      */
-    private static CatalogRecord toCatalogRecord(String version, SymbolRecord record) {
+    private static CatalogRecord toCatalogRecord(String version, SymbolRecord record, String actualAnchor) {
         return new CatalogRecord(
                 version,
                 record.canonicalKey(),
@@ -157,7 +166,7 @@ public final class CatalogStage implements Stage {
                 record.typeFqn(),
                 record.simpleName(),
                 record.relativePath(),
-                anchorFor(record));
+                actualAnchor);
     }
 
     /**

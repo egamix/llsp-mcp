@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "get_record.request.schema.json",
+  "type": "object",
+  "properties": {
+    "contractVersion": {
+      "const": "read-tools/2"
+    },
+    "buildId": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "pageSize": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 50,
+      "default": 10
+    },
+    "continuation": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "limits": {
+      "$ref": "common.schema.json#/$defs/limits"
+    },
+    "recordIds": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 2048
+      },
+      "maxItems": 50,
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "sectionIds": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 2048
+      },
+      "maxItems": 256
+    },
+    "includeContent": {
+      "type": "boolean",
+      "default": false
+    },
+    "targetSdkVersion": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2048,
+      "description": "Optional user context; never an implicit source filter or compatibility claim."
+    },
+    "sourceSdkVersion": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2048,
+      "description": "Explicit restrictive source filter; absent selects one configured usable source within bounded work."
+    }
+  },
+  "required": [
+    "contractVersion",
+    "recordIds"
+  ],
+  "additionalProperties": false
+}

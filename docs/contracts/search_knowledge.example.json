@@ -1,0 +1,78 @@
+{
+  "request": {
+    "contractVersion": "read-tools/2",
+    "query": "Widget",
+    "targetSdkVersion": "2024.0"
+  },
+  "response": {
+    "contractVersion": "read-tools/2",
+    "tool": "search_knowledge",
+    "sdkVersion": "2024.0",
+    "buildId": "synthetic-build",
+    "proof": "INCOMPLETE_EVIDENCE",
+    "data": {
+      "hits": [
+        {
+          "recordId": "synthetic-record",
+          "recordType": "API",
+          "knowledgeKind": "AUTHORITATIVE_FACT",
+          "symbol": "com.example.Widget",
+          "proof": "EXACT",
+          "matchedBy": "COORDINATE",
+          "applicability": {
+            "product": "LuciadLightspeed",
+            "sdkVersions": [
+              "2024.0"
+            ],
+            "conditions": [],
+            "scope": "VERSION_SCOPED"
+          },
+          "governance": {
+            "approval": "APPROVED",
+            "owner": "synthetic specimen",
+            "provenance": "synthetic fixture",
+            "approvalEvidence": "synthetic fixture only"
+          },
+          "citations": [
+            {
+              "recordId": "synthetic-record",
+              "sdkVersion": "2024.0",
+              "buildId": "synthetic-build",
+              "locator": {
+                "kind": "SOURCE",
+                "relativePath": "com/example/Widget.html",
+                "anchor": null,
+                "reason": "page has no anchor",
+                "lines": null,
+                "section": null
+              },
+              "sectionId": "description"
+            }
+          ],
+          "snippet": "Synthetic widget description."
+        }
+      ]
+    },
+    "error": null,
+    "counts": {
+      "value": 1,
+      "relation": "EXACT"
+    },
+    "coverage": {
+      "complete": false,
+      "reason": "Synthetic contract specimen; no corpus acceptance claim"
+    },
+    "emptyReason": null,
+    "truncated": false,
+    "continuation": null,
+    "trace": {
+      "normalizedQuery": "synthetic",
+      "matchedBy": [],
+      "candidatesExamined": 0,
+      "workCharged": 0,
+      "capabilityFingerprint": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    "targetSdkVersion": "2024.0",
+    "versionNotices": []
+  }
+}

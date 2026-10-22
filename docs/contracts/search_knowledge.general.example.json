@@ -1,0 +1,76 @@
+{
+  "request": {
+    "contractVersion": "read-tools/2",
+    "query": "Widget",
+    "targetSdkVersion": "2023.1"
+  },
+  "response": {
+    "contractVersion": "read-tools/2",
+    "tool": "search_knowledge",
+    "sdkVersion": "2023.5",
+    "buildId": "synthetic-build",
+    "proof": "EXACT",
+    "data": {
+      "hits": [
+        {
+          "recordId": "synthetic-record",
+          "recordType": "PRACTICE",
+          "knowledgeKind": "EXPERT_APPROVED_PRACTICE",
+          "symbol": null,
+          "proof": "EXACT",
+          "matchedBy": "COORDINATE",
+          "applicability": {
+            "product": "LuciadLightspeed",
+            "sdkVersions": [],
+            "conditions": [],
+            "scope": "GENERAL"
+          },
+          "governance": {
+            "approval": "APPROVED",
+            "owner": "synthetic specimen",
+            "provenance": "synthetic fixture",
+            "approvalEvidence": "synthetic fixture only"
+          },
+          "citations": [
+            {
+              "recordId": "synthetic-record",
+              "sdkVersion": "2023.5",
+              "buildId": "synthetic-build",
+              "locator": {
+                "kind": "SOURCE",
+                "relativePath": "com/example/Widget.html",
+                "anchor": null,
+                "reason": "page has no anchor",
+                "lines": null,
+                "section": null
+              },
+              "sectionId": "description"
+            }
+          ],
+          "snippet": "Synthetic general guidance: keep rendering work bounded."
+        }
+      ]
+    },
+    "error": null,
+    "counts": {
+      "value": 1,
+      "relation": "EXACT"
+    },
+    "coverage": {
+      "complete": false,
+      "reason": "Synthetic contract specimen; no corpus acceptance claim"
+    },
+    "emptyReason": null,
+    "truncated": false,
+    "continuation": null,
+    "trace": {
+      "normalizedQuery": "synthetic",
+      "matchedBy": [],
+      "candidatesExamined": 0,
+      "workCharged": 0,
+      "capabilityFingerprint": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    "targetSdkVersion": "2023.1",
+    "versionNotices": []
+  }
+}

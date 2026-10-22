@@ -70,7 +70,7 @@ public final class ContentHashes {
             throw new IllegalArgumentException("identityFields must not be null");
         }
         MessageDigest md = newDigest();
-        frame(md, "record");
+        frame(md, ContractVersions.IDENTITY + "/record");
         frame(md, entityType);
         for (String field : identityFields) {
             frame(md, field);
@@ -95,7 +95,7 @@ public final class ContentHashes {
             throw new IllegalArgumentException("type must not be null");
         }
         MessageDigest md = newDigest();
-        frame(md, "relationship");
+        frame(md, ContractVersions.IDENTITY + "/relationship");
         frame(md, sdkVersion);
         frame(md, sourceId);
         frame(md, type.name());
@@ -149,6 +149,30 @@ public final class ContentHashes {
         frame(md, relationshipRulesVersion);
         frame(md, embeddingConfigId);
         return toHex(md.digest());
+    }
+
+    /** Domain-separated versioned digest; ordered fields use the same UTF-8 framing as IDs. */
+    public static String digest(String domain, List<String> fields) {
+        if (domain == null || domain.isBlank() || fields == null) throw new IllegalArgumentException("digest domain/fields required");
+        MessageDigest md = newDigest();
+        frame(md, domain);
+        for (String field : fields) frame(md, field);
+        return toHex(md.digest());
+    }
+
+    public static String contentHash(List<String> orderedContent) {
+        return digest(ContractVersions.CONTENT, orderedContent);
+    }
+
+    public static String recipeFingerprint(String profile, List<String> governedSelection) {
+        java.util.ArrayList<String> fields = new java.util.ArrayList<>();
+        fields.add(profile);
+        fields.addAll(governedSelection.stream().sorted().toList());
+        return digest(ContractVersions.RECIPE, fields);
+    }
+
+    public static String runtimeFingerprint() {
+        return digest(ContractVersions.RUNTIME, List.of(Integer.toString(ContractVersions.SCHEMA), ContractVersions.IDENTITY, ContractVersions.INTERFACE));
     }
 
     /** Feeds one length-prefixed field into the digest; {@code null} frames as {@code -1:}. */

@@ -1,0 +1,593 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "common.schema.json",
+  "$defs": {
+    "locator": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "enum": [
+            "SOURCE",
+            "ABSENT",
+            "EXTERNAL"
+          ]
+        },
+        "relativePath": {
+          "type": "string",
+          "maxLength": 2048
+        },
+        "anchor": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2048
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "reason": {
+          "type": "string",
+          "maxLength": 2048
+        },
+        "lines": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "first": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "last": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              },
+              "required": [
+                "first",
+                "last"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "section": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2048
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "kind",
+        "relativePath",
+        "anchor",
+        "reason",
+        "lines",
+        "section"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "SOURCE"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "relativePath": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2048,
+                "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*[:\\\\]).+$"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "ABSENT"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "reason": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2048
+              },
+              "anchor": {
+                "type": "null"
+              },
+              "lines": {
+                "type": "null"
+              },
+              "section": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "count": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "relation": {
+          "enum": [
+            "EXACT",
+            "LOWER_BOUND",
+            "UNKNOWN"
+          ]
+        }
+      },
+      "required": [
+        "value",
+        "relation"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "relation": {
+                "const": "UNKNOWN"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "value": {
+                "type": "null"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "value": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          }
+        }
+      ]
+    },
+    "limits": {
+      "type": "object",
+      "properties": {
+        "candidates": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10000,
+          "default": 1000
+        },
+        "work": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 50000,
+          "default": 5000
+        },
+        "executionMillis": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5000,
+          "default": 1000
+        },
+        "responseBytes": {
+          "type": "integer",
+          "minimum": 65536,
+          "maximum": 1048576,
+          "default": 1048576
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "proof": {
+      "enum": [
+        "EXACT",
+        "AMBIGUOUS",
+        "UNKNOWN_IN_SCOPE",
+        "INCOMPLETE_EVIDENCE",
+        "NOT_APPLICABLE"
+      ]
+    },
+    "citation": {
+      "type": "object",
+      "properties": {
+        "recordId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        "sdkVersion": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        "buildId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        "locator": {
+          "$ref": "#/$defs/locator"
+        },
+        "sectionId": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2048
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "recordId",
+        "sdkVersion",
+        "buildId",
+        "locator",
+        "sectionId"
+      ],
+      "additionalProperties": false
+    },
+    "item": {
+      "type": "object",
+      "properties": {
+        "recordId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        "recordType": {
+          "enum": [
+            "API",
+            "NARRATIVE",
+            "RECIPE",
+            "PRACTICE"
+          ]
+        },
+        "knowledgeKind": {
+          "enum": [
+            "AUTHORITATIVE_FACT",
+            "EXPERT_APPROVED_PRACTICE",
+            "RECIPE",
+            "CANDIDATE_LEARNING"
+          ]
+        },
+        "symbol": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2048
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "proof": {
+          "enum": [
+            "EXACT",
+            "AMBIGUOUS",
+            "UNKNOWN_IN_SCOPE",
+            "INCOMPLETE_EVIDENCE",
+            "NOT_APPLICABLE"
+          ]
+        },
+        "matchedBy": {
+          "enum": [
+            "COORDINATE",
+            "ALIAS",
+            "LEXICAL",
+            "BROWSE",
+            "NONE"
+          ]
+        },
+        "applicability": {
+          "type": "object",
+          "properties": {
+            "product": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2048
+            },
+            "sdkVersions": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2048
+              },
+              "maxItems": 50
+            },
+            "conditions": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2048
+              },
+              "maxItems": 50
+            },
+            "scope": {
+              "enum": [
+                "VERSION_SCOPED",
+                "GENERAL"
+              ]
+            }
+          },
+          "required": [
+            "product",
+            "sdkVersions",
+            "conditions",
+            "scope"
+          ],
+          "additionalProperties": false,
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "scope": {
+                    "const": "GENERAL"
+                  }
+                }
+              },
+              "then": {
+                "properties": {
+                  "sdkVersions": {
+                    "maxItems": 0
+                  }
+                }
+              },
+              "else": {
+                "properties": {
+                  "sdkVersions": {
+                    "minItems": 1
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "governance": {
+          "type": "object",
+          "properties": {
+            "approval": {
+              "enum": [
+                "CANDIDATE",
+                "APPROVED"
+              ]
+            },
+            "owner": {
+              "type": "string",
+              "maxLength": 2048
+            },
+            "provenance": {
+              "type": "string",
+              "maxLength": 2048
+            },
+            "approvalEvidence": {
+              "type": "string",
+              "maxLength": 2048
+            }
+          },
+          "required": [
+            "approval",
+            "owner",
+            "provenance",
+            "approvalEvidence"
+          ],
+          "additionalProperties": false
+        },
+        "citations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/citation"
+          },
+          "maxItems": 50
+        },
+        "snippet": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 8192
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "recordId",
+        "recordType",
+        "knowledgeKind",
+        "symbol",
+        "proof",
+        "matchedBy",
+        "applicability",
+        "governance",
+        "citations",
+        "snippet"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "snippet": {
+                "type": "string"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "citations": {
+                "minItems": 1
+              }
+            }
+          }
+        },
+        {
+          "properties": {
+            "knowledgeKind": {
+              "not": {
+                "const": "CANDIDATE_LEARNING"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "error": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "code": {
+              "enum": [
+                "INVALID_REQUEST",
+                "UNKNOWN_SDK",
+                "BUILD_UNAVAILABLE",
+                "INCOMPATIBLE_BUILD",
+                "INVALID_CONTINUATION",
+                "PAYLOAD_TOO_LARGE",
+                "WORK_LIMIT",
+                "DEADLINE",
+                "CANCELLED",
+                "INTERNAL_ERROR"
+              ]
+            },
+            "message": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2048
+            },
+            "retryable": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "code",
+            "message",
+            "retryable"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "listItem": {
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "string",
+          "maxLength": 1048576
+        },
+        "children": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/listItem"
+          },
+          "maxItems": 4096
+        }
+      },
+      "required": [
+        "text",
+        "children"
+      ],
+      "additionalProperties": false
+    },
+    "versionNotice": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "enum": [
+            "INTRODUCED",
+            "REMOVED",
+            "BEHAVIOR_CHANGED"
+          ]
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        "relevantTargets": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 50,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2048
+          }
+        },
+        "citation": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/citation"
+            },
+            {
+              "properties": {
+                "locator": {
+                  "properties": {
+                    "kind": {
+                      "const": "SOURCE"
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "required": [
+        "kind",
+        "message",
+        "relevantTargets",
+        "citation"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

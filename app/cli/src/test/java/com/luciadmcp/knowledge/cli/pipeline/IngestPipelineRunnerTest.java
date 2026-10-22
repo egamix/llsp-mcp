@@ -215,6 +215,7 @@ class IngestPipelineRunnerTest {
 
         // Input set B differs in one path, so it hashes to a different buildId and staging dir.
         IngestArguments argsB = PipelineTestSupport.argsIn(tmp.resolve("b"));
+        java.nio.file.Files.writeString(argsB.javadoc().resolve("new.html"), "changed");
         BuildContext ctxA = BuildContext.forInputs(argsA);
         BuildContext ctxB = BuildContext.forInputs(argsB);
         org.junit.jupiter.api.Assertions.assertNotEquals(ctxA.buildId(), ctxB.buildId(),

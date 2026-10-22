@@ -96,7 +96,7 @@ public final class IngestArgumentParser {
         Path javadoc = required(values, OPT_JAVADOC);
         Path samples = required(values, OPT_SAMPLES);
         Path guides = required(values, OPT_GUIDES);
-        Path model = required(values, OPT_MODEL);
+        Path model = Optional.ofNullable(values.get(OPT_MODEL)).map(Path::of).orElse(Path.of("."));
         Path out = required(values, OPT_OUT);
         Optional<Path> trainings = Optional.ofNullable(values.get(OPT_TRAININGS)).map(Path::of);
         Optional<String> sdkVersion = parseSdkVersion(values.get(OPT_SDK_VERSION));

@@ -21,6 +21,8 @@ public enum RelationshipType {
     OVERRIDES,
     SPECIFIED_BY,
     SEE_ALSO,
-    EXAMPLE_USES,
+    USES_TYPE,
+    CONSTRUCTS,
+    CALLS,
     WORKFLOW_REQUIRES
 }

@@ -1,0 +1,53 @@
+{
+  "contractVersion": "read-tools/2",
+  "planningAuthorization": {
+    "date": "2026-10-21",
+    "status": "APPROVED",
+    "scope": "Implementation/testing of approved Story 2.8 spec including source-content handoff; separate from technical ratification"
+  },
+  "technicalSignOffs": [
+    {
+      "area": "identity",
+      "status": "PENDING",
+      "approver": null,
+      "owner": null,
+      "approvalEvidence": null
+    },
+    {
+      "area": "schema",
+      "status": "PENDING",
+      "approver": null,
+      "owner": null,
+      "approvalEvidence": null
+    },
+    {
+      "area": "interfaces",
+      "status": "PENDING",
+      "approver": null,
+      "owner": null,
+      "approvalEvidence": null
+    }
+  ],
+  "dependentStoryGate": "CLOSED_PENDING_TECHNICAL_RATIFICATION",
+  "story10Acceptance": "NOT_RUN",
+  "reviewedExemptions": [],
+  "sdkGuidancePolicyApproval": {
+    "date": "2026-10-21",
+    "status": "APPROVED",
+    "evidence": "User approved normal useful guidance with source-version citations for target 2023.1/source 2023.5; no automatic mismatch warning.",
+    "scope": "SDK target/source guidance policy only; technical sign-offs remain pending"
+  },
+  "sourceDocumentationAdoption": {
+    "date": "2026-10-21",
+    "status": "APPROVED",
+    "evidence": "User approved presented Story 2.9 spec and scoped contract adoption with continue.",
+    "scope": [
+      "identity/1",
+      "DocumentationPayload",
+      "typed source locators",
+      "bounded DocumentationStore",
+      "schema/2 API documentation storage extension"
+    ],
+    "excluded": "Unrelated interface, evaluation and release gates remain pending; no private corpus acceptance."
+  }
+}

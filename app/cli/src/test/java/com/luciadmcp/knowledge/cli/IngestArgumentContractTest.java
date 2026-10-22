@@ -46,8 +46,19 @@ class IngestArgumentContractTest {
                 "--samples", samples.toString(),
                 "--guides", guides.toString(),
                 "--model", model.toString(),
+                "--sdk-version", "2024.0",
                 "--out", out.toString()
         };
+    }
+
+    @Test void omittedModelAllowsOutputUnderWorkingDirectory(@TempDir Path tmp) throws Exception {
+        String[] base=validOfflineArgs(tmp);
+        java.util.List<String> arguments=new java.util.ArrayList<>();
+        for(int i=0;i<base.length;i++) { if(base[i].equals("--model")) { i++;continue; } arguments.add(base[i]); }
+        Path out=Path.of("build","mf-"+java.util.UUID.randomUUID().toString().substring(0,8)).toAbsolutePath();
+        int index=arguments.indexOf("--out"); arguments.set(index+1,out.toString());
+        Result result=run(arguments.toArray(String[]::new));
+        assertEquals(CliMain.EXIT_OK,result.exit(),result.err());
     }
 
     @Test
@@ -249,6 +260,7 @@ class IngestArgumentContractTest {
                 "--samples", Files.createDirectories(tmp.resolve("samples")).toString(),
                 "--guides", Files.createDirectories(tmp.resolve("guides")).toString(),
                 "--model", Files.createDirectories(tmp.resolve("model")).toString(),
+                "--sdk-version", "2024.0",
                 "--out", out.toString());
         assertEquals(CliMain.EXIT_USAGE_ERROR, r.exit());
         assertTrue(r.err().contains(CliErrorCode.NOT_A_DIRECTORY.name()), () -> r.err());

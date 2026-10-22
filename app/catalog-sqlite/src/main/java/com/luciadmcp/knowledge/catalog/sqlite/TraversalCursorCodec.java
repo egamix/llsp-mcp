@@ -17,7 +17,7 @@ final class TraversalCursorCodec {
     }
     String binding(String build, String sdk, TraversalRequest query) {
         String filters = query.types().stream().map(Enum::name).sorted().reduce("", (a,b) -> a + "," + b);
-        String canonical = field(build) + field(sdk) + field(query.seedKey()) + field(query.mode().name())
+        String canonical = field(com.luciadmcp.knowledge.domain.ContractVersions.INTERFACE) + field(com.luciadmcp.knowledge.domain.ContractVersions.IDENTITY) + field(build) + field(sdk) + field(query.seedKey()) + field(query.mode().name())
                 + field(query.direction().name()) + field(filters) + field(query.limits().toString());
         try { return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
                 .digest(canonical.getBytes(StandardCharsets.UTF_8))); }

@@ -97,8 +97,13 @@ class JavadocFieldExtractorTest {
         assertTrue(jdk11.issues().isEmpty(), () -> "jdk11 issues: " + jdk11.issues());
         assertTrue(jdk17.issues().isEmpty(), () -> "jdk17 issues: " + jdk17.issues());
 
-        assertEquals(jdk8.type(), jdk11.type(), "JDK 8 legacy vs JDK 11–16 modern enum must match");
-        assertEquals(jdk11.type(), jdk17.type(), "JDK 11–16 vs JDK 17+ modern enum must match");
+        for (var result : List.of(jdk8, jdk11, jdk17)) {
+            assertEquals(jdk8.type().description(), result.type().description());
+            assertEquals(jdk8.type().members().stream().map(m -> List.of(m.kind(), m.name(), m.signature(), m.description())).toList(),
+                    result.type().members().stream().map(m -> List.of(m.kind(), m.name(), m.signature(), m.description())).toList());
+        }
+        assertTrue(jdk8.type().members().get(0).anchor().isEmpty());
+        assertEquals("NORTH", jdk17.type().members().get(0).anchor().orElseThrow());
 
         assertEquals(List.of("NORTH", "SOUTH"),
                 jdk11.type().members().stream().map(ExtractedMember::name).toList());

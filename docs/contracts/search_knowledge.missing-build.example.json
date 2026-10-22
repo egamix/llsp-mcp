@@ -1,0 +1,40 @@
+{
+  "request": {
+    "contractVersion": "read-tools/2",
+    "query": "Widget",
+    "targetSdkVersion": "2024.0"
+  },
+  "response": {
+    "contractVersion": "read-tools/2",
+    "tool": "search_knowledge",
+    "sdkVersion": null,
+    "buildId": null,
+    "proof": "NOT_APPLICABLE",
+    "data": null,
+    "error": {
+      "code": "BUILD_UNAVAILABLE",
+      "message": "No immutable build is available for requested SDK 2024.0",
+      "retryable": true
+    },
+    "counts": {
+      "value": null,
+      "relation": "UNKNOWN"
+    },
+    "coverage": {
+      "complete": false,
+      "reason": "Synthetic contract specimen; no corpus acceptance claim"
+    },
+    "emptyReason": null,
+    "truncated": false,
+    "continuation": null,
+    "trace": {
+      "normalizedQuery": "synthetic",
+      "matchedBy": [],
+      "candidatesExamined": 0,
+      "workCharged": 0,
+      "capabilityFingerprint": null
+    },
+    "targetSdkVersion": "2024.0",
+    "versionNotices": []
+  }
+}

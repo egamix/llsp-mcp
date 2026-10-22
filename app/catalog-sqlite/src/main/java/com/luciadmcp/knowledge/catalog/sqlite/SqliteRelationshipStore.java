@@ -102,6 +102,9 @@ public final class SqliteRelationshipStore implements RelationshipStore {
                     ResultSet ignored = stmt.executeQuery("SELECT 1 FROM records LIMIT 1")) {
                 ignored.next();
             }
+            var records=SqliteCatalogStore.validationRecords(connection,null);
+            var validation=SqliteCatalogStore.validatePersisted(connection,new com.luciadmcp.knowledge.domain.StandardBuildValidator(),com.luciadmcp.knowledge.domain.BuildValidator.Operation.STARTUP,buildId,scope.sdkVersion(),records);
+            if(!validation.valid()) throw new IllegalStateException("BUILD_INVALID: "+validation.reasons());
             traversal = new BoundedRelationshipTraversal(connection, buildId, scope, signingKey, System::nanoTime);
         } catch (SQLException | RuntimeException e) {
             closeQuietly(connection);
@@ -151,11 +154,13 @@ public final class SqliteRelationshipStore implements RelationshipStore {
                 throw new UncheckedIOException("could not create relationship store directory " + parent, e);
             }
         }
+        SchemaCompatibility.check(absolute);
         Connection opened = null;
         try {
             opened = DriverManager.getConnection(readOnly
                     ? "jdbc:sqlite:" + absolute.toUri() + "?mode=ro"
                     : "jdbc:sqlite:" + absolute);
+            if (!readOnly) SchemaCompatibility.initialize(opened);
             if (!readOnly) try (Statement stmt = opened.createStatement()) {
                 stmt.execute(CREATE_EDGES_TABLE);
                 stmt.execute("CREATE INDEX IF NOT EXISTS edges_out ON edges(sdk_version,source_id,edge_id)");

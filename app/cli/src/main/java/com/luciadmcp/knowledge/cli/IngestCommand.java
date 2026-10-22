@@ -74,7 +74,7 @@ public final class IngestCommand {
         requireExistingDirectory(IngestArgumentParser.OPT_JAVADOC, args.javadoc());
         requireExistingDirectory(IngestArgumentParser.OPT_SAMPLES, args.samples());
         requireExistingDirectory(IngestArgumentParser.OPT_GUIDES, args.guides());
-        requireExistingDirectory(IngestArgumentParser.OPT_MODEL, args.model());
+
         args.trainings().ifPresent(t -> {
             requireExistingDirectory(IngestArgumentParser.OPT_TRAININGS, t);
             TrainingIngestSeam.ingest(t);
@@ -109,7 +109,7 @@ public final class IngestCommand {
         requireNotAncestor(IngestArgumentParser.OPT_JAVADOC, args.javadoc(), out);
         requireNotAncestor(IngestArgumentParser.OPT_SAMPLES, args.samples(), out);
         requireNotAncestor(IngestArgumentParser.OPT_GUIDES, args.guides(), out);
-        requireNotAncestor(IngestArgumentParser.OPT_MODEL, args.model(), out);
+
         args.trainings().ifPresent(t -> requireNotAncestor(IngestArgumentParser.OPT_TRAININGS, t, out));
     }
 

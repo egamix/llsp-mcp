@@ -107,6 +107,14 @@ record IngestionReport(
     public String toJson() {
         StringBuilder sb = new StringBuilder(512);
         sb.append("{\n");
+        sb.append("  \"reportVersion\": 1,\n");
+        field(sb, "  ", "profile", com.luciadmcp.knowledge.domain.ContractVersions.PROFILE).append(",\n");
+        field(sb, "  ", "runtimeFingerprint", com.luciadmcp.knowledge.domain.ContentHashes.runtimeFingerprint()).append(",\n");
+        field(sb, "  ", "recipeFingerprint", com.luciadmcp.knowledge.domain.ContentHashes.recipeFingerprint(com.luciadmcp.knowledge.domain.ContractVersions.PROFILE, List.of())).append(",\n");
+        field(sb, "  ", "capabilityFingerprint", com.luciadmcp.knowledge.domain.ContentHashes.digest("capabilities/1", List.of("api-documentation", "catalog", "narrative-documentation", "relationships", "structured-documentation"))).append(",\n");
+        field(sb, "  ", "technicalRatification", "PENDING").append(",\n");
+        field(sb, "  ", "completion", aborted ? "ABORTED" : failures.isEmpty() ? "COMPLETE_FOR_PROFILE" : "PARTIAL").append(",\n");
+        sb.append("  \"coverage\": {\"pages\":null,\"records\":null,\"sections\":null,\"reason\":\"coverage instrumentation deferred to Story 2.11\"},\n");
         field(sb, "  ", "buildId", buildId).append(",\n");
         field(sb, "  ", "sdkVersion", sdkVersion).append(",\n");
         field(sb, "  ", "relationshipScope", new com.luciadmcp.knowledge.domain.RelationshipScope(sdkVersion).boundary()).append(",\n");

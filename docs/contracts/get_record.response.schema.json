@@ -1,0 +1,541 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "get_record.response.schema.json",
+  "type": "object",
+  "properties": {
+    "contractVersion": {
+      "const": "read-tools/2"
+    },
+    "tool": {
+      "const": "get_record"
+    },
+    "sdkVersion": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Actual pinned source SDK, never inferred from target context; null before source binding."
+    },
+    "buildId": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "proof": {
+      "$ref": "common.schema.json#/$defs/proof"
+    },
+    "data": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "records": {
+              "type": "array",
+              "items": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "record": {
+                        "$ref": "common.schema.json#/$defs/item"
+                      },
+                      "documentContentHash": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 64
+                      },
+                      "pageContentHash": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 64
+                      },
+                      "sections": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 2048
+                            },
+                            "title": {
+                              "type": "string",
+                              "maxLength": 2048
+                            },
+                            "locator": {
+                              "$ref": "common.schema.json#/$defs/locator"
+                            },
+                            "blocks": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "kind": {
+                                    "enum": [
+                                      "PARAGRAPH",
+                                      "CODE",
+                                      "TABLE",
+                                      "LIST",
+                                      "NOTE"
+                                    ]
+                                  },
+                                  "label": {
+                                    "type": "string",
+                                    "maxLength": 2048
+                                  },
+                                  "text": {
+                                    "type": "string",
+                                    "maxLength": 1048576
+                                  },
+                                  "links": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "label": {
+                                          "type": "string",
+                                          "maxLength": 2048
+                                        },
+                                        "originalTarget": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 2048
+                                        },
+                                        "sdkVersion": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 2048
+                                        },
+                                        "locator": {
+                                          "$ref": "common.schema.json#/$defs/locator"
+                                        }
+                                      },
+                                      "required": [
+                                        "label",
+                                        "originalTarget",
+                                        "sdkVersion",
+                                        "locator"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    "maxItems": 4096
+                                  },
+                                  "table": {
+                                    "anyOf": [
+                                      {
+                                        "type": "object",
+                                        "properties": {
+                                          "headers": {
+                                            "type": "array",
+                                            "items": {
+                                              "type": "string"
+                                            },
+                                            "maxItems": 4096
+                                          },
+                                          "rows": {
+                                            "type": "array",
+                                            "items": {
+                                              "type": "array",
+                                              "items": {
+                                                "type": "string"
+                                              },
+                                              "maxItems": 4096
+                                            },
+                                            "maxItems": 4096
+                                          }
+                                        },
+                                        "required": [
+                                          "headers",
+                                          "rows"
+                                        ],
+                                        "additionalProperties": false
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "items": {
+                                    "type": "array",
+                                    "items": {
+                                      "$ref": "common.schema.json#/$defs/listItem"
+                                    },
+                                    "maxItems": 4096
+                                  },
+                                  "ordered": {
+                                    "type": "boolean"
+                                  }
+                                },
+                                "required": [
+                                  "kind",
+                                  "label",
+                                  "text",
+                                  "links",
+                                  "table",
+                                  "items",
+                                  "ordered"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "maxItems": 4096
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "title",
+                            "locator",
+                            "blocks"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "maxItems": 50
+                      },
+                      "sectionContinuation": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 4096
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "inputRecordId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 2048
+                      },
+                      "status": {
+                        "const": "FOUND"
+                      }
+                    },
+                    "required": [
+                      "record",
+                      "documentContentHash",
+                      "pageContentHash",
+                      "sections",
+                      "sectionContinuation",
+                      "inputRecordId",
+                      "status"
+                    ],
+                    "additionalProperties": false,
+                    "allOf": [
+                      {
+                        "if": {
+                          "properties": {
+                            "sections": {
+                              "minItems": 1
+                            }
+                          }
+                        },
+                        "then": {
+                          "properties": {
+                            "record": {
+                              "properties": {
+                                "citations": {
+                                  "minItems": 1
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "inputRecordId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 2048
+                      },
+                      "status": {
+                        "enum": [
+                          "NOT_FOUND",
+                          "PAYLOAD_TOO_LARGE",
+                          "INAPPLICABLE"
+                        ]
+                      },
+                      "reason": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 2048
+                      }
+                    },
+                    "required": [
+                      "inputRecordId",
+                      "status",
+                      "reason"
+                    ],
+                    "additionalProperties": false
+                  }
+                ]
+              },
+              "maxItems": 50
+            }
+          },
+          "required": [
+            "records"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "error": {
+      "$ref": "common.schema.json#/$defs/error"
+    },
+    "counts": {
+      "$ref": "common.schema.json#/$defs/count"
+    },
+    "coverage": {
+      "type": "object",
+      "properties": {
+        "complete": {
+          "type": "boolean"
+        },
+        "reason": {
+          "type": "string",
+          "maxLength": 2048
+        }
+      },
+      "required": [
+        "complete",
+        "reason"
+      ],
+      "additionalProperties": false
+    },
+    "emptyReason": {
+      "anyOf": [
+        {
+          "enum": [
+            "NO_MATCH",
+            "UNKNOWN_IN_SCOPE",
+            "INCOMPLETE_EVIDENCE",
+            "NOT_APPLICABLE",
+            "NOT_REQUESTED"
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "truncated": {
+      "type": "boolean"
+    },
+    "continuation": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "trace": {
+      "type": "object",
+      "properties": {
+        "normalizedQuery": {
+          "type": "string",
+          "maxLength": 2048
+        },
+        "matchedBy": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2048
+          },
+          "maxItems": 50
+        },
+        "candidatesExamined": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10000
+        },
+        "workCharged": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 50000
+        },
+        "capabilityFingerprint": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "normalizedQuery",
+        "matchedBy",
+        "candidatesExamined",
+        "workCharged",
+        "capabilityFingerprint"
+      ],
+      "additionalProperties": false
+    },
+    "targetSdkVersion": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "versionNotices": {
+      "type": "array",
+      "maxItems": 50,
+      "items": {
+        "$ref": "common.schema.json#/$defs/versionNotice"
+      }
+    }
+  },
+  "required": [
+    "contractVersion",
+    "tool",
+    "sdkVersion",
+    "buildId",
+    "proof",
+    "data",
+    "error",
+    "counts",
+    "coverage",
+    "emptyReason",
+    "truncated",
+    "continuation",
+    "trace",
+    "targetSdkVersion",
+    "versionNotices"
+  ],
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "error": {
+            "type": "null"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "data": {
+            "type": "object"
+          },
+          "buildId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2048
+          },
+          "trace": {
+            "properties": {
+              "capabilityFingerprint": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64
+              }
+            }
+          },
+          "sdkVersion": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2048
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "data": {
+            "type": "null"
+          },
+          "proof": {
+            "const": "NOT_APPLICABLE"
+          },
+          "continuation": {
+            "type": "null"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "buildId": {
+            "type": "null"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "error": {
+            "type": "object"
+          },
+          "trace": {
+            "properties": {
+              "capabilityFingerprint": {
+                "type": "null"
+              }
+            }
+          },
+          "sdkVersion": {
+            "type": "null"
+          },
+          "versionNotices": {
+            "maxItems": 0
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "trace": {
+            "properties": {
+              "capabilityFingerprint": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64
+              }
+            }
+          },
+          "sdkVersion": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2048
+          }
+        }
+      }
+    }
+  ]
+}

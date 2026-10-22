@@ -38,9 +38,49 @@ public final class JavadocCatalogSource {
 
             List<String> issues = new ArrayList<>(extracted.issues());
             issues.addAll(minted.issues());
-            pages.add(new PageResult(relativePath, minted.records(), issues, extracted.type()));
+            pages.add(new PageResult(relativePath, minted.records(), issues, extracted.type(), extracted.sourceHash()));
         }
-        return new Result(discovered.warnings(), pages);
+        List<NarrativePage> narratives=new ArrayList<>();
+        for(ClassifiedPage page:discovered.narrativePages())narratives.add(narrative(javadocRoot,page));
+        return new Result(discovered.warnings(), pages,narratives);
+    }
+
+    public record NarrativePage(String relativePath,PageType kind,List<com.luciadmcp.knowledge.domain.DocumentationPayload.Block> blocks,java.util.Optional<String> anchor,java.util.Optional<String> sourceHash,List<String> issues) {
+        public NarrativePage { blocks=List.copyOf(blocks);issues=List.copyOf(issues); }
+    }
+    private NarrativePage narrative(Path root,ClassifiedPage page) {
+        List<String> issues=new ArrayList<>();String path=page.relativePath();
+        try {
+            if(java.nio.file.Files.size(root.resolve(path))>8_388_608)throw new IllegalArgumentException("PAYLOAD_TOO_LARGE");
+            byte[] bytes=java.nio.file.Files.readAllBytes(root.resolve(path));
+            if(bytes.length>8_388_608)throw new IllegalArgumentException("PAYLOAD_TOO_LARGE");
+            var doc=org.jsoup.Jsoup.parse(new java.io.ByteArrayInputStream(bytes),null,"");
+            String selector=page.type()==PageType.PACKAGE?"section.package-description, .packageDescription, #package-description, [id='package.description']":"section.overview-description, .overview-description, #overview-description, [id='overview.description'], .overviewDescription";
+            var owners=doc.select(selector);
+            var markers=new org.jsoup.select.Elements(owners.stream().filter(el->el.tagName().equals("a") && el.text().isBlank() && el.children().isEmpty()).toList());
+            owners=new org.jsoup.select.Elements(owners.stream().filter(el->!markers.contains(el)).toList());
+            // Legacy descriptions are wrapped separately from summary tables and navigation.
+            if(owners.isEmpty())owners=doc.select("div.description");
+            // Doclet root overviews commonly use a single header block as the overview prose.
+            if(owners.isEmpty() && page.type()==PageType.OVERVIEW)owners=doc.select("main > .header > .block, .contentContainer > .block");
+            var aliases=owners;
+            owners=new org.jsoup.select.Elements(aliases.stream().filter(el->el.parents().stream().noneMatch(aliases::contains)).toList());
+            if(owners.size()!=1) {
+                issues.add(path+": PARTIAL_UNSUPPORTED: "+(owners.isEmpty()?"no known narrative ownership wrapper":"ambiguous narrative ownership wrappers"));
+                return new NarrativePage(path,page.type(),List.of(),java.util.Optional.empty(),java.util.Optional.of(com.luciadmcp.knowledge.domain.ContentHashes.sourceHash(bytes)),issues);
+            }
+            var owner=owners.first();var blocks=OwnedDocumentationExtractor.narrative(owner,path,issues);
+            if(blocks.isEmpty())issues.add(path+": PARTIAL_UNSUPPORTED: empty narrative content");
+            var anchor=JavadocFieldExtractor.actualAnchor(owner);
+            if(anchor.isEmpty())for(var alias:aliases)if(alias==owner || alias.parents().contains(owner)) {
+                anchor=JavadocFieldExtractor.actualAnchor(alias);if(anchor.isPresent())break;
+            }
+            if(anchor.isEmpty() && markers.contains(owner.previousElementSibling()))anchor=JavadocFieldExtractor.actualAnchor(owner.previousElementSibling());
+            return new NarrativePage(path,page.type(),blocks,anchor,java.util.Optional.of(com.luciadmcp.knowledge.domain.ContentHashes.sourceHash(bytes)),issues);
+        } catch(java.io.IOException | RuntimeException e) {
+            issues.add(path+": narrative extraction failed: "+e.getMessage());
+            return new NarrativePage(path,page.type(),List.of(),java.util.Optional.empty(),java.util.Optional.empty(),issues);
+        }
     }
 
     /**
@@ -58,7 +98,7 @@ public final class JavadocCatalogSource {
      * @param type         the extracted type, carrying the relationship-source references for pass two
      */
     public record PageResult(
-            String relativePath, List<SymbolRecord> records, List<String> issues, ExtractedType type) {
+            String relativePath, List<SymbolRecord> records, List<String> issues, ExtractedType type, java.util.Optional<String> sourceHash) {
 
         public PageResult {
             if (relativePath == null || relativePath.isBlank()) {
@@ -75,9 +115,11 @@ public final class JavadocCatalogSource {
      * @param discoveryWarnings non-fatal discovery/classification warnings (AD-4)
      * @param pages             per-type-page minted records and issues, in discovery order
      */
-    public record Result(List<String> discoveryWarnings, List<PageResult> pages) {
+    public record Result(List<String> discoveryWarnings, List<PageResult> pages,List<NarrativePage> narratives) {
+        public Result(List<String> discoveryWarnings,List<PageResult> pages) { this(discoveryWarnings,pages,List.of()); }
 
         public Result {
+            narratives=List.copyOf(narratives);
             discoveryWarnings = discoveryWarnings == null ? List.of() : List.copyOf(discoveryWarnings);
             pages = pages == null ? List.of() : List.copyOf(pages);
         }

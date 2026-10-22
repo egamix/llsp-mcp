@@ -113,7 +113,7 @@ public final class CanonicalSymbolMinter {
         }
 
         // Methods and constructors: derive the erased parameter-type list for overload distinction.
-        SignatureNormalizer.Parsed parsed = SignatureNormalizer.parse(member.signature());
+        SignatureNormalizer.Parsed parsed = SignatureNormalizer.parseQualified(member.signature());
         // Surface every degradation the normalizer flagged (unbalanced parens/generics, empty
         // parameter slots, ...) as an explicit issue — never a silent drop (AD-4).
         for (String problem : parsed.problems()) {
@@ -128,7 +128,9 @@ public final class CanonicalSymbolMinter {
             // nor with another degraded overload of the same method name — fold in the kind and the
             // member's source index so it is unique by construction. It is deliberately not a
             // well-formed key: the trailing "?<kind>@<index>" marks it as an unresolved signature.
-            String key = typeName.fqn() + "#" + name + "?" + kind + "@" + index;
+            String occurrence = com.luciadmcp.knowledge.domain.ContentHashes.digest("partial-occurrence/1",
+                    List.of(relativePath.replace('\\', '/'), kind.name(), name, member.signature()));
+            String key = typeName.fqn() + "#" + name + "?" + kind + "@" + occurrence;
             return new SymbolRecord(key, kind, typeName.fqn(), name, List.of(),
                     memberVariants(typeName.simpleName(), name, name), relativePath, index);
         }

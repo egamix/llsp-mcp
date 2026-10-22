@@ -1,5 +1,5 @@
 # generated: 2026-08-24
-# last_updated: 2026-10-21 (Story 2.7 implemented and reviewed)
+# last_updated: 2026-10-21 (Story 2.8 implemented and reviewed; technical ratification pending)
 # project: luciad-mcp
 # project_key: NOKEY
 # tracking_system: file-system
@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-08-24
-last_updated: 2026-10-21  # Story 2.7 implemented and reviewed
+last_updated: 2026-10-22  # Story 2.10 follow-up reviewed and verified
 project: luciad-mcp
 project_key: NOKEY
 tracking_system: file-system
@@ -65,9 +65,9 @@ development_status:
   2-5-construct-the-typed-relationship-graph-in-two-passes: done
   2-6-keep-unresolved-references-explicit-scope-traversal-to-the-documented-sdk: done
   2-7-bounded-cycle-safe-relationship-traversal: done
-  2-8-contract-and-verification-freeze: backlog
-  2-9-persist-source-faithful-api-documentation: backlog
-  2-10-preserve-structured-javadoc-and-narrative-content: backlog
+  2-8-contract-and-verification-freeze: review
+  2-9-persist-source-faithful-api-documentation: review
+  2-10-preserve-structured-javadoc-and-narrative-content: done
   2-11-account-for-ingestion-coverage-and-fidelity: backlog
   epic-2-retrospective: optional
 
@@ -230,7 +230,7 @@ planning_application:
   applied_at: 2026-10-02
   scope: "Prospective planning only; no implementation applied"
   source: "../initiative-luciad-mcp/change-evidence-backed-first-proof/change-evidence-backed-first-proof.md"
-  active_delivery_gate: "2.6/2.7 reconciled from done specs and merge evidence; 2.8 technical sign-offs remain required"
+  active_delivery_gate: "2.9 implemented/reviewed under scoped contract adoption; unrelated 2.8 technical gates remain required"
   story_2_5_observation: "Story 2.5 review complete; marked done. Known gaps in deferred-work.md"
   contract_gate: "Story 2.8 technical schema/identity/interface sign-offs remain open"
   evaluation_gate: "10.1/B2/B6 before corpus curation or tuning; held-out protection"
@@ -274,3 +274,10 @@ product_quality_planning:
   reconciliation_evidence:
     story_2_6: "done spec; merged in 4b5e7678546f687b0cc16f6b57fe000e833a1189"
     story_2_7: "done spec and review/verification record; merged in ea18507a40861b849a0640510ada9cadecc09f6f"
+
+source_documentation_adoption:
+  approved_at: 2026-10-21
+  story: 2-9-persist-source-faithful-api-documentation
+  scope: "identity/1, DocumentationPayload, typed locators, bounded DocumentationStore and schema/2 API content extension"
+  evidence: "docs/contracts/sign-offs.json sourceDocumentationAdoption; approved Story 2.9 spec"
+  exclusions: "Unrelated interface, evaluation and release gates remain pending"

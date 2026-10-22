@@ -1,0 +1,41 @@
+{
+  "scope": "selected synthetic screening; not Story 10.1 acceptance",
+  "results": [
+    {
+      "mutation": "hash",
+      "test": "com.luciadmcp.knowledge.domain.ContentHashesTest.recordHashIsPinned",
+      "detected": true,
+      "exit": 1
+    },
+    {
+      "mutation": "identity",
+      "test": "com.luciadmcp.knowledge.ingest.javadoc.CanonicalSymbolMinterTest.qualifiedOverloadsAndPartialOccurrencesSurviveReordering",
+      "detected": true,
+      "exit": 1
+    },
+    {
+      "mutation": "scope",
+      "test": "com.luciadmcp.knowledge.cli.pipeline.RelationshipsStageTest.locatorCollisionsRemainAmbiguousAndVersionScoped",
+      "detected": true,
+      "exit": 1
+    },
+    {
+      "mutation": "ambiguity",
+      "test": "com.luciadmcp.knowledge.cli.pipeline.RelationshipsStageTest.ambiguousSimpleNameIsLeftUnresolved",
+      "detected": true,
+      "exit": 1
+    },
+    {
+      "mutation": "resolution",
+      "test": "com.luciadmcp.knowledge.cli.pipeline.RelationshipsStageTest.qualifiedReferenceResolvesPreciselyWithoutFallback",
+      "detected": true,
+      "exit": 1
+    },
+    {
+      "mutation": "activation",
+      "test": "com.luciadmcp.knowledge.cli.pipeline.CatalogStageTest.identicalPartialOccurrencesInvalidateContinueBuild",
+      "detected": true,
+      "exit": 1
+    }
+  ]
+}

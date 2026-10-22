@@ -1,6 +1,7 @@
 package com.luciadmcp.knowledge.ingest.javadoc;
 
 import java.util.List;
+import java.util.Optional;
 
 /**
  * The fields extracted from a single {@link PageType#TYPE} page (Story 2.2): the type's own
@@ -41,7 +42,11 @@ public record ExtractedType(
         TypeRef superclass,
         List<TypeRef> superInterfaces,
         List<TypeRef> implementedInterfaces,
-        List<TypeRef> seeAlso) {
+        List<TypeRef> seeAlso, String signature, List<Param> typeParameters, Optional<String> anchor, List<com.luciadmcp.knowledge.domain.DocumentationPayload.Block> documentationBlocks) {
+
+    public ExtractedType(String relativePath,String description,String since,Deprecation deprecation,List<ExtractedMember> members,TypeRef superclass,List<TypeRef> superInterfaces,List<TypeRef> implementedInterfaces,List<TypeRef> seeAlso,String signature,List<Param> typeParameters,Optional<String> anchor) {
+        this(relativePath,description,since,deprecation,members,superclass,superInterfaces,implementedInterfaces,seeAlso,signature,typeParameters,anchor,List.of());
+    }
 
     public ExtractedType {
         if (relativePath == null || relativePath.isBlank()) {
@@ -54,6 +59,17 @@ public record ExtractedType(
         superInterfaces = superInterfaces == null ? List.of() : List.copyOf(superInterfaces);
         implementedInterfaces = implementedInterfaces == null ? List.of() : List.copyOf(implementedInterfaces);
         seeAlso = seeAlso == null ? List.of() : List.copyOf(seeAlso);
+        signature = signature == null ? "" : signature;
+        typeParameters = typeParameters == null ? List.of() : List.copyOf(typeParameters);
+        anchor = anchor == null ? Optional.empty() : anchor;
+        documentationBlocks = documentationBlocks == null ? List.of() : List.copyOf(documentationBlocks);
+    }
+
+    public ExtractedType(String relativePath, String description, String since, Deprecation deprecation,
+            List<ExtractedMember> members, TypeRef superclass, List<TypeRef> superInterfaces,
+            List<TypeRef> implementedInterfaces, List<TypeRef> seeAlso) {
+        this(relativePath,description,since,deprecation,members,superclass,superInterfaces,
+                implementedInterfaces,seeAlso,"",List.of(),Optional.empty());
     }
 
     /**

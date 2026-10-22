@@ -59,14 +59,14 @@ class ContentHashesTest {
     @Test
     void recordHashIsPinned() {
         assertEquals(
-                "5c9a59bdd5afd4c4979165a2bda76e6f40a32c6ffb3d63f24de97b62248109cf",
+                "5cf3287d9d1854c9700527dfe91b173630f462a53bf05b0325544e0441419d65",
                 ContentHashes.recordHash("ApiElement", List.of("com.example.Foo", "PUBLIC")));
     }
 
     @Test
     void relationshipHashIsPinned() {
         assertEquals(
-                "99961dc9aa7af03ebab81226a4f33b68ca4336a1a8db704ca339db8ff49a72ef",
+                "d9c00269d935a073175af8d48bad5c2c5d92810a08737b5447f162bb74ab2b6f",
                 ContentHashes.relationshipHash("2024.0", "Foo", RelationshipType.EXTENDS_CLASS, "Bar", "FQN_LITERAL"));
     }
 

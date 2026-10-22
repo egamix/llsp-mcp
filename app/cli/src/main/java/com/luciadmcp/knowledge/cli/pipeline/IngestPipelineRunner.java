@@ -56,17 +56,18 @@ public final class IngestPipelineRunner implements IngestPipeline {
     // Placeholder toolchain component versions. Each real value arrives with the stage that owns it
     // (parser/schema in Epic 2, normalizer/relationship-rules in Epic 3, embedding config in Epic 4);
     // they are distinct stub identifiers now so the fingerprint is a genuine function of five inputs.
-    static final String STUB_PARSER_VERSION = "parser/0.0.0-stub";
-    static final String STUB_SCHEMA_VERSION = "schema/0.0.0-stub";
-    static final String STUB_NORMALIZER_VERSION = "normalizer/0.0.0-stub";
-    static final String STUB_RELATIONSHIP_RULES_VERSION = "relationship-rules/0.0.0-stub";
-    static final String STUB_EMBEDDING_CONFIG_ID = "embedding/0.0.0-stub";
+    static final String STUB_PARSER_VERSION = "javadoc-parser/3";
+    static final String STUB_SCHEMA_VERSION = "schema/3";
+    static final String STUB_NORMALIZER_VERSION = "qualified-normalizer/1";
+    static final String STUB_RELATIONSHIP_RULES_VERSION = "relationship-rules/1";
+    static final String STUB_EMBEDDING_CONFIG_ID = "embedding/disabled";
 
     /** Fixed name of the machine-readable report, under the per-build output directory. */
     static final String REPORT_FILE = "ingestion-report.json";
 
     private final List<Stage> stages;
     private final FailurePolicy policy;
+    private java.util.Set<PipelineStage> unsupported = java.util.Set.of();
 
     /**
      * @param stages exactly one stage per {@link PipelineStage}, in {@link PipelineStage} order
@@ -120,11 +121,11 @@ public final class IngestPipelineRunner implements IngestPipeline {
         Stage catalog = new CatalogStage(
                 args.javadoc(),
                 source,
-                ctx -> new SqliteCatalogStore(ctx.catalogDbPath()));
+                ctx -> openBuildCatalog(ctx));
         Stage relationships = new RelationshipsStage(
                 args.javadoc(),
                 source,
-                ctx -> new SqliteCatalogStore(ctx.catalogDbPath()),
+                ctx -> openBuildCatalog(ctx),
                 ctx -> new SqliteRelationshipStore(ctx.catalogDbPath()));
         PipelineStage[] all = PipelineStage.values();
         List<Stage> stages = new ArrayList<>(all.length);
@@ -132,15 +133,27 @@ public final class IngestPipelineRunner implements IngestPipeline {
             stages.add(switch (stage) {
                 case CATALOG -> catalog;
                 case RELATIONSHIPS -> relationships;
+                case VALIDATION -> new BuildValidationStage(new com.luciadmcp.knowledge.domain.StandardBuildValidator(), ctx -> openBuildCatalog(ctx));
                 default -> Stage.noOp();
             });
         }
-        return new IngestPipelineRunner(stages, policy);
+        IngestPipelineRunner runner = new IngestPipelineRunner(stages, policy);
+        runner.unsupported = java.util.Set.of(PipelineStage.EXAMPLES_WORKFLOWS, PipelineStage.LEXICAL_INDEX,
+                PipelineStage.EMBEDDINGS, PipelineStage.VECTOR_INDEX, PipelineStage.ACTIVATION);
+        return runner;
+    }
+
+    private static SqliteCatalogStore openBuildCatalog(BuildContext context) {
+        var store = new SqliteCatalogStore(context.catalogDbPath());
+        try { store.bindManifest(IndexManifest.withDocumentation(context.buildId(),context.sdkVersion(),com.luciadmcp.knowledge.domain.ContentHashes.runtimeFingerprint())); return store; }
+        catch(RuntimeException e) { store.close(); throw e; }
     }
 
     @Override
     public void run(IngestArguments args) {
-        runToResult(args);
+        PipelineResult result = runToResult(args);
+        if (result.aborted() || containsSeverity(result.failures(), FailureSeverity.BUILD_INVALIDATING))
+            throw new IllegalStateException("BUILD_INVALID: " + result.failures());
     }
 
     /**
@@ -164,7 +177,8 @@ public final class IngestPipelineRunner implements IngestPipeline {
         // BuildContext (AD-12). STUB_SDK_VERSION survives only as BuildContext.forInputs' fallback
         // when no --sdk-version is supplied — the persisted path uses the real value.
         IndexManifest manifest =
-                new IndexManifest(context.buildId(), context.sdkVersion(), toolchainFingerprint);
+                unsupported.isEmpty() ? new IndexManifest(context.buildId(), context.sdkVersion(), toolchainFingerprint)
+                        : IndexManifest.withDocumentation(context.buildId(), context.sdkVersion(), toolchainFingerprint);
 
         List<StageFailure> collected = new ArrayList<>();
         PipelineStage[] all = PipelineStage.values();
@@ -177,7 +191,11 @@ public final class IngestPipelineRunner implements IngestPipeline {
 
         for (int i = 0; i < all.length; i++) {
             PipelineStage stage = all[i];
-            if (checkpoint.isCompleted(stage)) {
+            if (unsupported.contains(stage)) {
+                statuses.put(stage, StageStatus.SKIPPED_UNSUPPORTED);
+                continue;
+            }
+            if (checkpoint.isCompleted(stage) && !(stage == PipelineStage.VALIDATION && !unsupported.isEmpty())) {
                 statuses.put(stage, StageStatus.SKIPPED_ON_RESUME);
                 continue; // resume: already done in a prior run
             }
@@ -238,6 +256,11 @@ public final class IngestPipelineRunner implements IngestPipeline {
             List<StageFailure> collected,
             boolean activationOccurred,
             boolean aborted) {
+        if (aborted && containsSeverity(collected, FailureSeverity.BUILD_INVALIDATING)) {
+            Path invalidPath=args.out().resolve(".staging").resolve(manifest.buildId()).resolve(manifest.sdkVersion()).resolve(BuildContext.CATALOG_DB_FILE);
+            if(java.nio.file.Files.isRegularFile(invalidPath)) try(var store=new SqliteCatalogStore(invalidPath)) { store.markInvalid(); }
+            catch(RuntimeException ignored) { /* Original integrity failure remains the report's authority. */ }
+        }
         List<IngestionReport.StageEntry> stageEntries = new ArrayList<>();
         for (PipelineStage stage : PipelineStage.values()) {
             stageEntries.add(new IngestionReport.StageEntry(stage, statuses.get(stage)));
