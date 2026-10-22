@@ -3,7 +3,11 @@ import java.util.List;
 import java.util.Optional;
 /** Symbol-less narratives and governed practices share a stable domain ID, never an engine ID. */
 public record KnowledgeRecord(String id, String sdkVersion, RecordType recordType, KnowledgeKind knowledgeKind,
-        Optional<SymbolCoordinate> symbol, SourceLocator locator, Governance governance, Applicability applicability) {
+        Optional<SymbolCoordinate> symbol, SourceLocator locator, Governance governance, Applicability applicability, Optional<NarrativeKind> narrativeKind) {
+    public enum NarrativeKind { PACKAGE, OVERVIEW }
+    public KnowledgeRecord(String id,String sdkVersion,RecordType recordType,KnowledgeKind knowledgeKind,Optional<SymbolCoordinate> symbol,SourceLocator locator,Governance governance,Applicability applicability) {
+        this(id,sdkVersion,recordType,knowledgeKind,symbol,locator,governance,applicability,Optional.empty());
+    }
     public enum RecordType { API, NARRATIVE, RECIPE, PRACTICE }
     public enum KnowledgeKind { AUTHORITATIVE_FACT, EXPERT_APPROVED_PRACTICE, RECIPE, CANDIDATE_LEARNING }
     public enum Approval { CANDIDATE, APPROVED }
@@ -23,6 +27,8 @@ public record KnowledgeRecord(String id, String sdkVersion, RecordType recordTyp
     }
     public KnowledgeRecord {
         if (id == null || id.isBlank() || sdkVersion == null || sdkVersion.isBlank() || recordType == null || knowledgeKind == null || symbol == null || locator == null || governance == null || applicability == null) throw new IllegalArgumentException("record fields required");
+        if (narrativeKind == null) throw new IllegalArgumentException("narrative kind required");
+        if (recordType == RecordType.NARRATIVE && (symbol.isPresent() || narrativeKind.isEmpty()) || recordType != RecordType.NARRATIVE && narrativeKind.isPresent()) throw new IllegalArgumentException("narrative metadata mismatch");
         if (symbol.isPresent() && !sdkVersion.equals(symbol.get().sdkVersion())) throw new IllegalArgumentException("symbol scope mismatch");
     }
     public static String narrativeId(String sdkVersion, String relativePath, String narrativeKind) {

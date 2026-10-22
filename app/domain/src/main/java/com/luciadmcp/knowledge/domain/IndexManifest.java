@@ -29,7 +29,7 @@ public record IndexManifest(String buildId, String sdkVersion, String toolchainF
     /** Content-capable production builds promise a payload for every catalog record. */
     public static IndexManifest withDocumentation(String buildId, String sdkVersion, String toolchainFingerprint) {
         var base = new IndexManifest(buildId, sdkVersion, toolchainFingerprint);
-        var capabilities = java.util.List.of("api-documentation", "catalog", "relationships");
+        var capabilities = java.util.List.of("api-documentation", "catalog", "narrative-documentation", "relationships", "structured-documentation");
         return new IndexManifest(buildId, sdkVersion, toolchainFingerprint, base.manifestVersion(),
                 base.profile(), base.inputDigest(), base.recipeDigest(), base.runtimeDigest(), capabilities,
                 ContentHashes.digest("capabilities/1", capabilities));

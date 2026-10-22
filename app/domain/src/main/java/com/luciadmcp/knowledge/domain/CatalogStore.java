@@ -37,6 +37,11 @@ public interface CatalogStore extends AutoCloseable {
         throw new UnsupportedOperationException("atomic documentation persistence unsupported");
     }
 
+    /** Symbol-less narrative content uses the same atomic association, without a catalog tuple. */
+    default PutResult putNarrative(KnowledgeRecord record, DocumentationPayload payload) {
+        throw new UnsupportedOperationException("atomic narrative documentation persistence unsupported");
+    }
+
     /** The stored record for a version-scoped canonical key, or empty if none. */
     Optional<StoredCatalogRecord> findByKey(String sdkVersion, String canonicalKey);
 

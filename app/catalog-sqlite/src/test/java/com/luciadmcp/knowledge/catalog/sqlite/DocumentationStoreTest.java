@@ -124,4 +124,32 @@ class DocumentationStoreTest {
         try(var db=DriverManager.getConnection("jdbc:sqlite:"+path);var s=db.createStatement()) { s.executeUpdate("UPDATE documentation_sections SET payload=zeroblob(2000000) WHERE ordinal=0"); }
         try(var store=new SqliteDocumentationStore(path)) { assertThrows(IllegalStateException.class,()->store.readSections(record.id(),BUILD,"1",0,1)); }
     }
+
+    static KnowledgeRecord narrative(String path,KnowledgeRecord.NarrativeKind kind) {
+        return new KnowledgeRecord(KnowledgeRecord.narrativeId("1",path,kind.name()),"1",KnowledgeRecord.RecordType.NARRATIVE,KnowledgeRecord.KnowledgeKind.AUTHORITATIVE_FACT,Optional.empty(),new SourceLocator(SourceLocator.Kind.SOURCE,path,Optional.empty(),""),new KnowledgeRecord.Governance(KnowledgeRecord.Approval.APPROVED,"javadoc","local Javadoc source","source narrative documentation"),new KnowledgeRecord.Applicability("LuciadLightspeed",List.of("1"),List.of()),Optional.of(kind));
+    }
+    @Test void narrativesShareAtomicContentButNeverCatalogRows() throws Exception {
+        Path path=seed();var record=narrative("p/package-summary.html",KnowledgeRecord.NarrativeKind.PACKAGE);var payload=payload(record);
+        try(var store=new SqliteDocumentationStore(path)) {
+            assertEquals(DocumentationStore.WriteStatus.INSERTED,store.putAtomically(record,payload));
+            assertEquals(DocumentationStore.WriteStatus.IDENTICAL,store.putAtomically(record,payload));
+            assertEquals(2,store.enumerateIds(BUILD,"1","",50).size());
+            assertEquals(payload.sections(),store.readSections(record.id(),BUILD,"1",0,50).orElseThrow().sections());
+        }
+        try(var catalog=new SqliteCatalogStore(path)) { assertEquals(1,catalog.allRecords().size());assertTrue(catalog.validateBuild(new StandardBuildValidator(),BuildValidator.Operation.CLI,BUILD,"1").valid()); }
+        for(String corruption:List.of("narrative_kind='OVERVIEW'","symbol_coordinate='invented'","source_path='other.html'","sdk_version='2'","record_type='API'","record_id='"+"b".repeat(64)+"'","owner=''")) {
+            Path copy=temp.resolve("narrative"+Math.abs(corruption.hashCode())+".db");Files.copy(path,copy);
+            try(var db=DriverManager.getConnection("jdbc:sqlite:"+copy);var st=db.createStatement()) { st.executeUpdate("UPDATE knowledge_records SET "+corruption+" WHERE record_type='NARRATIVE'"); }
+            try(var catalog=new SqliteCatalogStore(copy)) { assertFalse(catalog.validateBuild(new StandardBuildValidator(),BuildValidator.Operation.CLI,BUILD,"1").valid(),corruption); }
+            assertThrows(IllegalStateException.class,()->new SqliteRelationshipStore(copy,BUILD,new RelationshipScope("1"),new byte[32]),corruption);
+        }
+    }
+    @Test void narrativeRollbackAndSchemaTwoRejection() throws Exception {
+        Path path=seed();var record=narrative("overview-summary.html",KnowledgeRecord.NarrativeKind.OVERVIEW);
+        try(var db=DriverManager.getConnection("jdbc:sqlite:"+path);var st=db.createStatement()) { st.execute("CREATE TRIGGER fail_narrative BEFORE INSERT ON documentation_sections BEGIN SELECT RAISE(ABORT,'injected'); END"); }
+        try(var store=new SqliteDocumentationStore(path)) { assertThrows(IllegalStateException.class,()->store.putAtomically(record,payload(record)));assertEquals(1,store.enumerateIds(BUILD,"1","",50).size()); }
+        try(var db=DriverManager.getConnection("jdbc:sqlite:"+path);var st=db.createStatement();var r=st.executeQuery("SELECT count(*) FROM knowledge_records WHERE record_type='NARRATIVE'")) { r.next();assertEquals(0,r.getInt(1)); }
+        Path old=temp.resolve("schema2.db");try(var db=DriverManager.getConnection("jdbc:sqlite:"+old);var st=db.createStatement()) { st.execute("PRAGMA user_version=2"); }
+        byte[] before=Files.readAllBytes(old);assertThrows(IllegalStateException.class,()->new SqliteCatalogStore(old));assertArrayEquals(before,Files.readAllBytes(old));
+    }
 }
