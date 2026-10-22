@@ -148,7 +148,7 @@ even without a skill. They guide the model; they do not guarantee model obedienc
 The distributable skill is `.agents/skills/luciad/`, including `agents/openai.yaml` with
 the existing local MCP dependency `luciad` at `http://127.0.0.1:8766/mcp`. Repository
 skill discovery can use it here. For personal use in other repositories, copy that whole
-folder to your Codex skills directory (normally `$HOME/.codex/skills/luciad`), preserving
+folder to your Codex skills directory (normally `$HOME/.agents/skills/luciad`), preserving
 its `agents` directory. Configure/connect the MCP server with the name `luciad` and the
 same Streamable HTTP URL, start the service, then refresh skill/MCP discovery or open a
 new chat as required by the client. Dependency metadata does not start the Java service.
