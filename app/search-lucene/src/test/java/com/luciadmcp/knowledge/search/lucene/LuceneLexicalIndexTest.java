@@ -97,6 +97,24 @@ class LuceneLexicalIndexTest {
             var page=index.search(new LexicalIndex.Query("payloadword"));assertTrue(page.hits().isEmpty());assertTrue(page.truncated());assertEquals("PAYLOAD_LIMIT",page.reason());assertEquals(1,page.matchedCount());
         }
     }
+    @Test void unicodeCaseMatchingKeepsOriginalExcerptAndHighlightOffsets() {
+        var source=new Source();
+        source.add("a","p.Needle","\u0130".repeat(100)+"NeEdLe"+"x".repeat(1000));
+        source.add("b","p.Needle","\u0130".repeat(101)+"\uD83D\uDE00".repeat(100)+" NeEdLe "+"\uD83D\uDE00".repeat(1000));
+        Path path=temp.resolve("index");LuceneLexicalIndex.build(path,source);
+        try(var index=new LuceneLexicalIndex(path,LexicalIndex.Binding.of(source))) {
+            var hits=index.search(new LexicalIndex.Query("needle")).hits();assertEquals(2,hits.size());
+            for(var hit:hits) {
+                String excerpt=hit.excerpt();assertTrue(excerpt.length()<=512);assertTrue(excerpt.contains("NeEdLe"));
+                assertFalse(Character.isLowSurrogate(excerpt.charAt(0)));
+                assertFalse(Character.isHighSurrogate(excerpt.charAt(excerpt.length()-1)));
+                assertEquals(List.of(new LexicalIndex.Span(excerpt.indexOf("NeEdLe"),excerpt.indexOf("NeEdLe")+6)),hit.highlights());
+                assertEquals("NeEdLe",excerpt.substring(hit.highlights().getFirst().start(),hit.highlights().getFirst().end()));
+                String original=source.content.get(hit.recordId()).getFirst().blocks().getFirst().text();
+                assertTrue(original.contains(excerpt));
+            }
+        }
+    }
     @Test void queryUtf8LimitsAndImmutableInputs() {
         assertEquals(10,new LexicalIndex.Query("word").pageSize());assertEquals(1000,new LexicalIndex.Query("word").timeoutMillis());
         assertThrows(IllegalArgumentException.class,()->new LexicalIndex.Query("é".repeat(1025)));

@@ -197,18 +197,27 @@ public final class LuceneLexicalIndex implements LexicalIndex {
     }
     private static Hit hit(Candidate c,Document d,List<String> terms) {
         String[] texts=d.getValues("projection"),ids=d.getValues("section"),labels=d.getValues("label");
+        var patterns=terms.stream().map(term->java.util.regex.Pattern.compile(term,
+                java.util.regex.Pattern.LITERAL | java.util.regex.Pattern.CASE_INSENSITIVE | java.util.regex.Pattern.UNICODE_CASE)).toList();
         int chosen=texts.length>1?1:0,position=0,best=0;
         for(int i=0;i<texts.length;i++) {
-            String lower=texts[i].toLowerCase(Locale.ROOT),label=labels[i].toLowerCase(Locale.ROOT);int count=0,first=-1;
-            for(String term:terms) { int at=lower.indexOf(term);if(at>=0) { count++;if(first<0 || at<first)first=at; } else if(label.contains(term))count++; }
+            int count=0,first=-1;
+            for(var pattern:patterns) {
+                var match=pattern.matcher(texts[i]);
+                if(match.find()) { count++;int at=match.start();if(first<0 || at<first)first=at; }
+                else if(pattern.matcher(labels[i]).find())count++;
+            }
             if(count>best) { best=count;chosen=i;position=Math.max(0,first-80); }
         }
         String text=texts[chosen];position=Math.min(position,Math.max(0,text.length()-EXCERPT_CHARS));
         // Keep offsets in Java UTF-16 coordinates without splitting surrogate pairs.
         if(position>0 && Character.isLowSurrogate(text.charAt(position)))position--;
         int end=Math.min(text.length(),position+EXCERPT_CHARS);if(end<text.length() && Character.isHighSurrogate(text.charAt(end-1)))end--;
-        String excerpt=text.substring(position,end),lower=excerpt.toLowerCase(Locale.ROOT);var spans=new ArrayList<Span>();
-        for(String term:terms) { int at=lower.indexOf(term);if(at>=0 && at+term.length()<=excerpt.length() && spans.size()<32)spans.add(new Span(at,at+term.length())); }
+        String excerpt=text.substring(position,end);var spans=new ArrayList<Span>();
+        for(var pattern:patterns) {
+            var match=pattern.matcher(excerpt);
+            if(match.find() && spans.size()<32)spans.add(new Span(match.start(),match.end()));
+        }
         return new Hit(c.id(),c.score(),ids[chosen],labels[chosen],excerpt,spans);
     }
     @Override public void close() {
