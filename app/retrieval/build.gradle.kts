@@ -7,3 +7,8 @@ dependencies {
     api(project(":search-lucene"))
     api(project(":embeddings-onnx"))
 }
+
+dependencies {
+    testImplementation(libs.junit.jupiter)
+    testRuntimeOnly(libs.junit.platform.launcher)
+}

@@ -1,0 +1,14 @@
+# Story 4.1 verification
+
+Implemented application API: `SqliteSymbolSource(Path)` pins one existing catalog in a read-only SQLite transaction and admits it through the existing `StandardBuildValidator` and persisted validation helpers. Its actual SDK, build and capability fingerprint form `SymbolSourceBinding`. The domain `SymbolSource` port returns a direct canonical lookup or keyset batches capped at 256 records; JDBC remains confined to catalog-sqlite.
+
+`ExactSymbolResolver.resolve(ExactSymbolQuery)` checks explicit source SDK/build filters, prioritizes case-sensitive canonical identity, then checks supported simple type, owner-qualified dotted member, simple parameter, generic-erasure and varargs aliases. It never searches ownerless members or silently substitutes a qualified owner. An incomplete callable signature cannot select an overload. Pages default to 10 and cap at 50. Candidate/work limits default to 1000/5000 and cap at 10000/50000; results distinguish complete source coverage from bounded partial evidence and retain deterministic stable-ID order. A conservative 1 MiB retained-payload bound preserves explicit truncation. Final JSON framing and continuation serialization remain Story 5.7 responsibilities.
+
+Results retain stable record ID, versioned symbol coordinate, actual source identity, existing path/anchor citation, matching method, proof and independent optional target context. Target mismatch does not filter matches or create notices. `SymbolSourceException` distinguishes UNKNOWN_SDK, BUILD_UNAVAILABLE and BUILD_INVALID; invalid query construction rejects empty/control/invalid-Unicode inputs and inputs over 2048 UTF-8 bytes. Unknown symbols are unknown only within the pinned source.
+
+Executed checks (2026-10-22):
+
+- `:domain:test :catalog-sqlite:test :retrieval:test checkDependencyDirection` passed, including persisted corruption rejection without changed database bytes, missing file non-creation, bounded batches, WAL snapshot retention, canonical identity, overload/type ambiguity at page size 1, source filters and target independence, UTF-8 boundaries, candidate/work exhaustion and retained payload cap.
+- `:cli:test --tests '*ExactSymbolRoundtripTest'` passed for actual JDK8/JDK11/JDK17 synthetic importer fixtures: every persisted canonical record resolves after deleting the complete Javadoc tree and reopening twice; actual anchors and stable IDs survive and database bytes remain unchanged.
+
+No identity/schema contracts or approval records changed. This is the Java exact-symbol dependency only; lexical indexing, ranking, MCP transport, lifecycle management and performance acceptance remain outside this story. Alias scans may return INCOMPLETE_EVIDENCE when finite bounds are exhausted; no incomplete scan claims uniqueness or corpus-wide absence. Technical sign-off remains pending wherever recorded as pending.
