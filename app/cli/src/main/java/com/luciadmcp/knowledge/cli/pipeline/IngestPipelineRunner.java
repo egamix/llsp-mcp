@@ -56,8 +56,8 @@ public final class IngestPipelineRunner implements IngestPipeline {
     // Placeholder toolchain component versions. Each real value arrives with the stage that owns it
     // (parser/schema in Epic 2, normalizer/relationship-rules in Epic 3, embedding config in Epic 4);
     // they are distinct stub identifiers now so the fingerprint is a genuine function of five inputs.
-    static final String STUB_PARSER_VERSION = "javadoc-parser/2";
-    static final String STUB_SCHEMA_VERSION = "schema/2";
+    static final String STUB_PARSER_VERSION = "javadoc-parser/3";
+    static final String STUB_SCHEMA_VERSION = "schema/3";
     static final String STUB_NORMALIZER_VERSION = "qualified-normalizer/1";
     static final String STUB_RELATIONSHIP_RULES_VERSION = "relationship-rules/1";
     static final String STUB_EMBEDDING_CONFIG_ID = "embedding/disabled";

@@ -58,7 +58,11 @@ public record ExtractedMember(
         List<TypeRef> seeAlso,
         List<TypeRef> parameterRefs,
         List<TypeRef> throwsRefs,
-        List<Param> typeParameters, Optional<String> anchor) {
+        List<Param> typeParameters, Optional<String> anchor, List<com.luciadmcp.knowledge.domain.DocumentationPayload.Block> documentationBlocks) {
+
+    public ExtractedMember(MemberKind kind,String name,String signature,String description,List<Param> params,String returns,List<ThrownException> throwsTypes,String since,Deprecation deprecation,TypeRef returnType,TypeRef fieldType,TypeRef overrides,TypeRef specifiedBy,List<TypeRef> seeAlso,List<TypeRef> parameterRefs,List<TypeRef> throwsRefs,List<Param> typeParameters,Optional<String> anchor) {
+        this(kind,name,signature,description,params,returns,throwsTypes,since,deprecation,returnType,fieldType,overrides,specifiedBy,seeAlso,parameterRefs,throwsRefs,typeParameters,anchor,List.of());
+    }
 
     public ExtractedMember {
         if (kind == null) {
@@ -77,6 +81,7 @@ public record ExtractedMember(
         throwsRefs = throwsRefs == null ? List.of() : List.copyOf(throwsRefs);
         typeParameters = typeParameters == null ? List.of() : List.copyOf(typeParameters);
         anchor = anchor == null ? Optional.empty() : anchor;
+        documentationBlocks = documentationBlocks == null ? List.of() : List.copyOf(documentationBlocks);
     }
 
     /** Compatibility for callers without documentation provenance. */

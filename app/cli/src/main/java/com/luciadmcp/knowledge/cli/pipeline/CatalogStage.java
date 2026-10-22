@@ -96,6 +96,14 @@ public final class CatalogStage implements Stage {
             for (JavadocCatalogSource.PageResult page : result.pages()) {
                 persistPage(version, page, store, failures);
             }
+            for(var page:result.narratives()) {
+                Path file=javadocRoot.resolve(page.relativePath());
+                for(String issue:page.issues())failures.accept(StageFailure.ofFile(PipelineStage.CATALOG,FailureSeverity.RECOVERABLE,file,issue));
+                if(page.blocks().isEmpty() || page.sourceHash().isEmpty())continue;
+                var documented=com.luciadmcp.knowledge.ingest.javadoc.JavadocDocumentationAssembler.assembleNarrative(version,page);
+                var written=store.putNarrative(documented.record(),documented.payload());
+                if(written.status()==CatalogStore.PutStatus.IDENTITY_CLASH)failures.accept(StageFailure.ofFile(PipelineStage.CATALOG,FailureSeverity.BUILD_INVALIDATING,file,"identity clash persisting narrative "+written.recordId()));
+            }
         } catch (RuntimeException e) {
             // A genuine storage error from a put (not the IDENTITY_CLASH status path, which is handled
             // in persistPage) compromises catalog integrity — route it through the policy, not raw.

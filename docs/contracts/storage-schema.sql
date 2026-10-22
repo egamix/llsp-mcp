@@ -1,6 +1,6 @@
 -- SQLite schema/3; source API storage adoption approved 2026-10-21. Other gates remain pending.
 
-PRAGMA user_version=2;
+PRAGMA user_version=3;
 
 CREATE TABLE IF NOT EXISTS records (record_id TEXT PRIMARY KEY NOT NULL, sdk_version TEXT NOT NULL, canonical_key TEXT NOT NULL, kind TEXT NOT NULL, type_fqn TEXT NOT NULL, simple_name TEXT NOT NULL, relative_path TEXT NOT NULL, anchor TEXT NOT NULL, UNIQUE(sdk_version, canonical_key));
 

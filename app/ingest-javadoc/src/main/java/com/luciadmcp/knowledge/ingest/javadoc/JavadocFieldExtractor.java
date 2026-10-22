@@ -72,6 +72,7 @@ public final class JavadocFieldExtractor {
         try {
             // charset=null lets JSoup honor a BOM/meta charset (legacy trees may be ISO-8859-1),
             // falling back to UTF-8 when none is declared. Local-bytes parse only (AD-9).
+            if(java.nio.file.Files.size(file)>8_388_608)return empty(relativePath,"PAYLOAD_TOO_LARGE: "+relativePath);
             byte[] bytes = java.nio.file.Files.readAllBytes(file);
             Document doc = Jsoup.parse(new java.io.ByteArrayInputStream(bytes), null, "");
             ExtractionResult result = extract(doc, relativePath);
@@ -107,6 +108,7 @@ public final class JavadocFieldExtractor {
 
         // --- Type-level fields ---
         Element scope = doc.selectFirst(TYPE_DESC_SCOPE);
+        if(scope!=null)for(Element candidate:doc.select(TYPE_DESC_SCOPE))if(candidate!=scope && !candidate.parents().contains(scope) && !scope.parents().contains(candidate)) { issues.add(relativePath+": PARTIAL_UNSUPPORTED: ambiguous type-description ownership");break; }
         String typeDescription = "";
         String typeSince = "";
         Deprecation typeDeprecation = Deprecation.NONE;
@@ -139,9 +141,9 @@ public final class JavadocFieldExtractor {
         ExtractedType type = new ExtractedType(
                 relativePath, typeDescription, typeSince, typeDeprecation, members,
                 header.superclass(), header.superInterfaces(), header.implementedInterfaces(), typeSeeAlso,
-                scope == null || scope.selectFirst(".type-signature, .typeSignature, pre") == null ? "" : norm(scope.selectFirst(".type-signature, .typeSignature, pre")),
+                scope == null || firstOwned(scope,".type-signature, .typeSignature, pre") == null ? "" : norm(firstOwned(scope,".type-signature, .typeSignature, pre")),
                 scope == null ? List.of() : parseNotes(scope, relativePath, "type", issues).typeParameters,
-                scope == null ? Optional.empty() : actualAnchor(scope));
+                scope == null ? Optional.empty() : actualAnchor(scope),OwnedDocumentationExtractor.extract(scope,relativePath,issues));
         return new ExtractionResult(type, issues);
     }
 
@@ -165,7 +167,7 @@ public final class JavadocFieldExtractor {
     }
 
     /** Only anchors physically owned by this element; group/detail headings are not member citations. */
-    private static Optional<String> actualAnchor(Element block) {
+    static Optional<String> actualAnchor(Element block) {
         if (!block.id().isBlank()) return Optional.of(block.id());
         for (Element child : block.children()) {
             if (child.tagName().equals("a")) {
@@ -192,7 +194,7 @@ public final class JavadocFieldExtractor {
             return null;
         }
         MemberKind kind = memberKind(block, relativePath, name, issues);
-        Element sig = block.selectFirst(SIGNATURE);
+        Element sig = firstOwned(block,SIGNATURE);
         String signature = sig == null ? "" : norm(sig);
 
         Deprecation deprecation = findDeprecation(block);
@@ -221,7 +223,7 @@ public final class JavadocFieldExtractor {
                 notes.params, notes.returns, notes.throwsTypes, notes.since, deprecation,
                 returnType, fieldType, notes.overrides, notes.specifiedBy, List.copyOf(notes.seeAlso),
                 parameterReferences(sig, signature, relativePath),
-                throwsReferences(sig, signature, relativePath, notes.throwsRefs), notes.typeParameters, actualAnchor(block));
+                throwsReferences(sig, signature, relativePath, notes.throwsRefs), notes.typeParameters, actualAnchor(block),OwnedDocumentationExtractor.extract(block,relativePath,issues));
     }
 
     /**
@@ -425,12 +427,12 @@ public final class JavadocFieldExtractor {
      * (an author-written definition list inside the prose must never be mistaken for the notes list).
      */
     private static Element notesList(Element scope) {
-        Element dl = scope.selectFirst("dl.notes");
+        Element dl = firstOwned(scope,"dl.notes");
         if (dl != null) {
             return dl;
         }
         for (Element candidate : scope.select("dl")) {
-            if (candidate.closest(BLOCK) == null) {
+            if (owned(scope,candidate) && candidate.closest(BLOCK) == null) {
                 return candidate;
             }
         }
@@ -516,9 +518,21 @@ public final class JavadocFieldExtractor {
         return "";
     }
 
+    private static boolean owned(Element scope,Element element) {
+        for(Element current=element;current!=null && current!=scope;current=current.parent()) {
+            if(current.is("section.detail,nav,.summary,.details,.member-summary,.memberSummary") || current.is("li.blockList,li.blockListLast") && hasDirectChild(current,"h4"))return false;
+        }
+        return true;
+    }
+    private static Element firstOwned(Element scope,String selector) {
+        for(Element element:scope.select(selector))if(owned(scope,element))return element;
+        return null;
+    }
+
     /** First {@code .block} in {@code scope} that is not a deprecation comment and is non-empty, or null. */
     private static Element firstNonDeprecationBlock(Element scope) {
         for (Element b : scope.select(BLOCK)) {
+            if(!owned(scope,b))continue;
             if (b.selectFirst(DEPRECATED_LABEL) != null || b.selectFirst(DEPRECATION_COMMENT) != null) {
                 continue; // this .block is the deprecation notice, not the description
             }
@@ -531,12 +545,12 @@ public final class JavadocFieldExtractor {
 
     /** The {@code @deprecated} state within {@code scope}: modern deprecation-block or legacy label. */
     private static Deprecation findDeprecation(Element scope) {
-        Element label = scope.selectFirst(DEPRECATED_LABEL);
-        Element deprBlock = scope.selectFirst(DEPRECATION_BLOCK);
+        Element label = firstOwned(scope,DEPRECATED_LABEL);
+        Element deprBlock = firstOwned(scope,DEPRECATION_BLOCK);
         if (label == null && deprBlock == null) {
             return Deprecation.NONE;
         }
-        Element comment = scope.selectFirst(DEPRECATION_COMMENT);
+        Element comment = firstOwned(scope,DEPRECATION_COMMENT);
         if (comment != null) {
             return Deprecation.of(norm(comment));
         }
@@ -750,7 +764,7 @@ public final class JavadocFieldExtractor {
      * catalog persists. External and escaping hrefs keep their original locators and classification;
      * a pure {@code #fragment} targets the referring page itself.
      */
-    private static TypeRef makeRef(String name, String href, String pageRelativePath) {
+    static TypeRef makeRef(String name, String href, String pageRelativePath) {
         if (href == null || href.isBlank()) {
             return TypeRef.ofName(name);
         }
