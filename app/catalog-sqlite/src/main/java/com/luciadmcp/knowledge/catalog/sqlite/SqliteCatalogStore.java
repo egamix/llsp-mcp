@@ -102,10 +102,7 @@ public final class SqliteCatalogStore implements CatalogStore {
         Connection opened = null;
         try {
             opened = DriverManager.getConnection("jdbc:sqlite:" + absolute);
-            SchemaCompatibility.initialize(opened);
-            try (Statement stmt = opened.createStatement()) {
-                stmt.execute(CREATE_RECORDS_TABLE);
-            }
+            SchemaCompatibility.initialize(opened, true);
             this.connection = opened;
         } catch (SQLException e) {
             // If the connection opened but the DDL failed, close it so the half-constructed, now
@@ -146,7 +143,7 @@ public final class SqliteCatalogStore implements CatalogStore {
             com.luciadmcp.knowledge.domain.BuildValidator.Operation operation, String buildId, String sdkVersion) {
         try {
             connection.setAutoCommit(false);
-            return validatePersisted(connection,validator,operation,buildId,sdkVersion,validationRecords(connection,null));
+            return validatePersisted(connection,validator,operation,buildId,sdkVersion);
         } catch(SQLException e) { throw new IllegalStateException("could not pin validation snapshot",e); }
         finally { try { connection.rollback(); connection.setAutoCommit(true); } catch(SQLException e) { throw new IllegalStateException("could not release validation snapshot",e); } }
     }
@@ -166,9 +163,25 @@ public final class SqliteCatalogStore implements CatalogStore {
         var records=new java.util.ArrayList<com.luciadmcp.knowledge.domain.StoredCatalogRecord>(rows);
         try(var p=db.prepareStatement("SELECT "+columns+" FROM records"+where+" LIMIT 100000")) {
             if(sdk!=null)p.setString(1,sdk);
-            try(var r=p.executeQuery()) { while(r.next()) records.add(new com.luciadmcp.knowledge.domain.StoredCatalogRecord(r.getString(1),new com.luciadmcp.knowledge.domain.CatalogRecord(r.getString(2),r.getString(3),r.getString(4),r.getString(5),r.getString(6),r.getString(7),r.getString(8)))); }
+            try(var r=p.executeQuery()) { while(r.next()) {
+                try {
+                    records.add(new com.luciadmcp.knowledge.domain.StoredCatalogRecord(r.getString(1),new com.luciadmcp.knowledge.domain.CatalogRecord(r.getString(2),r.getString(3),r.getString(4),r.getString(5),r.getString(6),r.getString(7),r.getString(8))));
+                } catch (IllegalArgumentException e) {
+                    throw new InvalidPersistedCatalogRecordException(e);
+                }
+            } }
         }
         return records;
+    }
+    static com.luciadmcp.knowledge.domain.BuildValidator.Result validatePersisted(Connection db,
+            com.luciadmcp.knowledge.domain.BuildValidator validator, com.luciadmcp.knowledge.domain.BuildValidator.Operation operation,
+            String buildId,String sdkVersion) throws SQLException {
+        try {
+            return validatePersisted(db,validator,operation,buildId,sdkVersion,validationRecords(db,null));
+        } catch (InvalidPersistedCatalogRecordException e) {
+            return new com.luciadmcp.knowledge.domain.BuildValidator.Result(
+                    java.util.List.of(com.luciadmcp.knowledge.domain.BuildValidator.Reason.INVALID_IDENTITY));
+        }
     }
     static com.luciadmcp.knowledge.domain.BuildValidator.Result validatePersisted(Connection db,
             com.luciadmcp.knowledge.domain.BuildValidator validator, com.luciadmcp.knowledge.domain.BuildValidator.Operation operation,
@@ -230,6 +243,12 @@ public final class SqliteCatalogStore implements CatalogStore {
             connection.close();
         } catch (SQLException ignored) {
             // Best-effort cleanup on a failed open; the original failure is what the caller sees.
+        }
+    }
+
+    private static final class InvalidPersistedCatalogRecordException extends IllegalStateException {
+        private InvalidPersistedCatalogRecordException(IllegalArgumentException cause) {
+            super("malformed persisted catalog record", cause);
         }
     }
 

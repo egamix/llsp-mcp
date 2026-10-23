@@ -26,6 +26,14 @@ class JavadocFieldExtractorTest {
     // not the (necessarily different) on-disk fixture locations.
     private static final String PATH = "com/example/Widget.html";
 
+    @Test
+    void fileSourceHashMatchesTheExactRawBytes() throws Exception {
+        var file = fixture("jdk17/Widget.html");
+        var result = extractor.extract(file, PATH);
+        assertEquals(com.luciadmcp.knowledge.domain.ContentHashes.sourceHash(java.nio.file.Files.readAllBytes(file)),
+                result.sourceHash().orElseThrow());
+    }
+
     // --- AC 1 (headline): modern and legacy extract equal fields over the same API surface ---------
 
     @Test

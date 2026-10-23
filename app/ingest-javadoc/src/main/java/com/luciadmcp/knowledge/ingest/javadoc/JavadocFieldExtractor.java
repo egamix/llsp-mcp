@@ -2,7 +2,11 @@ package com.luciadmcp.knowledge.ingest.javadoc;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.security.DigestInputStream;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.HexFormat;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -72,12 +76,23 @@ public final class JavadocFieldExtractor {
         try {
             // charset=null lets JSoup honor a BOM/meta charset (legacy trees may be ISO-8859-1),
             // falling back to UTF-8 when none is declared. Local-bytes parse only (AD-9).
-            byte[] bytes = java.nio.file.Files.readAllBytes(file);
-            Document doc = Jsoup.parse(new java.io.ByteArrayInputStream(bytes), null, "");
+            MessageDigest digest = sourceDigest();
+            Document doc;
+            try (DigestInputStream input = new DigestInputStream(java.nio.file.Files.newInputStream(file), digest)) {
+                doc = Jsoup.parse(input, null, "");
+            }
             ExtractionResult result = extract(doc, relativePath);
-            return new ExtractionResult(result.type(), result.issues(), Optional.of(com.luciadmcp.knowledge.domain.ContentHashes.sourceHash(bytes)));
+            return new ExtractionResult(result.type(), result.issues(), Optional.of(HexFormat.of().formatHex(digest.digest())));
         } catch (IOException e) {
             return empty(relativePath, "failed to read/parse " + relativePath + ": " + e.getMessage());
+        }
+    }
+
+    private static MessageDigest sourceDigest() {
+        try {
+            return MessageDigest.getInstance("SHA-256");
+        } catch (NoSuchAlgorithmException e) {
+            throw new AssertionError("SHA-256 is required by the Java platform", e);
         }
     }
 
