@@ -13,12 +13,13 @@ package com.luciadmcp.knowledge.cli.pipeline;
  */
 public enum FailurePolicy {
 
-    /** Abort the run on the first recoverable stage failure. This is the default. */
+    /** Abort the run on the first recoverable stage failure. */
     FAIL_FAST,
 
-    /** Record each recoverable stage failure (with its file and stage) and keep running. */
+    /** Record each recoverable stage failure (with its file and stage) and keep running. This is the default:
+     * real Javadoc trees always contain some recoverable gaps (members without descriptions, images). */
     COLLECT_AND_CONTINUE;
 
     /** The policy used when a run does not specify one. */
-    public static final FailurePolicy DEFAULT = FAIL_FAST;
+    public static final FailurePolicy DEFAULT = COLLECT_AND_CONTINUE;
 }
