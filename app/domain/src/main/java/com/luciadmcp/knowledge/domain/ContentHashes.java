@@ -54,6 +54,16 @@ public final class ContentHashes {
         return toHex(md.digest());
     }
 
+    /** Streaming original-byte digest; equivalent to sourceHash(byte[]) without materialization. */
+    public static String sourceFileHash(java.nio.file.Path file) {
+        MessageDigest md = newDigest();
+        try (var input = java.nio.file.Files.newInputStream(file)) {
+            byte[] buffer = new byte[65536];
+            for (int count; (count = input.read(buffer)) != -1;) md.update(buffer, 0, count);
+            return toHex(md.digest());
+        } catch (java.io.IOException e) { throw new java.io.UncheckedIOException("SOURCE_READ_FAILED", e); }
+    }
+
     /**
      * Hash of a canonical record from its declared identity fields (AD-22).
      *

@@ -38,7 +38,6 @@ final class JavadocPageClassifier {
             "package-tree-page",
             "class-use-page",      // "Uses of Class/Interface X" — cross-reference, not member content
             "package-use-page",    // "Uses of Package X"
-            "doc-file-page",       // hand-authored doc-files/ pages carried alongside the API
             "help-page",
             "index-page",
             "single-index-page",
@@ -93,6 +92,9 @@ final class JavadocPageClassifier {
                 String token = raw.toLowerCase(Locale.ROOT);
                 if (TYPE_BODY_CLASSES.contains(token)) {
                     return new Analysis(PageType.TYPE, "body-class:" + token, heading, hasMembers);
+                }
+                if (token.equals("doc-file-page")) {
+                    return new Analysis(PageType.UNKNOWN,"unsupported-authored-document",heading,hasMembers);
                 }
                 if (EXCLUDED_BODY_CLASSES.contains(token)) {
                     return new Analysis(PageType.EXCLUDED, "body-class:" + token, heading, hasMembers);

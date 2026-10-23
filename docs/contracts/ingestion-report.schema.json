@@ -2,7 +2,7 @@
   "type": "object",
   "properties": {
     "reportVersion": {
-      "const": 1
+      "const": 2
     },
     "profile": {
       "const": "javadoc-lexical"
@@ -30,29 +30,189 @@
       ]
     },
     "coverage": {
-      "type": "object",
-      "properties": {
-        "pages": {
-          "type": "null"
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "availability": {
+              "const": "AVAILABLE"
+            },
+            "countingRules": {
+              "type": "string",
+              "minLength": 1
+            },
+            "independentExpectations": {
+              "type": "null"
+            },
+            "pages": {
+              "type": "object",
+              "properties": {
+                "discovered": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "excluded": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "complete": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "partial": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "failed": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "discovered",
+                "excluded",
+                "complete",
+                "partial",
+                "failed"
+              ],
+              "additionalProperties": false
+            },
+            "records": {
+              "type": "object",
+              "properties": {
+                "emitted": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "persisted": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "failed": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "emitted",
+                "persisted",
+                "failed"
+              ],
+              "additionalProperties": false
+            },
+            "sections": {
+              "type": "object",
+              "properties": {
+                "emitted": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "persisted": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "failed": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "emitted",
+                "persisted",
+                "failed"
+              ],
+              "additionalProperties": false
+            },
+            "discoveryIssues": {
+              "type": "boolean"
+            },
+            "outcomes": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "pageType": {
+                    "enum": [
+                      "TYPE",
+                      "PACKAGE",
+                      "OVERVIEW",
+                      "UNKNOWN",
+                      "EXCLUDED"
+                    ]
+                  },
+                  "disposition": {
+                    "enum": [
+                      "EXCLUDED",
+                      "COMPLETE",
+                      "PARTIAL",
+                      "FAILED"
+                    ]
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "count": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "required": [
+                  "pageType",
+                  "disposition",
+                  "reason",
+                  "count"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "availability",
+            "countingRules",
+            "independentExpectations",
+            "pages",
+            "records",
+            "sections",
+            "discoveryIssues",
+            "outcomes"
+          ],
+          "additionalProperties": false
         },
-        "records": {
-          "type": "null"
-        },
-        "sections": {
-          "type": "null"
-        },
-        "reason": {
-          "type": "string",
-          "minLength": 1
+        {
+          "type": "object",
+          "properties": {
+            "availability": {
+              "const": "UNAVAILABLE"
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1
+            },
+            "pages": {
+              "type": "null"
+            },
+            "records": {
+              "type": "null"
+            },
+            "sections": {
+              "type": "null"
+            },
+            "independentExpectations": {
+              "type": "null"
+            }
+          },
+          "required": [
+            "availability",
+            "reason",
+            "pages",
+            "records",
+            "sections",
+            "independentExpectations"
+          ],
+          "additionalProperties": false
         }
-      },
-      "required": [
-        "pages",
-        "records",
-        "sections",
-        "reason"
-      ],
-      "additionalProperties": false
+      ]
     },
     "buildId": {
       "type": "string",

@@ -93,11 +93,14 @@ class ApplicationPortabilitySnapshotTest {
             assertEquals(6,docs.enumerateIds(result.manifest().buildId(),"2024.0","",50).size());
             assertTrue(docs.readSections(KnowledgeRecord.narrativeId("2024.0","com/example/package-summary.html","PACKAGE"),result.manifest().buildId(),"2024.0",0,50).isPresent());
         }
+        var coverage=CoverageSnapshot.restore(result.buildContext()).orElseThrow();
+        assertEquals(4,coverage.discovered());assertEquals(4,coverage.complete());assertEquals(6,coverage.persistedRecords());
+        logical.put("coverage",coverage);
         String report = Files.readString(arguments.out().resolve(result.manifest().buildId()).resolve(IngestPipelineRunner.REPORT_FILE), StandardCharsets.UTF_8);
         assertTrue(report.contains("SKIPPED_UNSUPPORTED"));
         assertTrue(report.contains("\"activationOccurred\": false"));
         // Report has no timestamp and this successful fixture has no absolute diagnostic locations.
-        // Preserve every actual report field verbatim, including unknown coverage and pending ratification.
+        // Preserve every actual report field verbatim, including measured coverage and pending ratification.
         String prefix = json(logical);
         return prefix.substring(0, prefix.length()-1) + ",\"report\":" + report.strip() + "}\n";
     }

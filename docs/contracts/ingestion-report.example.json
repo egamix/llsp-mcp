@@ -1,5 +1,5 @@
 {
-  "reportVersion": 1,
+  "reportVersion": 2,
   "profile": "javadoc-lexical",
   "runtimeFingerprint": "9f1e6240b623cfc1e7303ea8d4960d5014877722575750b6ed4598a2a0c1b099",
   "recipeFingerprint": "f629ca6a8675873cffc95d3178b6c4005c26cf8e3148247329d2864817a94519",
@@ -7,10 +7,41 @@
   "technicalRatification": "PENDING",
   "completion": "COMPLETE_FOR_PROFILE",
   "coverage": {
-    "pages": null,
-    "records": null,
-    "sections": null,
-    "reason": "coverage instrumentation deferred to Story 2.11"
+    "availability": "AVAILABLE",
+    "countingRules": "disjoint pages; unique logical record associations; payload sections; retries replace totals",
+    "independentExpectations": null,
+    "pages": {
+      "discovered": 3,
+      "excluded": 1,
+      "complete": 2,
+      "partial": 0,
+      "failed": 0
+    },
+    "records": {
+      "emitted": 4,
+      "persisted": 4,
+      "failed": 0
+    },
+    "sections": {
+      "emitted": 4,
+      "persisted": 4,
+      "failed": 0
+    },
+    "discoveryIssues": false,
+    "outcomes": [
+      {
+        "pageType": "EXCLUDED",
+        "disposition": "EXCLUDED",
+        "reason": "POSITIVE_NON_CONTENT",
+        "count": 1
+      },
+      {
+        "pageType": "TYPE",
+        "disposition": "COMPLETE",
+        "reason": "PRESERVED",
+        "count": 2
+      }
+    ]
   },
   "buildId": "b-0f7f1a726b414ef7e6370884bb2b6d653eed75c0093529720456da5a1fd6d8ac",
   "sdkVersion": "2024.0",

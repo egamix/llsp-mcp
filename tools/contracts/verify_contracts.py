@@ -35,6 +35,25 @@ def semantic(response):
             if "headers" in value and "rows" in value:assert all(len(row)==len(value["headers"]) for row in value["rows"])
             for child in value.values():visit(child,depth+1)
     visit(response)
+def coverage_semantic(report):
+    coverage=report["coverage"]
+    if coverage["availability"] == "UNAVAILABLE":
+        assert report["completion"] != "COMPLETE_FOR_PROFILE"
+        assert all(coverage[key] is None for key in ("pages","records","sections"))
+        return
+    pages=coverage["pages"]
+    assert pages["discovered"] == sum(pages[key] for key in ("excluded","complete","partial","failed"))
+    for key in ("records","sections"):
+        counts=coverage[key];assert counts["emitted"] == counts["persisted"]+counts["failed"]
+    cells=coverage["outcomes"]
+    keys=[(c["pageType"],c["disposition"],c["reason"]) for c in cells]
+    assert keys == sorted(set(keys))
+    for disposition in ("EXCLUDED","COMPLETE","PARTIAL","FAILED"):
+        assert pages[disposition.lower()] == sum(c["count"] for c in cells if c["disposition"] == disposition)
+    if report["completion"] == "COMPLETE_FOR_PROFILE":
+        assert pages["partial"] == pages["failed"] == 0 and not coverage["discoveryIssues"]
+        assert coverage["records"]["failed"] == coverage["sections"]["failed"] == 0
+
 def main():
     checked=0
     for tool in TOOLS:
@@ -51,6 +70,14 @@ def main():
         assert len(json.dumps(example["response"],ensure_ascii=True).encode())<=1048576
     for schema_name,example_name in (("manifest.schema.json","manifest.example.json"),("ingestion-report.schema.json","ingestion-report.example.json")):
         jsonschema.Draft202012Validator(json.loads((DIRECTORY/schema_name).read_text())).validate(json.loads((DIRECTORY/example_name).read_text()));checked+=1
+    report=json.loads((DIRECTORY/"ingestion-report.example.json").read_text());coverage_semantic(report);checked+=1
+    for key in ("pages","records","sections"):
+        bad=copy.deepcopy(report);bad["coverage"][key]["failed"]+=1
+        try:coverage_semantic(bad)
+        except AssertionError:checked+=1
+        else:raise AssertionError("non-reconciled coverage accepted")
+    inventory=json.loads((DIRECTORY/"fixtures/ingestion-audit.synthetic.json").read_text())
+    jsonschema.Draft202012Validator(json.loads((DIRECTORY/"ingestion-audit-inventory.schema.json").read_text())).validate(inventory);checked+=1
     common=json.loads((DIRECTORY/"common.schema.json").read_text())
     def invalid(definition,value):
         schema={"$schema":common["$schema"],"$id":"adverse.schema.json","$ref":"common.schema.json#/$defs/"+definition}

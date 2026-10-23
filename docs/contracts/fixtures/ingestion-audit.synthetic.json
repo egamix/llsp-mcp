@@ -1,0 +1,52 @@
+{
+  "inventoryVersion": 1,
+  "buildId": "b-b2e56eecafb91a73f6e180ceba6dd254f4a85de29afe7c003606ee97bee1b087",
+  "sdkVersion": "1",
+  "independent": true,
+  "inventoryComplete": true,
+  "records": [
+    {
+      "recordId": "8b6b84a3768c1c05e5b4fa6231a6bec7dc1f6db43fd57f500ff20d0583c079cb",
+      "recordType": "NARRATIVE",
+      "member": false,
+      "sections": [
+        {
+          "ordinal": 0,
+          "payloadSha256": "29aaf530325bd79ca9409c0e6b4bb6f48835f20db288958cc8d86343d88275f0",
+          "blocks": [
+            {
+              "kind": "PARAGRAPH",
+              "label": "description",
+              "textSha256": "65d71c245927a48684acde20a8d6358852f974699a2e70972ee92fb7719ff013",
+              "fieldsSha256": "a66bfb283d7ca25befc25a6cddfa8a7daf6802d45bd224a4f551f9a629c89919"
+            },
+            {
+              "kind": "NOTE",
+              "label": "API Note",
+              "textSha256": "1a358499068862a9d0c13b459b9317dce4f71897cbeac9ee09709a19a0228bc3",
+              "fieldsSha256": "0c4191414f859c2a1f0340812e408e5d455a19aaeab73d4b24749a3cf7f597a5"
+            },
+            {
+              "kind": "TABLE",
+              "label": "description",
+              "textSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "fieldsSha256": "4b3c41fc700b22313a49c5db4dc66c7624405006d57e1bf476c5e2adb630a5e7"
+            },
+            {
+              "kind": "LIST",
+              "label": "description",
+              "textSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "fieldsSha256": "6fbc1e5bf18e90a54a860ff45532f71321b25a33fd0acd48dcdfc1cc1d85cdeb"
+            },
+            {
+              "kind": "PARAGRAPH",
+              "label": "description",
+              "textSha256": "dec79e38684d26378e1e812f3577518f3998bcbfde441cc2fd58ee1d37da0c0c",
+              "fieldsSha256": "5ef4459257f587554636a1230b89ea34e5574e7fee696fe8fd5e67556cce1940"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

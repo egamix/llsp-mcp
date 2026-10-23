@@ -139,30 +139,14 @@ public record BuildContext(String buildId, String sealedInputDigest, Path stagin
             return;
         }
         Path base = root.toAbsolutePath().normalize();
-        try (Stream<Path> walk = Files.walk(base)) {
-            List<Path> files = walk.filter(Files::isRegularFile)
-                    .sorted(Comparator.comparing(p -> relativeKey(base, p)))
-                    .toList();
-            for (Path file : files) {
-                ordered.add("file:" + label + "/" + relativeKey(base, file) + "="
-                        + ContentHashes.sourceHash(readAll(file)));
-            }
-        } catch (IOException e) {
-            throw new UncheckedIOException("failed to enumerate input files under " + base, e);
+        for (Path file : com.luciadmcp.knowledge.domain.SourceAdmission.enumerate(base)) {
+            ordered.add("file:" + label + "/" + relativeKey(base, file) + "=" + ContentHashes.sourceFileHash(file));
         }
     }
 
     /** Relative path with '/' separators, so the key is stable across operating systems. */
     private static String relativeKey(Path base, Path file) {
         return base.relativize(file).toString().replace('\\', '/');
-    }
-
-    private static byte[] readAll(Path file) {
-        try {
-            return Files.readAllBytes(file);
-        } catch (IOException e) {
-            throw new UncheckedIOException("failed to read input file " + file, e);
-        }
     }
 
 }

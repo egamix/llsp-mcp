@@ -11,12 +11,15 @@ package com.luciadmcp.knowledge.ingest.javadoc;
  *                     key is stable across operating systems
  * @param type         the structure-based classification
  */
-public record ClassifiedPage(String relativePath, PageType type) {
+public record ClassifiedPage(String relativePath, PageType type, Reason reason) {
 
+    public enum Reason { CONTENT, POSITIVE_NON_CONTENT, UNKNOWN_CLASSIFICATION, SOURCE_READ_FAILED, SOURCE_FILE_TOO_LARGE }
+    public ClassifiedPage(String path,PageType type) { this(path,type,type==PageType.EXCLUDED?Reason.POSITIVE_NON_CONTENT:type==PageType.UNKNOWN?Reason.UNKNOWN_CLASSIFICATION:Reason.CONTENT); }
     public ClassifiedPage {
         if (relativePath == null || relativePath.isBlank()) {
             throw new IllegalArgumentException("relativePath must not be blank");
         }
+        if (reason == null) throw new IllegalArgumentException("reason required");
         if (type == null) {
             throw new IllegalArgumentException("type must not be null");
         }

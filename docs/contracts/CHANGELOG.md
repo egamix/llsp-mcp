@@ -30,3 +30,17 @@ Adopt identity/1, DocumentationPayload, typed locators and bounded Documentation
 Rebuild-only schema/3 moves the documentation foreign key to knowledge_records and adds explicit PACKAGE/OVERVIEW narrative kind metadata. Narratives reuse narrative/1 source-specific IDs and have no symbol or API catalog row. API identity/1, content/1, existing block DTO wire shape and read-tools/2 guidance remain unchanged. javadoc-lexical/3, catalog-runtime/3, javadoc-parser/3 and schema/3 toolchain components invalidate incompatible builds; declared capabilities add narrative-documentation and structured-documentation.
 
 Owned paragraphs, whitespace-preserving code, homogeneous simple nested lists, rectangular column-header tables, labeled notes and offline href provenance persist through production ingestion. Unrepresentable shapes report PARTIAL_UNSUPPORTED and preserve HTML evidence where ownership is known. Unknown/ambiguous/empty narrative ownership reports issues. Coverage reconciliation, search, MCP and lifecycle handlers remain outside this story; technical human ratification and private-corpus acceptance are not claimed.
+
+
+## 2026-10-22 — Story 2.11 reconciled ingestion report and audit
+
+Report/2 replaces deferred coverage placeholders with disjoint page dispositions and source-specific
+logical record/assembled-section totals. Coverage/1 sidecars bind accounting to build, SDK, input,
+recipe and runtime and are atomically written before checkpointing. Missing evidence stays
+unavailable; fail-fast resume honors the configured failure policy. Source reads and filesystem
+traversal have finite admission before materialization.
+
+The optional inventory/1 audit compares independent expectations with actual structured payload
+bytes, parent associations and canonical metadata under bounded read-only access. Private mode
+requires explicit attestations before opening protected inputs. Schema/3, identity/1, content/1
+and read-tools/2 remain unchanged; this execution does not supply pending technical ratification.

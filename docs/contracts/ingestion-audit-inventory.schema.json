@@ -1,0 +1,128 @@
+{
+  "type": "object",
+  "properties": {
+    "inventoryVersion": {
+      "const": 1
+    },
+    "buildId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "sdkVersion": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "independent": {
+      "const": true
+    },
+    "inventoryComplete": {
+      "const": true
+    },
+    "records": {
+      "type": "array",
+      "maxItems": 100000,
+      "items": {
+        "type": "object",
+        "properties": {
+          "recordId": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "recordType": {
+            "enum": [
+              "API",
+              "NARRATIVE"
+            ]
+          },
+          "member": {
+            "type": "boolean"
+          },
+          "sections": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 256,
+            "items": {
+              "type": "object",
+              "properties": {
+                "ordinal": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 255,
+                  "description": "Zero-based stored ordinal; inventory array order is immaterial."
+                },
+                "payloadSha256": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                "blocks": {
+                  "type": "array",
+                  "maxItems": 4096,
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "enum": [
+                          "PARAGRAPH",
+                          "CODE",
+                          "TABLE",
+                          "LIST",
+                          "NOTE"
+                        ]
+                      },
+                      "label": {
+                        "type": "string",
+                        "maxLength": 4096,
+                        "description": "Length is measured in Unicode code points, matching JSON Schema maxLength."
+                      },
+                      "textSha256": {
+                        "type": "string",
+                        "pattern": "^[0-9a-f]{64}$"
+                      },
+                      "fieldsSha256": {
+                        "type": "string",
+                        "pattern": "^[0-9a-f]{64}$"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "label",
+                      "textSha256",
+                      "fieldsSha256"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": [
+                "ordinal",
+                "payloadSha256",
+                "blocks"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "recordId",
+          "recordType",
+          "member",
+          "sections"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "inventoryVersion",
+    "buildId",
+    "sdkVersion",
+    "independent",
+    "inventoryComplete",
+    "records"
+  ],
+  "additionalProperties": false,
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ingestion-audit-inventory.schema.json"
+}

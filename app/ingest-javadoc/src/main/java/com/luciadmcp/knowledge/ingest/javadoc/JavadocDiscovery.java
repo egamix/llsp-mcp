@@ -89,10 +89,11 @@ public final class JavadocDiscovery {
         for (Path file : htmlFiles) {
             String relativePath = relativeKey(base, file);
             PageType type;
+            ClassifiedPage.Reason reason=null;
             try {
                 // charset=null lets JSoup honor a BOM/meta charset (legacy trees may be ISO-8859-1),
                 // falling back to UTF-8 when none is declared. Still a local-bytes parse (AD-9).
-                Document doc = Jsoup.parse(file.toFile(), null);
+                Document doc = Jsoup.parse(new java.io.ByteArrayInputStream(com.luciadmcp.knowledge.domain.SourceAdmission.read(file)), null, "");
                 if (LOG.isLoggable(Level.DEBUG)) {
                     // Per-page breakdown is DEBUG so proprietary class names are not logged by default
                     // (brief §logging). This is the full extent of the current "understanding": the
@@ -110,8 +111,9 @@ public final class JavadocDiscovery {
                 warnings.add("failed to read/parse " + relativePath + ": " + e.getMessage());
                 LOG.log(Level.WARNING, "discovery: failed to read/parse {0}: {1}", relativePath, e.getMessage());
                 type = PageType.UNKNOWN;
+                reason="SOURCE_FILE_TOO_LARGE".equals(e.getMessage())?ClassifiedPage.Reason.SOURCE_FILE_TOO_LARGE:ClassifiedPage.Reason.SOURCE_READ_FAILED;
             }
-            pages.add(new ClassifiedPage(relativePath, type));
+            pages.add(reason==null ? new ClassifiedPage(relativePath, type) : new ClassifiedPage(relativePath,type,reason));
             if (++done % PROGRESS_EVERY == 0 && done < total) {
                 LOG.log(Level.INFO, "discovery: classified {0}/{1} pages", done, total);
             }
@@ -136,19 +138,8 @@ public final class JavadocDiscovery {
     }
 
     private static List<Path> walkHtml(Path base) {
-        try (Stream<Path> walk = Files.walk(base)) {
-            return walk.filter(Files::isRegularFile)
-                    .filter(JavadocDiscovery::isHtml)
-                    .sorted(Comparator.comparing(p -> relativeKey(base, p)))
-                    .toList();
-        } catch (IOException e) {
-            throw new UncheckedIOException("failed to enumerate Javadoc pages under " + base, e);
-        } catch (UncheckedIOException e) {
-            // Files.walk defers I/O errors (e.g. an unreadable subdirectory) to the lazy terminal
-            // op, surfacing them here as UncheckedIOException rather than IOException. Rewrap with
-            // the enumeration context so the failure reads consistently instead of escaping raw.
-            throw new UncheckedIOException("failed to enumerate Javadoc pages under " + base, e.getCause());
-        }
+        return com.luciadmcp.knowledge.domain.SourceAdmission.enumerate(base).stream()
+                .filter(JavadocDiscovery::isHtml).toList();
     }
 
     private static boolean isHtml(Path p) {
@@ -174,7 +165,7 @@ public final class JavadocDiscovery {
                 continue; // presence is enough for the others in this story
             }
             try {
-                String content = Files.readString(indexFile, StandardCharsets.UTF_8);
+                String content = new String(com.luciadmcp.knowledge.domain.SourceAdmission.read(indexFile), StandardCharsets.UTF_8);
                 Set<String> classifiedTypePaths = typePathsClassifiedAsType(pages);
                 for (String declared : SearchIndex.typePagePaths(content)) {
                     if (!classifiedTypePaths.contains(declared)) {

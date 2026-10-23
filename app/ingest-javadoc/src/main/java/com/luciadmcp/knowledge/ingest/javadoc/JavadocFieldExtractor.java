@@ -72,13 +72,11 @@ public final class JavadocFieldExtractor {
         try {
             // charset=null lets JSoup honor a BOM/meta charset (legacy trees may be ISO-8859-1),
             // falling back to UTF-8 when none is declared. Local-bytes parse only (AD-9).
-            if(java.nio.file.Files.size(file)>8_388_608)return empty(relativePath,"PAYLOAD_TOO_LARGE: "+relativePath);
-            byte[] bytes = java.nio.file.Files.readAllBytes(file);
-            if(bytes.length>8_388_608)return empty(relativePath,"PAYLOAD_TOO_LARGE: "+relativePath);
+            byte[] bytes = com.luciadmcp.knowledge.domain.SourceAdmission.read(file);
             Document doc = Jsoup.parse(new java.io.ByteArrayInputStream(bytes), null, "");
             ExtractionResult result = extract(doc, relativePath);
             return new ExtractionResult(result.type(), result.issues(), Optional.of(com.luciadmcp.knowledge.domain.ContentHashes.sourceHash(bytes)));
-        } catch (IOException e) {
+        } catch (IOException | RuntimeException e) {
             return empty(relativePath, "failed to read/parse " + relativePath + ": " + e.getMessage());
         }
     }
