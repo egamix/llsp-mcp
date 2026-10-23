@@ -5,13 +5,17 @@ description: "Answer Luciad SDK questions and implement or debug Luciad code usi
 
 # Luciad source guidance
 
-Before making Luciad SDK claims or generating Luciad API calls, use the local `luciad` MCP tools. Include `"contractVersion":"read-tools/2"` in every request. The available tools are `search_knowledge`, `resolve_symbol` and `get_record`.
+Before making Luciad SDK claims or generating Luciad API calls, use the local `luciad` MCP tools. Include `"contractVersion":"read-tools/2"` in every request. The available tools are `search_knowledge`, `resolve_symbol`, `get_record`, `get_relationships`, `check_symbols` and `index_status`.
 
 1. Retrieve relevant knowledge with `search_knowledge`, using the user's task or identifiers. Read returned record IDs, available sections, citations and coverage.
 2. Use `resolve_symbol` when exact types, members or overloads matter. Take identifiers from retrieved evidence or the user's code. Keep ambiguous candidates unresolved until evidence selects the required signature.
 3. Fetch saved documentation with `get_record` using returned `recordIds`; use `includeContent: true` and relevant sections as needed within the advertised schema/limits. Follow continuation only when necessary for the task.
-4. Generate an answer or code grounded in that evidence. Cite returned record IDs, actual source SDK/build and source paths/anchors. Preserve missing anchors; do not fabricate links or imply a local source path is an accessible web URL.
-5. Compile/test externally when a project and tooling are available. Repair failures by retrieving the relevant symbol/documentation evidence. Report whether generated code was actually compiled/tested: source membership alone does not establish correctness.
+4. Use `get_relationships` with a `seed` type or member to find what to use next: supertypes and interfaces, implementations and subclasses (`"direction":"IN"`), parameter and return types, overrides and see-also links.
+5. Generate an answer or code grounded in that evidence. Cite returned record IDs, actual source SDK/build and source paths/anchors. Preserve missing anchors; do not fabricate links or imply a local source path is an accessible web URL.
+6. Before presenting code, pass every Luciad type and member it uses to `check_symbols` in one call. Fix or flag any `UNKNOWN_IN_SCOPE` or `AMBIGUOUS` name.
+7. Compile/test externally when a project and tooling are available. Repair failures by retrieving the relevant symbol/documentation evidence. Report whether generated code was actually compiled/tested: source membership alone does not establish correctness.
+
+Call `index_status` when you need to say which Luciad SDK version and build the answers come from.
 
 Start a task such as checking whether a point is inside a shape with this `search_knowledge` request:
 

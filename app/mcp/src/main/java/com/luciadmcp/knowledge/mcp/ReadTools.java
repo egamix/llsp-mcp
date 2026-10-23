@@ -11,15 +11,24 @@ import static com.luciadmcp.knowledge.mcp.Wire.map;
 
 /** Shared transport/CLI application boundary. Owns envelopes, finite budgets and authenticated cursors. */
 public final class ReadTools {
-    public static final List<String> NAMES=List.of("search_knowledge","resolve_symbol","get_record");
+    public static final List<String> NAMES=List.of("search_knowledge","resolve_symbol","get_record","get_relationships","check_symbols","index_status");
     private final DocumentationSource content;
     private final SymbolSource symbols;
     private final CitedRetrieval search;
+    private final RelationshipStore relationships;
+    private final Status status;
     private final byte[] key;
     private final boolean complete;
     private final String coverageReason;
+    /** What index_status reports about the served build; null when the caller has no published bundle. */
+    public record Status(String state,IndexManifest manifest,com.fasterxml.jackson.databind.JsonNode report) {}
     public ReadTools(DocumentationSource content,SymbolSource symbols,LexicalIndex index,byte[] key,boolean complete,String coverageReason) {
+        this(content,symbols,index,null,null,key,complete,coverageReason);
+    }
+    public ReadTools(DocumentationSource content,SymbolSource symbols,LexicalIndex index,RelationshipStore relationships,Status status,
+            byte[] key,boolean complete,String coverageReason) {
         this.content=content;this.symbols=symbols;this.key=key.clone();this.complete=complete;this.coverageReason=coverageReason;
+        this.relationships=relationships;this.status=status;
         this.search=new CitedRetrieval(content,symbols,index,key);
     }
     public Map<String,Object> call(String name,Map<String,Object> input) {
@@ -29,7 +38,7 @@ public final class ReadTools {
             Wire.validate(name+".request",input);
             if(Wire.bytes(input).length>8388608)throw new IllegalArgumentException();
             var q=Wire.JSON.valueToTree(input);
-            for(String field:List.of("query","symbol","sourceSdkVersion","targetSdkVersion","buildId"))
+            for(String field:List.of("query","symbol","seed","sourceSdkVersion","targetSdkVersion","buildId"))
                 if(q.hasNonNull(field) && !q.path(field).asText().isEmpty())ExactSymbolQuery.text(q.path(field).asText());
             var binding=content.binding();
             if(q.hasNonNull("sourceSdkVersion") && !q.path("sourceSdkVersion").asText().equals(binding.sdkVersion()))return error(name,input,"UNKNOWN_SDK");
@@ -47,6 +56,9 @@ public final class ReadTools {
                 case "search_knowledge" -> search(input,page,work,candidates,millis,bytes);
                 case "resolve_symbol" -> resolve(input,page,candidates,budget);
                 case "get_record" -> fetch(input,page,bytes,budget);
+                case "get_relationships" -> relationships(input,page,candidates,bytes,budget);
+                case "check_symbols" -> check(input,candidates,budget);
+                case "index_status" -> status(input);
                 default -> throw new IllegalArgumentException();
             };
             // Includes SDK result wrapper and JSON-RPC framing allowance, using actual serialized bytes.
@@ -88,13 +100,7 @@ public final class ReadTools {
     }
     private Map<String,Object> resolve(Map<String,Object> q,int page,int candidates,Budget budget) {
         int offset=offset(q,"resolve",candidates);
-        SymbolSource timed=new SymbolSource() {
-            public SymbolSourceBinding binding() { return symbols.binding(); }
-            public Optional<StoredCatalogRecord> canonical(String key) { budget.check();return symbols.canonical(key); }
-            public List<StoredCatalogRecord> after(String id,int limit) { budget.check();return symbols.after(id,limit); }
-            public void close() {}
-        };
-        var p=new ExactSymbolResolver(timed).resolve(new ExactSymbolQuery(text(q,"symbol",""),!Boolean.FALSE.equals(q.get("includeAliases")),page,candidates,budget.max,
+        var p=new ExactSymbolResolver(timed(budget)).resolve(new ExactSymbolQuery(text(q,"symbol",""),!Boolean.FALSE.equals(q.get("includeAliases")),page,candidates,budget.max,
             opt(q,"sourceSdkVersion"),opt(q,"buildId"),opt(q,"targetSdkVersion")),offset);
         budget.used=p.workCharged();budget.check();
         var matches=new ArrayList<Map<String,Object>>();
@@ -148,6 +154,126 @@ public final class ReadTools {
         for(var found:continuing)found.put("sectionContinuation",nullIfEmpty(next));
         var r=envelope("get_record",q,"NOT_APPLICABLE",map("records",records));
         finish(r,records.size(),"EXACT",budget.used,ids.size(),truncated,next,null,List.of());return r;
+    }
+    private SymbolSource timed(Budget budget) {
+        return new SymbolSource() {
+            public SymbolSourceBinding binding() { return symbols.binding(); }
+            public Optional<StoredCatalogRecord> canonical(String key) { budget.check();return symbols.canonical(key); }
+            public List<StoredCatalogRecord> after(String id,int limit) { budget.check();return symbols.after(id,limit); }
+            public Optional<StoredCatalogRecord> byRecordId(String id) { budget.check();return symbols.byRecordId(id); }
+            public Optional<List<StoredCatalogRecord>> bySimpleName(String name,int limit) { budget.check();return symbols.bySimpleName(name,limit); }
+            public void close() {}
+        };
+    }
+    /** Seed may be a canonical key, a catalog record id, or anything resolve_symbol accepts; only an exact seed traverses. */
+    private Map<String,Object> relationships(Map<String,Object> q,int page,int candidates,int bytes,Budget budget) {
+        String seed=text(q,"seed","");
+        if(text(q,"family","SDK").equals("KNOWLEDGE_DEPENDENCY")) {
+            var r=envelope("get_relationships",q,"NOT_APPLICABLE",map("nodes",List.of(),"edges",List.of()));
+            finish(r,0,"EXACT",0,0,false,"","NOT_APPLICABLE",List.of());return trace(r,seed);
+        }
+        if(relationships==null || relationships.servingBinding().isEmpty() || !relationships.servingBinding().get().equals(symbols.binding()))throw new Limit("BUILD_UNAVAILABLE");
+        budget.charge();
+        String key=symbols.canonical(seed).or(()->symbols.byRecordId(seed)).map(s->s.record().canonicalKey()).orElse(null);
+        String matched="COORDINATE";
+        if(key==null) {
+            var p=new ExactSymbolResolver(timed(budget)).resolve(new ExactSymbolQuery(seed,true,10,candidates,Math.max(1,budget.max-budget.used),
+                opt(q,"sourceSdkVersion"),opt(q,"buildId"),opt(q,"targetSdkVersion")));
+            budget.used+=p.workCharged();budget.check();
+            if(p.proof()==ExactSymbolResult.Proof.EXACT && p.matches().size()==1)
+                key=symbols.byRecordId(p.matches().getFirst().recordId()).map(s->s.record().canonicalKey()).orElse(null);
+            matched="ALIAS";
+            if(key==null) {
+                var r=envelope("get_relationships",q,p.proof().name(),map("nodes",List.of(),"edges",List.of()));
+                finish(r,0,"EXACT",budget.used,p.candidatesMatched(),false,"",p.proof()==ExactSymbolResult.Proof.AMBIGUOUS?"NO_MATCH":p.proof().name(),List.of());return trace(r,seed);
+            }
+        }
+        var types=new HashSet<RelationshipType>();for(String t:strings(q,"types"))types.add(RelationshipType.valueOf(t));
+        var mode=TraversalRequest.Mode.valueOf(text(q,"mode","DIRECT"));
+        long nanos=Math.min(5_000_000_000L,Math.max(1,budget.deadline-System.nanoTime()));
+        var limits=new TraversalLimits(mode==TraversalRequest.Mode.DIRECT?1:q.get("depth") instanceof Integer d?d:3,
+            q.get("visitedNodes") instanceof Integer v?v:1000,q.get("adjacencyRows") instanceof Integer a?a:5000,
+            q.get("resultItems") instanceof Integer i?i:1000,page,nanos,TraversalLimits.DEFAULT.sqlSteps(),Math.min(TraversalLimits.MAX_RESPONSE_BYTES,Math.max(65536,bytes-16384)));
+        var t=relationships.traverse(new TraversalRequest(key,mode,TraversalRequest.Direction.valueOf(text(q,"direction","OUT")),types,limits,text(q,"continuation","")));
+        switch(t.status()) {
+            case INVALID_CONTINUATION -> throw new Limit("INVALID_CONTINUATION");
+            case EXECUTION_LIMIT -> throw new Limit("DEADLINE");
+            default -> { }
+        }
+        var nodes=new ArrayList<String>();var edges=new ArrayList<Map<String,Object>>();
+        for(var item:t.items()) {
+            if(item.nodeKey()!=null) { if(nodes.size()<50)nodes.add(item.nodeKey()); continue; }
+            var e=item.edge().edge();
+            if(edges.size()<50)edges.add(map("edgeId",item.edge().edgeId(),"sourceId",e.sourceSymbol(),"targetId",e.targetSymbol(),"type",e.type().name(),
+                "family","SDK","proof","EXACT","originalToken",e.targetSymbol(),"candidates",List.of(),"reason",""));
+        }
+        boolean more=!t.continuation().isEmpty() || t.cutoff()!=TraversalResult.Cutoff.NONE;
+        var r=envelope("get_relationships",q,"EXACT",map("nodes",nodes,"edges",edges));
+        finish(r,edges.size(),more?"LOWER_BOUND":"EXACT",budget.used+t.scannedRows(),t.visitedNodes(),more,t.continuation(),
+            edges.isEmpty()?"NO_MATCH":null,List.of(matched));
+        ((Map<String,Object>)r.get("trace")).put("workCharged",Math.min(50000,budget.used+t.scannedRows()));
+        ((Map<String,Object>)r.get("trace")).put("candidatesExamined",Math.min(10000,t.visitedNodes()));
+        return trace(r,key);
+    }
+    private static Map<String,Object> trace(Map<String,Object> r,String normalized) {
+        ((Map<String,Object>)r.get("trace")).put("normalizedQuery",normalized.length()>2048?normalized.substring(0,2048):normalized);return r;
+    }
+    /** One resolve per input under a shared budget; inputs beyond the budget report INCOMPLETE_EVIDENCE rather than failing the batch. */
+    private Map<String,Object> check(Map<String,Object> q,int candidates,Budget budget) {
+        boolean withCandidates=!Boolean.FALSE.equals(q.get("includeCandidates")),truncated=false;
+        var verdicts=new ArrayList<Map<String,Object>>();var proofs=new HashSet<String>();
+        for(String s:strings(q,"symbols")) {
+            int remaining=budget.max-budget.used;
+            if(remaining<1 || System.nanoTime()>budget.deadline) {
+                verdicts.add(map("input",s,"proof","INCOMPLETE_EVIDENCE","selectedRecordId",null,"candidateRecordIds",List.of(),"reason","Request work or time budget exhausted before this symbol"));
+                proofs.add("INCOMPLETE_EVIDENCE");truncated=true;continue;
+            }
+            ExactSymbolResult p;
+            try {
+                p=new ExactSymbolResolver(timed(budget)).resolve(new ExactSymbolQuery(s,true,50,Math.min(candidates,10000),remaining,
+                    opt(q,"sourceSdkVersion"),opt(q,"buildId"),opt(q,"targetSdkVersion")));
+            } catch(Limit e) {
+                verdicts.add(map("input",s,"proof","INCOMPLETE_EVIDENCE","selectedRecordId",null,"candidateRecordIds",List.of(),"reason","Request deadline reached while checking this symbol"));
+                proofs.add("INCOMPLETE_EVIDENCE");truncated=true;continue;
+            }
+            budget.used+=p.workCharged();
+            var ids=p.matches().stream().map(ExactSymbolResult.Match::recordId).limit(50).toList();
+            boolean exact=p.proof()==ExactSymbolResult.Proof.EXACT && ids.size()==1;
+            String reason=switch(p.proof()) {
+                case EXACT -> "Exact match in source "+symbols.binding().sdkVersion();
+                case AMBIGUOUS -> p.candidatesMatched()+" candidates match; pick one with resolve_symbol";
+                case UNKNOWN_IN_SCOPE -> "No symbol with this name in source "+symbols.binding().sdkVersion();
+                case INCOMPLETE_EVIDENCE -> p.complete() && !ids.isEmpty() && !s.strip().endsWith(")")
+                    ?"Method name matches "+p.candidatesMatched()+" candidate(s); include the parameter list, e.g. "+s.strip()+"(), to prove the overload"
+                    :p.reason()==null || p.reason().isBlank()?"Evidence incomplete within request budget":p.reason();
+            };
+            verdicts.add(map("input",s,"proof",p.proof().name(),"selectedRecordId",exact?ids.getFirst():null,
+                "candidateRecordIds",exact || !withCandidates?List.of():ids,"reason",reason.length()>2048?reason.substring(0,2048):reason));
+            proofs.add(p.proof().name());truncated|=p.truncated();
+        }
+        String proof=proofs.equals(Set.of("EXACT"))?"EXACT":proofs.contains("INCOMPLETE_EVIDENCE")?"INCOMPLETE_EVIDENCE":proofs.contains("UNKNOWN_IN_SCOPE")?"UNKNOWN_IN_SCOPE":"AMBIGUOUS";
+        var r=envelope("check_symbols",q,proof,map("verdicts",verdicts));
+        finish(r,verdicts.size(),"EXACT",Math.min(50000,budget.used),verdicts.size(),truncated,"",null,List.of());
+        return trace(r,String.join(", ",strings(q,"symbols")));
+    }
+    private Map<String,Object> status(Map<String,Object> q) {
+        var b=content.binding();
+        if(status==null)throw new Limit("BUILD_UNAVAILABLE");
+        var m=status.manifest();var report=status.report();
+        Object pages=null,records=null,sections=null;
+        if(!Boolean.FALSE.equals(q.get("includeCoverage")) && report!=null && report.path("coverage").path("availability").asText().equals("AVAILABLE")) {
+            var c=report.path("coverage");
+            pages=map("value",c.path("pages").path("complete").asLong()+c.path("pages").path("partial").asLong(),"relation","EXACT");
+            records=map("value",c.path("records").path("persisted").asLong(),"relation","EXACT");
+            sections=map("value",c.path("sections").path("persisted").asLong(),"relation","EXACT");
+        }
+        String ratification=report!=null && report.path("technicalRatification").asText().equals("APPROVED")?"APPROVED":"PENDING";
+        var data=map("state",status.state(),"profile",m.profile(),"capabilities",m.capabilities(),"technicalRatification",ratification,
+            "schemaVersion",ContractVersions.SCHEMA,"identityVersion",ContractVersions.IDENTITY,"runtimeFingerprint",m.runtimeDigest(),
+            "recipeFingerprint",m.recipeDigest(),"capabilityFingerprint",m.capabilityFingerprint(),"sdkVersion",b.sdkVersion(),"buildId",b.buildId(),
+            "compatible",true,"mode","LEXICAL","coverage",map("pages",pages,"records",records,"sections",sections),"validationErrors",List.of());
+        var r=envelope("index_status",q,"NOT_APPLICABLE",data);
+        finish(r,1,"EXACT",0,0,false,"",null,List.of());return r;
     }
     private Map<String,Integer> sectionOffsets(Map<String,Object> q,List<String> ids) {
         var offsets=new LinkedHashMap<String,Integer>();for(String id:ids)offsets.put(id,0);

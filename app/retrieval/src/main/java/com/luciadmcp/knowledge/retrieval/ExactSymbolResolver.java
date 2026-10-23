@@ -29,6 +29,24 @@ public final class ExactSymbolResolver {
         if(!query.includeAliases())return result(query,List.of(),0,1,true,true);
         var matches=new ArrayList<ExactSymbolResult.Match>();
         int count=0,work=1;String cursor="";boolean complete=false,signature=true;
+        // Every alias match has a simple name equal to the query's last name segment, so a by-name lookup
+        // examines the same candidates as a full scan.
+        String name=simpleNameOf(text);
+        int limit=Math.min(10000,query.workLimit()-work);
+        var named=name==null || limit<1?Optional.<List<StoredCatalogRecord>>empty():source.bySimpleName(name,limit);
+        if(named.isPresent()) {
+            for(var stored:named.get()) {
+                work++;
+                if(alias(text,stored.record())) {
+                    count++;
+                    var candidate=match(stored,"alias");
+                    if(count>offset && matches.size()<query.pageSize() && fits(matches,candidate))matches.add(candidate);
+                    signature &= !callable(stored.record()) || text.endsWith(")");
+                    if(count>=query.candidateLimit())return result(query,matches,count,work,false,signature);
+                }
+            }
+            return result(query,matches,count,work,named.get().size()<limit,signature);
+        }
         scan: while(work<query.workLimit()) {
             int batch=Math.min(256,query.workLimit()-work);
             var records=source.after(cursor,batch);
@@ -91,6 +109,13 @@ public final class ExactSymbolResolver {
             }
         }
         return false;
+    }
+    private static String simpleNameOf(String query) {
+        String q=normalize(query);
+        if(q==null)return null;
+        int open=q.indexOf('(');if(open>=0)q=q.substring(0,open);
+        int hash=q.lastIndexOf('#');String name=hash>=0?q.substring(hash+1):q.substring(q.lastIndexOf('.')+1);
+        return name.isEmpty()?null:name;
     }
     private static String simpleParameters(String signature) {
         return signature.replaceAll("(?:[\\p{javaJavaIdentifierPart}$]+\\.)+","");

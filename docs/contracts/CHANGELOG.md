@@ -1,5 +1,9 @@
 # Contract changes
 
+## 2026-10-23 — get_relationships, check_symbols and index_status served
+
+The three remaining read-tools/2 tools are now served over MCP and the CLI `query` command; request and response schemas are unchanged except one correction: `index_status.data.schemaVersion` was `const 1`, which contradicted the ratified store schema/3, and is now an integer of at least 1. Relationship edges report canonical symbol keys as `sourceId`/`targetId`. A `seed` may be a canonical key, a catalog record ID or a resolvable symbol name.
+
 ## 2026-10-23 — Technical ratification
 
 Owner (eric) ratified identity/1, schema/3 with the docs/contracts JSON schemas, and read-tools/2 as implemented on master `12b1ba5`. The dependent-story gate in sign-offs.json is open. From here on, changes to these contracts need a version bump and an entry here (or a reviewed exemption). Story 10.1 evaluation acceptance is still not run. Earlier "ratification pending" notes in this file and in the verification docs are historical.

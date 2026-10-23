@@ -18,9 +18,14 @@ import static com.luciadmcp.knowledge.mcp.Wire.map;
 
 class MvpConnectionTest {
     @TempDir Path temp;
+    static final String SUBTYPE="<html><body class=\"class-declaration-page\"><h1 class=\"title\">Class U</h1><section class=\"class-description\" id=\"type-doc\">"
+        +"<div class=\"type-signature\">public class U extends <a href=\"T.html\">T</a></div><div class=\"block\"><p>Subtype of T.</p></div></section>"
+        +"<section class=\"method-details\"><section class=\"detail\" id=\"make()\"><h3>make</h3><div class=\"member-signature\"><a href=\"T.html\">T</a> make()</div>"
+        +"<div class=\"block\"><p>Makes a T.</p></div></section></section></body></html>";
     PipelineResult ingest(Path root) throws Exception {
         var args=StructuredDocumentationRoundtripTest.args(root);
         StructuredDocumentationRoundtripTest.copy(StructuredDocumentationRoundtripTest.fixtures().resolve("modern"),args.javadoc());
+        Files.writeString(args.javadoc().resolve("p/U.html"),SUBTYPE);
         // This clean protocol specimen has no empty link target; separate test covers the stored/wire gap.
         try(var files=Files.walk(args.javadoc())) { for(Path p:files.filter(Files::isRegularFile).toList())Files.writeString(p,Files.readString(p).replace("<a href=\"\">Empty</a>","Empty")); }
         var result=IngestPipelineRunner.withCatalogStage(FailurePolicy.COLLECT_AND_CONTINUE,args).runToResult(args);
@@ -51,7 +56,7 @@ class MvpConnectionTest {
                 assertTrue(opening.contains("read-tools/2"),opening);
                 var tools=client.listTools().tools();
                 assertEquals(ReadTools.NAMES,tools.stream().map(McpSchema.Tool::name).toList());
-                assertEquals(3,tools.stream().map(McpSchema.Tool::description).distinct().count());
+                assertEquals(6,tools.stream().map(McpSchema.Tool::description).distinct().count());
                 for(var tool:tools)assertFalse(tool.description().isBlank());
                 var resolved=call(client,"resolve_symbol",request("symbol","p.T#run()","targetSdkVersion","future"));assertEquals("EXACT",resolved.get("proof"));assertEquals("1",resolved.get("sdkVersion"));assertEquals(List.of(),resolved.get("versionNotices"));
                 var matches=(List<Map<String,Object>>)((Map<?,?>)resolved.get("data")).get("matches");String id=(String)matches.getFirst().get("recordId");
@@ -60,6 +65,23 @@ class MvpConnectionTest {
                 assertTrue(Wire.JSON.valueToTree(records.getFirst()).toString().contains("run();"));
                 var searched=call(client,"search_knowledge",request("query","cache","targetSdkVersion","older"));assertFalse(((List<?>)((Map<?,?>)searched.get("data")).get("hits")).isEmpty());
                 try(var lease=service.lease()) { assertEquals(new String(Wire.bytes(searched)),new String(Wire.bytes(lease.tools().call("search_knowledge",request("query","cache","targetSdkVersion","older"))))); }
+                var supertypes=call(client,"get_relationships",request("seed","p.U","types",List.of("EXTENDS_CLASS")));
+                assertEquals("EXACT",supertypes.get("proof"));
+                var edges=(List<Map<String,Object>>)((Map<?,?>)supertypes.get("data")).get("edges");
+                assertTrue(edges.stream().anyMatch(e->e.get("sourceId").equals("p.U") && e.get("targetId").equals("p.T") && e.get("type").equals("EXTENDS_CLASS")),edges.toString());
+                var subtypes=call(client,"get_relationships",request("seed","p.T","direction","IN"));
+                assertTrue(((List<Map<String,Object>>)((Map<?,?>)subtypes.get("data")).get("edges")).stream().anyMatch(e->e.get("sourceId").equals("p.U")),subtypes.toString());
+                var unknownSeed=call(client,"get_relationships",request("seed","q.Missing"));
+                assertEquals("UNKNOWN_IN_SCOPE",unknownSeed.get("proof"));
+                var checked=call(client,"check_symbols",request("symbols",List.of("p.T","p.T#run()","p.Missing")));
+                var verdicts=(List<Map<String,Object>>)((Map<?,?>)checked.get("data")).get("verdicts");
+                assertEquals(List.of("EXACT","EXACT","UNKNOWN_IN_SCOPE"),verdicts.stream().map(v->v.get("proof")).toList());
+                assertNotNull(verdicts.getFirst().get("selectedRecordId"));
+                assertEquals("UNKNOWN_IN_SCOPE",checked.get("proof"));
+                var status=call(client,"index_status",request());
+                var data=(Map<String,Object>)status.get("data");
+                assertEquals("ACTIVE",data.get("state"));assertEquals("1",data.get("sdkVersion"));assertEquals(result.manifest().buildId(),data.get("buildId"));
+                assertNotNull(((Map<?,?>)data.get("coverage")).get("records"),data.toString());
                 var invalid=client.callTool(new McpSchema.CallToolRequest("search_knowledge",request("query","cache","sourceSdkVersion","missing")));
                 var body=Wire.JSON.valueToTree(invalid.structuredContent());assertEquals("UNKNOWN_SDK",body.path("error").path("code").asText());Wire.validate("search_knowledge.response",body);
             }

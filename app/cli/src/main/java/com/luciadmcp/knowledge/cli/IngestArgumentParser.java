@@ -13,7 +13,7 @@ import java.util.regex.Pattern;
  *
  * <p>The accepted vocabulary is the six FR-1 path options plus the optional orchestration flag
  * {@code --failure-policy} ({@code fail-fast} | {@code collect-and-continue}, default
- * {@code fail-fast}) and nothing else. Anything outside it — an unknown flag, a bare positional, a
+ * {@code collect-and-continue}) and nothing else. Anything outside it — an unknown flag, a bare positional, a
  * repeated option, a missing value, a path value that is not a local filesystem path, or an
  * out-of-range {@code --failure-policy} value — is rejected with a structured {@link CliError}
  * (AC 3). The failure policy is per-run orchestration configuration, not a serve-time setting, so it

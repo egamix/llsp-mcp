@@ -1,7 +1,7 @@
 # First Javadoc MCP connection
 
-This Java MVP exposes exactly `search_knowledge`, `resolve_symbol` and `get_record` at
-`http://127.0.0.1:8766/mcp`, using official MCP Java SDK 2.0.1 Streamable HTTP and
+This Java server exposes the six read tools `search_knowledge`, `resolve_symbol`, `get_record`,
+`get_relationships`, `check_symbols` and `index_status` at `http://127.0.0.1:8766/mcp`, using official MCP Java SDK 2.0.1 Streamable HTTP and
 Jetty 12.1 EE11. It serves saved SQLite documentation and Lucene lexical projections.
 No embedding model or original input directory is needed for serving.
 
@@ -98,6 +98,18 @@ Every tool request requires `"contractVersion":"read-tools/2"`. Start with
 actual-source citations, governance, source/build, target context, counts and coverage.
 The same full envelope appears in MCP text and structured content.
 
+- `get_relationships` takes a `seed` (canonical key such as `p.Widget`, a record ID, or any
+  name `resolve_symbol` accepts) and returns graph edges: supertypes, implementations,
+  subclasses (`direction: IN`), parameter/return/throws types, overrides and see-also.
+  `mode: RECURSIVE` with `depth` walks further. Ambiguous or unknown seeds return no edges
+  with that proof. `family: KNOWLEDGE_DEPENDENCY` returns `NOT_APPLICABLE` for the Javadoc
+  profile.
+- `check_symbols` checks up to 50 names in one call and returns a per-name verdict
+  (`EXACT` with the record ID, `AMBIGUOUS` with candidate IDs, or `UNKNOWN_IN_SCOPE`).
+  Use it on every Luciad name in generated code.
+- `index_status` reports the served SDK version, build ID, capabilities, contract versions
+  and ingestion coverage counts.
+
 `sourceSdkVersion` and `buildId` restrict the active source. Unavailable explicit scope
 returns a typed envelope. `targetSdkVersion` provides guidance context and never filters
 source evidence or automatically produces mismatch warnings. Exact proof concerns the
@@ -135,14 +147,13 @@ One existing storage/wire gap remains explicit: stored documentation permits an 
 record returns `INAPPLICABLE` with reason `Stored content is not representable under the
 current wire schema`, preserving other batch verdicts. Its saved blocks are not rewritten.
 
-This connection is a slice of existing Stories 5.1/5.3/5.5/5.6/5.7 and 6.1/6.2/6.5.
-Other tools, producer coverage, technical ratification, controlled proof evaluation,
-performance acceptance and production release remain pending.
+Examples, recipes and guides (Epic 3), controlled evaluation (Epic 10), performance
+acceptance and production packaging (Epic 8) remain later work.
 
 ## Agent guidance and skill installation
 
 Both HTTP and optional stdio initialization return retrieval-first instructions, and each
-of the three tools has its own description. Connected clients receive these instructions
+of the six tools has its own description. Connected clients receive these instructions
 even without a skill. They guide the model; they do not guarantee model obedience.
 
 The distributable skill is `.agents/skills/luciad/`, including `agents/openai.yaml` with
@@ -164,7 +175,3 @@ where available and repairs from evidence. All tool requests use `contractVersio
 missing evidence and partial coverage. Target/source version differences neither block
 retrieval nor cause automatic warnings. If tools are unavailable, the agent should report
 the limitation instead of inventing Luciad API details from memory.
-
-This ships the three-tool Javadoc guidance slice of Stories 5.8 and 7.1. Both remain
-in progress: broader six-tool guidance, controlled agent evaluation and full acceptance
-are pending.

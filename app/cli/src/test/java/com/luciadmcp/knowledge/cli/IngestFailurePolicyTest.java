@@ -39,16 +39,16 @@ class IngestFailurePolicyTest {
         return all;
     }
 
-    /** No flag: the runner receives the default policy, FAIL_FAST. */
+    /** No flag: the runner receives the default policy, COLLECT_AND_CONTINUE. */
     @Test
-    void defaultsToFailFastWhenFlagAbsent(@TempDir Path tmp) throws Exception {
+    void defaultsToCollectAndContinueWhenFlagAbsent(@TempDir Path tmp) throws Exception {
         AtomicReference<FailurePolicy> seen = new AtomicReference<>();
         IngestCommand command = IngestCommand.withPipelineFactory(policy -> {
             seen.set(policy);
             return args -> { };
         });
         command.run(ingestArgs(tmp));
-        assertEquals(FailurePolicy.FAIL_FAST, seen.get());
+        assertEquals(FailurePolicy.COLLECT_AND_CONTINUE, seen.get());
     }
 
     /** {@code --failure-policy collect-and-continue} reaches the runner factory. */

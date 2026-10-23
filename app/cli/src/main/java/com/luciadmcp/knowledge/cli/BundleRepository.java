@@ -2,6 +2,7 @@ package com.luciadmcp.knowledge.cli;
 
 import com.luciadmcp.knowledge.domain.*;
 import com.luciadmcp.knowledge.config.ApplicationConfig;
+import com.luciadmcp.knowledge.catalog.sqlite.SqliteRelationshipStore;
 import com.luciadmcp.knowledge.catalog.sqlite.SqliteSymbolSource;
 import com.luciadmcp.knowledge.search.lucene.LuceneLexicalIndex;
 import com.luciadmcp.knowledge.cli.pipeline.PipelineResult;
@@ -84,7 +85,7 @@ public final class BundleRepository {
         if(!handle.manifest.sdkVersion().equals(sdk) || !handle.manifest.buildId().equals(build)) { handle.close();throw invalid("INVALID_SCOPE"); }return handle;
     }
     public Handle admit(Path directory,BuildValidator.Operation operation) {
-        SqliteSymbolSource source=null;LuceneLexicalIndex index=null;
+        SqliteSymbolSource source=null;LuceneLexicalIndex index=null;SqliteRelationshipStore graph=null;
         try {
             if(!Files.isDirectory(directory) || Files.isSymbolicLink(directory))throw invalid("BUNDLE_UNAVAILABLE");
             var seal=read(directory.resolve("bundle.json"),1048576);
@@ -106,10 +107,13 @@ public final class BundleRepository {
             }
             source=new SqliteSymbolSource(directory.resolve("catalog.sqlite"),operation);source.verifyManifest(manifest);
             index=new LuceneLexicalIndex(directory.resolve("lexical-index"),LexicalIndex.Binding.of(source));index.verifyIntegrity();
+            graph=new SqliteRelationshipStore(directory.resolve("catalog.sqlite"),manifest.buildId(),new RelationshipScope(manifest.sdkVersion()),key);
             boolean complete=report.path("completion").asText().equals("COMPLETE_FOR_PROFILE");
-            return new Handle(directory,manifest,source,index,new ReadTools(source,source,index,key,complete,complete?"Complete for implemented ingestion profile; independent expectations may be unavailable":"Partial ingestion coverage; inspect ingestion report"));
+            var status=new ReadTools.Status(operation==BuildValidator.Operation.CLI?"VALIDATED":"ACTIVE",manifest,report);
+            return new Handle(directory,manifest,source,index,graph,new ReadTools(source,source,index,graph,status,key,complete,
+                complete?"Complete for implemented ingestion profile; independent expectations may be unavailable":"Partial ingestion coverage; inspect ingestion report"));
         }catch(Exception e) {
-            if(index!=null)index.close();if(source!=null)source.close();
+            if(graph!=null)graph.close();if(index!=null)index.close();if(source!=null)source.close();
             if(e instanceof IllegalStateException s && s.getMessage()!=null && s.getMessage().startsWith("BUILD_INVALID:"))throw s;
             throw invalid("INCOMPATIBLE_OR_CORRUPT_BUNDLE");
         }
@@ -137,9 +141,11 @@ public final class BundleRepository {
     }
     public static final class Handle implements AutoCloseable {
         public final Path path;public final IndexManifest manifest;public final ReadTools tools;
-        private final SqliteSymbolSource source;private final LuceneLexicalIndex index;
-        Handle(Path path,IndexManifest manifest,SqliteSymbolSource source,LuceneLexicalIndex index,ReadTools tools) { this.path=path;this.manifest=manifest;this.source=source;this.index=index;this.tools=tools; }
-        public void close() { try { index.close(); }finally { source.close(); } }
+        private final SqliteSymbolSource source;private final LuceneLexicalIndex index;private final SqliteRelationshipStore graph;
+        Handle(Path path,IndexManifest manifest,SqliteSymbolSource source,LuceneLexicalIndex index,SqliteRelationshipStore graph,ReadTools tools) {
+            this.path=path;this.manifest=manifest;this.source=source;this.index=index;this.graph=graph;this.tools=tools;
+        }
+        public void close() { try { graph.close(); }finally { try { index.close(); }finally { source.close(); } } }
     }
     /** Publication swaps ownership; old handles close only after their last request lease. */
     public static final class Serving implements AutoCloseable {

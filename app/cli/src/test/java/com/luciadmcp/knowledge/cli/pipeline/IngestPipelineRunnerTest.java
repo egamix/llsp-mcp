@@ -263,10 +263,10 @@ class IngestPipelineRunnerTest {
                 () -> new IngestPipelineRunner(List.of(Stage.noOp()), FailurePolicy.FAIL_FAST));
     }
 
-    /** The default policy is FAIL_FAST, and the production wiring builds its eight stubs cleanly. */
+    /** The default policy is COLLECT_AND_CONTINUE, and the production wiring builds its eight stubs cleanly. */
     @Test
-    void defaultStagesFactoryUsesFailFastDefault(@TempDir Path tmp) throws Exception {
-        assertSame(FailurePolicy.FAIL_FAST, FailurePolicy.DEFAULT);
+    void defaultStagesFactoryUsesCollectAndContinueDefault(@TempDir Path tmp) throws Exception {
+        assertSame(FailurePolicy.COLLECT_AND_CONTINUE, FailurePolicy.DEFAULT);
         PipelineResult result = IngestPipelineRunner.withDefaultStages().runToResult(
                 PipelineTestSupport.argsIn(tmp));
         assertEquals(EnumSet.allOf(PipelineStage.class), result.completedStages(),
