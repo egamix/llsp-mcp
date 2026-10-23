@@ -157,15 +157,15 @@ public final class SqliteCatalogStore implements CatalogStore {
         String columns="record_id,sdk_version,canonical_key,kind,type_fqn,simple_name,relative_path,anchor";
         String metadata=java.util.Arrays.stream(columns.split(",")).map(c -> "octet_length("+c+")").collect(java.util.stream.Collectors.joining(","));
         long total=0;int rows=0;
-        try(var p=db.prepareStatement("SELECT "+metadata+" FROM records"+where+" LIMIT 100001")) {
+        try(var p=db.prepareStatement("SELECT "+metadata+" FROM records"+where+" LIMIT "+(com.luciadmcp.knowledge.domain.StandardBuildValidator.MAX_RECORDS+1))) {
             if(sdk!=null)p.setString(1,sdk);
             try(var r=p.executeQuery()) { while(r.next()) {
                 if(++rows>com.luciadmcp.knowledge.domain.StandardBuildValidator.MAX_RECORDS) throw new IllegalStateException("WORK_LIMIT: validation rows");
-                for(int i=1;i<=8;i++) { long bytes=r.getLong(i); if(r.wasNull() || bytes>1_048_576 || (total+=bytes)>16_777_216) throw new IllegalStateException("WORK_LIMIT: validation payload"); }
+                for(int i=1;i<=8;i++) { long bytes=r.getLong(i); if(r.wasNull() || bytes>1_048_576 || (total+=bytes)>com.luciadmcp.knowledge.domain.StandardBuildValidator.MAX_VALIDATION_BYTES) throw new IllegalStateException("WORK_LIMIT: validation payload"); }
             } }
         }
         var records=new java.util.ArrayList<com.luciadmcp.knowledge.domain.StoredCatalogRecord>(rows);
-        try(var p=db.prepareStatement("SELECT "+columns+" FROM records"+where+" LIMIT 100000")) {
+        try(var p=db.prepareStatement("SELECT "+columns+" FROM records"+where+" LIMIT "+com.luciadmcp.knowledge.domain.StandardBuildValidator.MAX_RECORDS)) {
             if(sdk!=null)p.setString(1,sdk);
             try(var r=p.executeQuery()) { while(r.next()) {
                 try {
@@ -223,9 +223,9 @@ public final class SqliteCatalogStore implements CatalogStore {
             java.util.Set<String> recordIds=records.stream().map(com.luciadmcp.knowledge.domain.StoredCatalogRecord::recordId).collect(java.util.stream.Collectors.toSet());
             int count=0;long bytes=0;
             try(ResultSet r=statement.executeQuery("SELECT octet_length(edge_id),octet_length(sdk_version),octet_length(source_id),octet_length(type),octet_length(target_id),octet_length(evidence) FROM edges LIMIT 200001")) {
-                while(r.next()) { if(++count>200000) throw new IllegalStateException("WORK_LIMIT: edges"); for(int i=1;i<=6;i++) { long size=r.getLong(i);if(size>1_048_576 || (bytes+=size)>16_777_216) throw new IllegalStateException("WORK_LIMIT: edge payload"); } }
+                while(r.next()) { if(++count>com.luciadmcp.knowledge.domain.StandardBuildValidator.MAX_DEPENDENCIES) throw new IllegalStateException("WORK_LIMIT: edges"); for(int i=1;i<=6;i++) { long size=r.getLong(i);if(size>1_048_576 || (bytes+=size)>com.luciadmcp.knowledge.domain.StandardBuildValidator.MAX_VALIDATION_BYTES) throw new IllegalStateException("WORK_LIMIT: edge payload"); } }
             }
-            try(ResultSet r=statement.executeQuery("SELECT edge_id,sdk_version,source_id,type,target_id,evidence FROM edges LIMIT 200000")) {
+            try(ResultSet r=statement.executeQuery("SELECT edge_id,sdk_version,source_id,type,target_id,evidence FROM edges LIMIT "+(com.luciadmcp.knowledge.domain.StandardBuildValidator.MAX_DEPENDENCIES+1))) {
                 while(r.next()) {
                     if(!sdkVersion.equals(r.getString(2))) { reasons.add(com.luciadmcp.knowledge.domain.BuildValidator.Reason.INVALID_SCOPE); continue; }
                     try {

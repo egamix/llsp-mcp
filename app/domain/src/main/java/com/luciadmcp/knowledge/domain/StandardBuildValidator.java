@@ -2,7 +2,10 @@ package com.luciadmcp.knowledge.domain;
 import java.util.*;
 /** Pure shared validator. Missing ordinary source references do not appear as dependencies. */
 public final class StandardBuildValidator implements BuildValidator {
-    public static final int MAX_RECORDS = 100_000, MAX_DEPENDENCIES = 200_000;
+    // Sized for a full SDK: LuciadLightspeed 2024.0 has ~118k API records plus ~18k examples.
+    public static final int MAX_RECORDS = 1_000_000, MAX_DEPENDENCIES = 2_000_000;
+    /** Total metadata bytes a validation pass may load. */
+    public static final long MAX_VALIDATION_BYTES = 512L * 1024 * 1024;
     public Result validate(Input input, Operation operation) {
         Objects.requireNonNull(operation);
         EnumSet<Reason> reasons = EnumSet.noneOf(Reason.class);

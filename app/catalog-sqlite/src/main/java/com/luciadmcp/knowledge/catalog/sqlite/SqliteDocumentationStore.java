@@ -158,8 +158,8 @@ public final class SqliteDocumentationStore implements DocumentationStore {
     static void validate(Connection db,List<StoredCatalogRecord> records) throws SQLException {
         // Supported API rows only; metadata and content are bounded before materialization.
         int totalRows=0;
-        try(var s=db.createStatement();var r=s.executeQuery("SELECT octet_length(payload) FROM documentation_sections LIMIT 100001")) {
-            while(r.next())if(++totalRows>100000 || r.getLong(1)>DocumentationCodec.MAX_ENCODED_BYTES)throw new IllegalStateException("WORK_LIMIT: documentation validation");
+        try(var s=db.createStatement();var r=s.executeQuery("SELECT octet_length(payload) FROM documentation_sections LIMIT "+(com.luciadmcp.knowledge.domain.StandardBuildValidator.MAX_RECORDS+1))) {
+            while(r.next())if(++totalRows>com.luciadmcp.knowledge.domain.StandardBuildValidator.MAX_RECORDS || r.getLong(1)>DocumentationCodec.MAX_ENCODED_BYTES)throw new IllegalStateException("WORK_LIMIT: documentation validation");
         }
         try(var s=db.createStatement();var r=s.executeQuery("SELECT 1 FROM documentation_sections s LEFT JOIN documentation d USING(record_id) WHERE d.record_id IS NULL OR s.ordinal<0 OR s.ordinal>=d.section_count LIMIT 1")) { if(r.next())throw new IllegalStateException("ORPHAN_CONTENT"); }
         try(var s=db.createStatement();var r=s.executeQuery("SELECT 1 FROM documentation d LEFT JOIN records r USING(record_id) LEFT JOIN knowledge_records k USING(record_id) WHERE k.record_id IS NULL OR (k.record_type='API' AND r.record_id IS NULL) OR (k.record_type IN ('NARRATIVE','EXAMPLE') AND r.record_id IS NOT NULL) LIMIT 1")) { if(r.next())throw new IllegalStateException("ORPHAN_CONTENT"); }
@@ -171,11 +171,11 @@ public final class SqliteDocumentationStore implements DocumentationStore {
         var tuples=new HashMap<String,CatalogRecord>();records.forEach(r->tuples.put(r.recordId(),r.record()));
         var ids=new ArrayList<String>();
         long metadataBytes=0;
-        try(var s=db.createStatement();var r=s.executeQuery("SELECT octet_length(metadata) FROM documentation LIMIT 100001")) {
-            int n=0;while(r.next())if(++n>100000 || r.getLong(1)>DocumentationCodec.MAX_ENCODED_BYTES || (metadataBytes+=r.getLong(1))>16_777_216)throw new IllegalStateException("WORK_LIMIT: documentation metadata");
+        try(var s=db.createStatement();var r=s.executeQuery("SELECT octet_length(metadata) FROM documentation LIMIT "+(com.luciadmcp.knowledge.domain.StandardBuildValidator.MAX_RECORDS+1))) {
+            int n=0;while(r.next())if(++n>com.luciadmcp.knowledge.domain.StandardBuildValidator.MAX_RECORDS || r.getLong(1)>DocumentationCodec.MAX_ENCODED_BYTES || (metadataBytes+=r.getLong(1))>com.luciadmcp.knowledge.domain.StandardBuildValidator.MAX_VALIDATION_BYTES)throw new IllegalStateException("WORK_LIMIT: documentation metadata");
         }
         if(required)for(var stored:records)try(var p=db.prepareStatement("SELECT 1 FROM documentation WHERE record_id=?")) { p.setString(1,stored.recordId());try(var r=p.executeQuery()) { if(!r.next())throw new IllegalStateException("MISSING_CONTENT"); } }
-        try(var s=db.createStatement();var r=s.executeQuery("SELECT CASE WHEN octet_length(record_id)=64 THEN record_id END FROM knowledge_records LIMIT 100001")) { while(r.next()) { if(ids.size()>=100000 || r.getString(1)==null)throw new IllegalStateException("WORK_LIMIT: knowledge records");ids.add(r.getString(1)); } }
+        try(var s=db.createStatement();var r=s.executeQuery("SELECT CASE WHEN octet_length(record_id)=64 THEN record_id END FROM knowledge_records LIMIT "+(com.luciadmcp.knowledge.domain.StandardBuildValidator.MAX_RECORDS+1))) { while(r.next()) { if(ids.size()>=com.luciadmcp.knowledge.domain.StandardBuildValidator.MAX_RECORDS || r.getString(1)==null)throw new IllegalStateException("WORK_LIMIT: knowledge records");ids.add(r.getString(1)); } }
         String sdk;
         try(var s=db.createStatement();var r=s.executeQuery("SELECT sdk_version FROM build_metadata LIMIT 1")) { sdk=r.next()?r.getString(1):null; }
         for(String id:ids) {
