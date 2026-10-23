@@ -7,6 +7,38 @@ import java.nio.file.*;
 import java.sql.*;
 import static org.junit.jupiter.api.Assertions.*;
 class SchemaCompatibilityTest {
+    @Test void failedSchemaInitializationRollsBackVersionAndCreatedTables(@TempDir Path root) throws Exception {
+        Path file=root.resolve("partial.sqlite");
+        try(var db=DriverManager.getConnection("jdbc:sqlite:"+file);var s=db.createStatement()) {
+            s.execute("CREATE TABLE contract_metadata (unexpected TEXT)");
+            assertThrows(SQLException.class,()->SchemaCompatibility.initialize(db));
+            assertTrue(db.getAutoCommit());
+            try(var r=s.executeQuery("PRAGMA user_version")) { assertTrue(r.next());assertEquals(0,r.getInt(1)); }
+            try(var r=s.executeQuery("SELECT count(*) FROM sqlite_master WHERE type='table' AND name IN ('records','documentation','documentation_sections','knowledge_records','knowledge_dependencies','build_metadata')")) {
+                assertTrue(r.next());assertEquals(0,r.getInt(1));
+            }
+        }
+    }
+
+    @Test void malformedPersistedCatalogRowReturnsStableInvalidIdentity(@TempDir Path root) throws Exception {
+        Path file=root.resolve("malformed.sqlite");
+        String build="b-"+"a".repeat(64);
+        try(var catalog=new SqliteCatalogStore(file)) {
+            catalog.bindManifest(new IndexManifest(build,"2024.0",ContentHashes.runtimeFingerprint()));
+            catalog.put(new CatalogRecord("2024.0","a.Type","TYPE","a.Type","Type","a/Type.html",""));
+        }
+        try(var edges=new SqliteRelationshipStore(file)) {}
+        try(var db=DriverManager.getConnection("jdbc:sqlite:"+file);var s=db.createStatement()) { s.executeUpdate("UPDATE records SET canonical_key=''"); }
+
+        try(var catalog=new SqliteCatalogStore(file)) {
+            var validation=catalog.validateBuild(new StandardBuildValidator(),BuildValidator.Operation.CLI,build,"2024.0");
+            assertEquals(List.of(BuildValidator.Reason.INVALID_IDENTITY),validation.reasons());
+        }
+        var startup=assertThrows(IllegalStateException.class,
+                ()->new SqliteRelationshipStore(file,build,new RelationshipScope("2024.0"),new byte[32]));
+        assertEquals("BUILD_INVALID: [INVALID_IDENTITY]",startup.getCause().getMessage());
+    }
+
     @Test void provisionalAndFutureStoresAreRejectedWithoutChangingBytes(@TempDir Path root) throws Exception {
         for (int version : new int[]{0,999}) {
             Path file = root.resolve("store-" + version + ".sqlite");

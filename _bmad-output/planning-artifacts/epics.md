@@ -713,6 +713,8 @@ Given exact and lexical candidates, enforce trust/applicability/citation rules, 
 
 ## Epic 5: Six-Tool MCP Surface
 
+**Future feature to consider during Epic 5 refinement (2026-10-22):** App-managed retention and HTTP serving of imported source documentation, with clickable agent citations to the original pages and genuine section anchors. The product owner explicitly deferred implementation. Before refining transport (5.5), build serving (5.6), or citation envelopes (5.7), read [the retained-source feature entry](../implementation-artifacts/deferred-work.md#future-feature-retained-source-documentation-and-clickable-citations-2026-10-22) and assess ingestion/build-lifecycle dependencies. This is a discovery pointer for future planning, not an added acceptance criterion, ready story, contract approval, or current-sprint commitment. Refine and schedule a separate story before implementation.
+
 ### Story 5.1: Knowledge search and symbol resolution
 
 **Planning disposition:** Backlog; approved prospective scope, implementation not applied.

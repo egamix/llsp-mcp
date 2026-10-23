@@ -114,6 +114,12 @@ class IngestPipelineRunnerTest {
     @Test
     void buildInvalidatingFailureBlocksActivationRegardlessOfPolicy(@TempDir Path tmp) throws Exception {
         IngestArguments args = PipelineTestSupport.argsIn(tmp);
+        BuildContext context = BuildContext.forInputs(args);
+        try (var catalog = new com.luciadmcp.knowledge.catalog.sqlite.SqliteCatalogStore(context.catalogDbPath())) {
+            catalog.bindManifest(new com.luciadmcp.knowledge.domain.IndexManifest(
+                    context.buildId(), context.sdkVersion(), com.luciadmcp.knowledge.domain.ContentHashes.runtimeFingerprint()));
+        }
+        try (var relationships = new com.luciadmcp.knowledge.catalog.sqlite.SqliteRelationshipStore(context.catalogDbPath())) {}
 
         List<PipelineStage> log = new ArrayList<>();
         List<Stage> stages = PipelineTestSupport.recordingStages(log);
@@ -134,6 +140,13 @@ class IngestPipelineRunnerTest {
         assertTrue(result.failures().stream()
                         .anyMatch(f -> f.severity() == FailureSeverity.BUILD_INVALIDATING),
                 "the invalidating failure must be reported");
+
+        try (var reopened = new com.luciadmcp.knowledge.catalog.sqlite.SqliteCatalogStore(context.catalogDbPath())) {
+            var validation = reopened.validateBuild(new com.luciadmcp.knowledge.domain.StandardBuildValidator(),
+                    com.luciadmcp.knowledge.domain.BuildValidator.Operation.CLI, context.buildId(), context.sdkVersion());
+            assertTrue(validation.reasons().contains(com.luciadmcp.knowledge.domain.BuildValidator.Reason.BUILD_INVALIDATING_OUTCOME),
+                    "the invalidating outcome must remain after reopening the catalog: " + validation.reasons());
+        }
     }
 
     /** AC 6: a build-invalidating failure also aborts and blocks ACTIVATION under fail-fast. */

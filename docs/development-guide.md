@@ -10,7 +10,7 @@ _Generated: 2026-08-25 · Quick scan_
 - **Gradle wrapper 8.10** — no system Gradle needed; use `./gradlew` (or `gradlew.bat`).
 - Git.
 
-> There is no `README.md` yet; this guide is the current entry point for building.
+> Start with the [project README](../README.md) for an introduction. This guide covers building and contributing; historical implementation-status notes may lag the code.
 
 ## Important: run from `app/`
 
@@ -103,3 +103,4 @@ Current: Epic 1 in progress (1.1 done, 1.2 in review, 1.3–1.4 backlog).
 The appliance is intended to ship as two container images — a zero-egress **serving image**
 and a **training-ingest image** (the AD-28 exception). Packaging is Epic 8 and not present in
 the repository yet.
+

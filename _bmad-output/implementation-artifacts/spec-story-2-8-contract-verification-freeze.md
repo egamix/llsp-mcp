@@ -2,7 +2,7 @@
 title: 'Story 2.8: Contract and Verification Freeze'
 type: 'feature'
 created: '2026-10-21'
-status: 'done'
+status: 'in-progress'
 route: 'dispatch'
 review_loop_iteration: 0
 baseline_commit: '25ee25cb7acb812ab8101b77fa6ae4eaa5fd87d7'
@@ -92,3 +92,23 @@ Resolution: `f80d41c` fixed both findings. `SchemaCompatibilityTest.mixedScopeCa
 - Mutation screening and portable fixture comparison; report unavailable platforms.
 - `git diff --check`, `graft build`, independent complete-diff/version review.
 - Use established Gradle workaround without host-specific product settings.
+
+## Review Findings
+
+Review scope completed: `app/**` implementation and tests. Other Story 2.8 file groups remain to be reviewed, and the edge-case review layer failed for this chunk.
+
+### Patch
+- [x] [Review][Patch] Classify malformed persisted catalog rows through the shared validation result [app/catalog-sqlite/src/main/java/com/luciadmcp/knowledge/catalog/sqlite/SqliteCatalogStore.java:169]
+- [x] [Review][Patch] Make schema initialization atomic so interruption cannot strand an unrecoverable staging catalog [app/catalog-sqlite/src/main/java/com/luciadmcp/knowledge/catalog/sqlite/SchemaCompatibility.java:29]
+- [x] [Review][Patch] Verify invalidating outcomes persist and remain rejected after reopen [app/cli/src/test/java/com/luciadmcp/knowledge/cli/pipeline/IngestPipelineRunnerTest.java:115]
+- [x] [Review][Patch] Align the published MCP contract version with the frozen interface constant [app/mcp/CONTRACTS.md:3]
+
+### Rejected
+- [false] SQLite `octet_length()` compatibility concern — the pinned JDBC runtime is 3.53.2.1, and the repository already uses this function in bounded traversal.
+- [false] Runtime fingerprint is not compared with the current contract — `StandardBuildValidator` compares the persisted fingerprint against `ContentHashes.runtimeFingerprint()`.
+- [false] Null catalog fields pass the metadata preflight — the catalog schema declares all selected columns `NOT NULL`; the separate malformed non-null row finding remains above.
+- [false] The persisted validator ignores build-invalidating failures — `markInvalid()` stores a nonempty `validation_reasons` value and `validatePersisted()` maps it to `BUILD_INVALIDATING_OUTCOME`.
+- [false] `markInvalid()` can silently lose a failure when no row is updated — a missing `build_metadata` row is independently rejected as `INVALID_IDENTITY`; normal invalidation follows a bound manifest.
+- [false] Nested list items are unbounded — `canonicalFields()` caps depth, total fields, and canonical bytes before a payload is accepted.
+- [false] `searchableText()` omits locator and link-target metadata — the structured payload retains those fields, and the spec describes searchable text as a projection rather than a full metadata export.
+- [false] Blank governance fields and duplicate applicability entries bypass validation — practice/recipe governance is checked by `StandardBuildValidator`, applicability constructors enforce scope and nonblank versions, and no harmful behavior from duplicate versions was demonstrated.

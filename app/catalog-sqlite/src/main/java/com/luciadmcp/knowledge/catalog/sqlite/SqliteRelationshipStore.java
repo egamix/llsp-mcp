@@ -104,8 +104,7 @@ public final class SqliteRelationshipStore implements RelationshipStore {
                     ResultSet ignored = stmt.executeQuery("SELECT 1 FROM records LIMIT 1")) {
                 ignored.next();
             }
-            var records=SqliteCatalogStore.validationRecords(connection,null);
-            var validation=SqliteCatalogStore.validatePersisted(connection,new com.luciadmcp.knowledge.domain.StandardBuildValidator(),com.luciadmcp.knowledge.domain.BuildValidator.Operation.STARTUP,buildId,scope.sdkVersion(),records);
+            var validation=SqliteCatalogStore.validatePersisted(connection,new com.luciadmcp.knowledge.domain.StandardBuildValidator(),com.luciadmcp.knowledge.domain.BuildValidator.Operation.STARTUP,buildId,scope.sdkVersion());
             if(!validation.valid()) throw new IllegalStateException("BUILD_INVALID: "+validation.reasons());
             try(var stmt=connection.createStatement();var row=stmt.executeQuery("SELECT capabilities FROM build_metadata LIMIT 1")) {
                 if(!row.next())throw new IllegalStateException("missing graph binding");

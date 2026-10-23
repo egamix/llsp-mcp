@@ -155,9 +155,9 @@ public final class SqliteDocumentationStore implements DocumentationStore {
 
     static void validate(Connection db,List<StoredCatalogRecord> records) throws SQLException {
         // Supported API rows only; metadata and content are bounded before materialization.
-        long totalBytes=0;int totalRows=0;
+        int totalRows=0;
         try(var s=db.createStatement();var r=s.executeQuery("SELECT octet_length(payload) FROM documentation_sections LIMIT 100001")) {
-            while(r.next())if(++totalRows>100000 || r.getLong(1)>DocumentationCodec.MAX_ENCODED_BYTES || (totalBytes+=r.getLong(1))>16_777_216)throw new IllegalStateException("WORK_LIMIT: documentation validation");
+            while(r.next())if(++totalRows>100000 || r.getLong(1)>DocumentationCodec.MAX_ENCODED_BYTES)throw new IllegalStateException("WORK_LIMIT: documentation validation");
         }
         try(var s=db.createStatement();var r=s.executeQuery("SELECT 1 FROM documentation_sections s LEFT JOIN documentation d USING(record_id) WHERE d.record_id IS NULL OR s.ordinal<0 OR s.ordinal>=d.section_count LIMIT 1")) { if(r.next())throw new IllegalStateException("ORPHAN_CONTENT"); }
         try(var s=db.createStatement();var r=s.executeQuery("SELECT 1 FROM documentation d LEFT JOIN records r USING(record_id) LEFT JOIN knowledge_records k USING(record_id) WHERE k.record_id IS NULL OR (k.record_type='API' AND r.record_id IS NULL) OR (k.record_type='NARRATIVE' AND r.record_id IS NOT NULL) LIMIT 1")) { if(r.next())throw new IllegalStateException("ORPHAN_CONTENT"); }

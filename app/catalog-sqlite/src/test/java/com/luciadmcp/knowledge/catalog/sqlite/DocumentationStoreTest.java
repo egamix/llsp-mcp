@@ -99,6 +99,29 @@ class DocumentationStoreTest {
         }
     }
 
+    @Test void acceptsCatalogWithDocumentationOverSixteenMiBAfterReopen() {
+        Path path=temp.resolve("large-catalog.db");
+        String text="x".repeat(1_000_000);
+        try(var catalog=new SqliteCatalogStore(path)) {
+            catalog.bindManifest(IndexManifest.withDocumentation(BUILD,"1","synthetic"));
+            for(int i=0;i<17;i++) {
+                var tuple=new CatalogRecord("1","p.T#m"+i+"(int)","METHOD","p.T","m"+i,"p/T.html","m"+i);
+                var record=knowledge(tuple);
+                var section=new DocumentationPayload.Section("api","API documentation",record.locator(),List.of(
+                        new DocumentationPayload.Block(DocumentationPayload.BlockKind.CODE,"signature",text,List.of())));
+                var sections=List.of(section);
+                var payload=new DocumentationPayload(record.id(),"0".repeat(64),sections,
+                        ContentHashes.contentHash(DocumentationPayload.canonicalFields(sections)));
+                assertEquals(CatalogStore.PutStatus.INSERTED,catalog.putDocumented(tuple,record,payload).status());
+            }
+        }
+        try(var edges=new SqliteRelationshipStore(path)) {}
+        try(var reopened=new SqliteCatalogStore(path)) {
+            var validation=reopened.validateBuild(new StandardBuildValidator(),BuildValidator.Operation.CLI,BUILD,"1");
+            assertTrue(validation.valid(),()->"large catalog should remain valid: "+validation.reasons());
+        }
+    }
+
     @Test void exactSectionAndBlockCapsPagingAndEncodedAdmission() throws Exception {
         var tuple=tuple("1");var record=knowledge(tuple);var locator=record.locator();
         var block=new DocumentationPayload.Block(DocumentationPayload.BlockKind.PARAGRAPH,"","v",List.of());

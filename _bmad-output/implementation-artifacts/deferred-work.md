@@ -1,5 +1,16 @@
 # Deferred Work
 
+## Future feature: retained source documentation and clickable citations (2026-10-22)
+
+- **Status:** Backlog only; explicitly deferred by the product owner. No implementation or current-sprint commitment.
+- **User outcome:** A user can click an agent's citation and open the exact original documentation page or section without configuring a separate HTTP server.
+- **Scope:** Retain an app-managed copy of explicitly imported source material and the assets needed to display it. Serve that copy through the application's HTTP service. Keep extracted, searchable content in the knowledge store and preserve the original material separately.
+- **Citation behavior:** Resolve stored source-relative paths and genuine anchors against the retained source set for the cited build/version. Preserve missing-anchor information; never fabricate an exact section link. Return a usable source URL alongside the citation metadata in agent-facing results.
+- **Durability:** Citations continue to work after the original input folder is moved or removed and after the app restarts. Retained source and indexed content must identify the same source snapshot.
+- **Access:** Default to local access. Remote deployments need a configured user-reachable base URL and the same access policy as the knowledge service. Serve only retained, authorized imports; prevent filesystem traversal and account for active HTML content when designing the serving boundary.
+- **BMAD placement:** Refine with the existing Epic 5 HTTP transport and response-envelope work, coordinating source retention with ingestion/build lifecycle and cleanup. This entry does not approve a storage or endpoint contract or alter the current story sequence.
+- **Future acceptance evidence:** Import a documentation tree, remove the original, restart, and open an agent citation to the matching retained page and real anchor with working relative assets. Verify version isolation, honest page-level fallback, and rejection of requests outside the retained source set.
+
 ## Deferred from: code review of story-1.2 (2026-08-25)
 
 - Mapped network drives / UNC-via-symlink defeat the "local-only, egress-free" guarantee — `requireLocalPath` only rejects literal `\\server\share`/`//` strings, and the DNS-based `EgressGuard` never fires for SMB access via a drive letter. [`IngestArgumentParser.java:146-157`, `IngestCommand.java:77-83`] — reason: revisit in Epic 8 hardening.
