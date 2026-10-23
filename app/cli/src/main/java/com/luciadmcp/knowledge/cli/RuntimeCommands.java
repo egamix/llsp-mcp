@@ -31,7 +31,7 @@ final class RuntimeCommands {
                     Path staging=output.resolve(".staging").resolve(build);
                     var context=new BuildContext(build,build.startsWith("b-")?build.substring(2):build,staging,sdk);
                     com.fasterxml.jackson.databind.JsonNode report;
-                    try(var in=Files.newInputStream(output.resolve(build).resolve("ingestion-report.json"))) { report=Wire.parse(in.readNBytes(8388609)); }
+                    try(var in=Files.newInputStream(output.resolve(build).resolve("ingestion-report.json"))) { report=Wire.parse(in.readNBytes(Wire.MAX_REPORT_BYTES+1),Wire.MAX_REPORT_BYTES); }
                     catch(java.io.IOException e) { throw new IllegalStateException("BUILD_INVALID: REPORT_UNAVAILABLE"); }
                     var manifest=com.luciadmcp.knowledge.domain.IndexManifest.withDocumentation(build,sdk,report.path("toolchainFingerprint").asText());
                     var result=new PipelineResult(context,manifest,Set.of(),List.of(),false,false);

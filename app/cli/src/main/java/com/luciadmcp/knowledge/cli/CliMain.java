@@ -22,7 +22,12 @@ public final class CliMain {
 
     private static boolean SetRuntimeCommands(String command) { return java.util.Set.of("serve","validate","activate","publish-staged","query").contains(command); }
     private static String safeRuntimeReason(RuntimeException e) {
-        String message=e.getMessage();return message!=null && (message.startsWith("BUILD_INVALID:") || message.startsWith("INVALID_CONFIGURATION"))?message:"INVALID_REQUEST_OR_RUNTIME_FAILURE";
+        String message=e.getMessage();
+        if(message!=null && (message.startsWith("BUILD_INVALID:") || message.startsWith("INVALID_CONFIGURATION")))return message;
+        // Operator output (stderr), not agent output: name the cause so the operator can act on it.
+        Throwable deepest=e;while(deepest.getCause()!=null && deepest.getCause()!=deepest)deepest=deepest.getCause();
+        return "INVALID_REQUEST_OR_RUNTIME_FAILURE: "+e.getClass().getSimpleName()+(message==null?"":": "+message)
+            +(deepest!=e?" (cause: "+deepest.getClass().getSimpleName()+": "+deepest.getMessage()+")":"");
     }
     private CliMain() {
     }

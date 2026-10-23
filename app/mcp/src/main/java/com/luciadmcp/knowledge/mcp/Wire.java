@@ -19,10 +19,13 @@ public final class Wire {
     public static byte[] bytes(Object value) {
         try { return JSON.writeValueAsBytes(value); }catch(IOException e) { throw new IllegalStateException("SERIALIZATION_FAILED"); }
     }
-    public static JsonNode parse(byte[] bytes) {
-        if(bytes.length>8388608)throw new IllegalArgumentException("INVALID_REQUEST");
+    public static JsonNode parse(byte[] bytes) { return parse(bytes,8388608); }
+    /** Operator metadata (ingestion reports of full SDKs list tens of thousands of warnings) may exceed request size. */
+    public static JsonNode parse(byte[] bytes,int max) {
+        if(bytes.length>max)throw new IllegalArgumentException("INVALID_REQUEST");
         try { return JSON.readTree(bytes); }catch(IOException e) { throw new IllegalArgumentException("INVALID_REQUEST"); }
     }
+    public static final int MAX_REPORT_BYTES=64*1024*1024;
     private static JsonNode load(String name) {
         try(var in=Wire.class.getResourceAsStream("/contracts/"+name+".schema.json")) {
             if(in==null)throw new IllegalStateException("MISSING_CONTRACT");return JSON.readTree(in);

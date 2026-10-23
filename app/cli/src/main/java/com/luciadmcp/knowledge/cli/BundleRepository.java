@@ -95,7 +95,7 @@ public final class BundleRepository {
             if(!manifest.capabilities().equals(IndexManifest.withDocumentation(manifest.buildId(),manifest.sdkVersion(),manifest.toolchainFingerprint()).capabilities()) || !ContractVersions.PROFILE.equals(manifest.profile()) || !ContentHashes.runtimeFingerprint().equals(manifest.runtimeDigest())
                 || !ContentHashes.recipeFingerprint(ContractVersions.PROFILE,List.of()).equals(manifest.recipeDigest())
                 || !manifest.buildId().equals("b-"+manifest.inputDigest()))throw invalid("INCOMPATIBLE_PROFILE");
-            var report=read(directory.resolve("ingestion-report.json"),8388608);Wire.validate("ingestion-report",report);
+            var report=read(directory.resolve("ingestion-report.json"),Wire.MAX_REPORT_BYTES);Wire.validate("ingestion-report",report);
             if(!report.path("buildId").asText().equals(manifest.buildId()) || !report.path("sdkVersion").asText().equals(manifest.sdkVersion())
                 || !report.path("toolchainFingerprint").asText().equals(manifest.toolchainFingerprint()) || !report.path("profile").asText().equals(manifest.profile()) || !report.path("runtimeFingerprint").asText().equals(manifest.runtimeDigest())
                 || !report.path("recipeFingerprint").asText().equals(manifest.recipeDigest()) || !report.path("capabilityFingerprint").asText().equals(manifest.capabilityFingerprint())
