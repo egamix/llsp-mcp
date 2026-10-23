@@ -278,7 +278,8 @@
             "API",
             "NARRATIVE",
             "RECIPE",
-            "PRACTICE"
+            "PRACTICE",
+            "EXAMPLE"
           ]
         },
         "knowledgeKind": {

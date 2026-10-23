@@ -133,14 +133,15 @@ public final class IngestPipelineRunner implements IngestPipeline {
             stages.add(switch (stage) {
                 case CATALOG -> catalog;
                 case RELATIONSHIPS -> relationships;
+                case EXAMPLES_WORKFLOWS -> new ExamplesStage(args.samples(),
+                        ctx -> new com.luciadmcp.knowledge.catalog.sqlite.SqliteDocumentationStore(ctx.catalogDbPath()));
                 case LEXICAL_INDEX -> new LexicalIndexStage();
                 case VALIDATION -> new BuildValidationStage(new com.luciadmcp.knowledge.domain.StandardBuildValidator(), ctx -> openBuildCatalog(ctx));
                 default -> Stage.noOp();
             });
         }
         IngestPipelineRunner runner = new IngestPipelineRunner(stages, policy);
-        runner.unsupported = java.util.Set.of(PipelineStage.EXAMPLES_WORKFLOWS,
-                PipelineStage.EMBEDDINGS, PipelineStage.VECTOR_INDEX, PipelineStage.ACTIVATION);
+        runner.unsupported = java.util.Set.of(PipelineStage.EMBEDDINGS, PipelineStage.VECTOR_INDEX, PipelineStage.ACTIVATION);
         return runner;
     }
 
