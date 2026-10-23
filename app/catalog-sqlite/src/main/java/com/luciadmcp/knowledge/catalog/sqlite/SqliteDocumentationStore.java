@@ -130,7 +130,7 @@ public final class SqliteDocumentationStore implements DocumentationStore {
         return new DocumentationPayload(id,source,read(db,id,0,count,DocumentationCodec.MAX_ENCODED_BYTES),content);
     }
 
-    private static List<DocumentationPayload.Section> read(Connection db,String id,int first,int count,long budget) throws SQLException {
+    static List<DocumentationPayload.Section> read(Connection db,String id,int first,int count,long budget) throws SQLException {
         long total=0;int rows=0;
         // Lengths only first. No JDBC getBytes/getString on untrusted content until all selected rows fit.
         try(var p=db.prepareStatement("SELECT ordinal,octet_length(payload) FROM documentation_sections WHERE record_id=? AND ordinal>=? AND ordinal<? ORDER BY ordinal LIMIT 257")) {
@@ -189,13 +189,18 @@ public final class SqliteDocumentationStore implements DocumentationStore {
                 p.setString(1,id);try(var r=p.executeQuery()) { if(!r.next())throw new IllegalStateException("MISSING_METADATA");long bytes=0;for(int i=1;i<=19;i++)if(r.getLong(i)>DocumentationCodec.MAX_ENCODED_BYTES || (bytes+=r.getLong(i))>DocumentationCodec.MAX_ENCODED_BYTES)throw new IllegalStateException("PAYLOAD_TOO_LARGE"); }
             }
             try(var p=db.prepareStatement("SELECT "+columns+" FROM knowledge_records WHERE record_id=?")) { p.setString(1,id);try(var r=p.executeQuery()) { r.next();for(int i=0;i<19;i++)if(!Objects.equals(fields.get(i),r.getString(i+1)))throw new IllegalStateException("CORRUPT_METADATA"); } }
-            var coordinate=Optional.ofNullable(fields.get(5)).map(SymbolCoordinate::parse);
-            var locator=new SourceLocator(SourceLocator.Kind.valueOf(fields.get(6)),fields.get(7),Optional.ofNullable(fields.get(8)),fields.get(12),fields.get(9)==null?Optional.empty():Optional.of(new SourceLocator.LineRange(Integer.parseInt(fields.get(9)),Integer.parseInt(fields.get(10)))),Optional.ofNullable(fields.get(11)));
-            List<String> a=DocumentationCodec.decode(Base64.getDecoder().decode(fields.get(17)));int versions=Integer.parseInt(a.get(2));
-            var record=new KnowledgeRecord(fields.get(0),fields.get(2),KnowledgeRecord.RecordType.valueOf(fields.get(3)),KnowledgeRecord.KnowledgeKind.valueOf(fields.get(4)),coordinate,locator,new KnowledgeRecord.Governance(KnowledgeRecord.Approval.valueOf(fields.get(13)),fields.get(14),fields.get(15),fields.get(16)),new KnowledgeRecord.Applicability(a.get(0),a.subList(3,3+versions),a.subList(3+versions,a.size()),KnowledgeRecord.ApplicabilityScope.valueOf(a.get(1))),Optional.ofNullable(fields.get(18)).map(KnowledgeRecord.NarrativeKind::valueOf));
+            var record=decodeMetadata(fields);
             if(sdk==null || !sdk.equals(record.sdkVersion()))throw new IllegalStateException("INVALID_SCOPE");
             validateAssociation(tuples.get(id),record,load(db,id));
         }
+    }
+
+    static KnowledgeRecord decodeMetadata(List<String> fields) {
+        if(fields.size()!=19)throw new IllegalStateException("CORRUPT_METADATA");
+        var coordinate=Optional.ofNullable(fields.get(5)).map(SymbolCoordinate::parse);
+        var locator=new SourceLocator(SourceLocator.Kind.valueOf(fields.get(6)),fields.get(7),Optional.ofNullable(fields.get(8)),fields.get(12),fields.get(9)==null?Optional.empty():Optional.of(new SourceLocator.LineRange(Integer.parseInt(fields.get(9)),Integer.parseInt(fields.get(10)))),Optional.ofNullable(fields.get(11)));
+        List<String> a=DocumentationCodec.decode(Base64.getDecoder().decode(fields.get(17)));int versions=Integer.parseInt(a.get(2));
+        return new KnowledgeRecord(fields.get(0),fields.get(2),KnowledgeRecord.RecordType.valueOf(fields.get(3)),KnowledgeRecord.KnowledgeKind.valueOf(fields.get(4)),coordinate,locator,new KnowledgeRecord.Governance(KnowledgeRecord.Approval.valueOf(fields.get(13)),fields.get(14),fields.get(15),fields.get(16)),new KnowledgeRecord.Applicability(a.get(0),a.subList(3,3+versions),a.subList(3+versions,a.size()),KnowledgeRecord.ApplicabilityScope.valueOf(a.get(1))),Optional.ofNullable(fields.get(18)).map(KnowledgeRecord.NarrativeKind::valueOf));
     }
 
     @Override public void close() { if(ownsCatalog)catalog.close(); }

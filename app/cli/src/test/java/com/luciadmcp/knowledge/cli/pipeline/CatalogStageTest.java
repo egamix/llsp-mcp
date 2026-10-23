@@ -184,7 +184,7 @@ class CatalogStageTest {
      * mandatory-input friction was removed). Verified through the production wiring end-to-end.
      */
     @Test
-    void withoutSdkVersionBuildProceedsAndScopesUnderDefaultLabel(@TempDir Path tmp) throws Exception {
+    void withoutSdkVersionRetainsCatalogButRefusesLexicalAdmission(@TempDir Path tmp) throws Exception {
         Path javadoc = Files.createDirectories(tmp.resolve("javadoc"));
         writeType(javadoc, "com/example/Widget.html", CLEAN_PAGE);
         IngestArguments args = new IngestArguments(
@@ -201,7 +201,7 @@ class CatalogStageTest {
 
         assertTrue(result.aborted());
         assertFalse(result.activationOccurred());
-        assertTrue(result.failures().stream().anyMatch(f -> f.message().equals("UNKNOWN_SDK")));
+        assertTrue(result.failures().stream().anyMatch(f -> f.message().contains("UNKNOWN_SDK")));
         String defaultLabel = IngestPipelineRunner.STUB_SDK_VERSION;
         assertEquals(defaultLabel, result.manifest().sdkVersion(), "absent version resolves to the default label");
 

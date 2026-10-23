@@ -1,11 +1,47 @@
 package com.luciadmcp.knowledge.domain;
 
-/**
- * Domain port for the lexical (BM25) search index (AD-1).
- *
- * <p>The {@code search.lucene} module provides the sole implementation. Methods are absent
- * in this skeleton story — the Lucene field set, analyzers, and BM25 config are a deferred
- * approval gate (Epic 5). This interface fixes the boundary, not the behavior.
- */
-public interface LexicalIndex {
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+
+/** Derived lexical discovery only: a score never establishes exact symbol identity. */
+public interface LexicalIndex extends AutoCloseable {
+    String RECIPE = "lucene-bm25/1;format/1;standard-prose;normalized-symbol;camel/1";
+    Set<String> FILTER_FIELDS = Set.of("sourceSdk", "recordType", "knowledgeKind", "package", "elementKind",
+            "deprecated", "approval", "owner", "provenance", "approvalEvidence", "product", "applicabilityScope",
+            "applicableSdk", "condition", "narrativeKind");
+    record Binding(SymbolSourceBinding source, String runtimeFingerprint, String recipe) {
+        public Binding { java.util.Objects.requireNonNull(source); ExactSymbolQuery.text(runtimeFingerprint); ExactSymbolQuery.text(recipe); }
+        public static Binding of(DocumentationSource source) { return new Binding(source.binding(), source.runtimeFingerprint(), RECIPE); }
+    }
+    record Query(String text, int pageSize, int candidateLimit, int workLimit, int timeoutMillis,
+            Map<String,String> filters, Optional<String> targetSdkVersion) {
+        public Query(String text) { this(text, 10, 1000, 5000, 1000, Map.of(), Optional.empty()); }
+        public Query {
+            if(text==null) throw new IllegalArgumentException("INVALID_REQUEST: query required");
+            if(!text.isEmpty()) ExactSymbolQuery.text(text);
+            if(pageSize<1 || pageSize>50 || candidateLimit<1 || candidateLimit>10000
+                    || workLimit<1 || workLimit>50000 || timeoutMillis<1 || timeoutMillis>5000)
+                throw new IllegalArgumentException("INVALID_REQUEST: lexical limits");
+            filters=Map.copyOf(filters);
+            if(!FILTER_FIELDS.containsAll(filters.keySet())) throw new IllegalArgumentException("INVALID_REQUEST: unsupported filter");
+            filters.values().forEach(ExactSymbolQuery::text);
+            java.util.Objects.requireNonNull(targetSdkVersion); targetSdkVersion.ifPresent(ExactSymbolQuery::text);
+        }
+    }
+    record Span(int start, int end) {
+        public Span { if(start<0 || end<=start) throw new IllegalArgumentException("invalid highlight"); }
+    }
+    record Hit(String recordId, float score, String sectionId, String label, String excerpt, List<Span> highlights) {
+        public Hit { highlights=List.copyOf(highlights); }
+    }
+    enum CountRelation { EXACT, LOWER_BOUND }
+    record Page(Binding binding, Optional<String> targetSdkVersion, List<Hit> hits, long matchedCount,
+            CountRelation countRelation, int workCharged, boolean truncated, String reason) {
+        public Page { hits=List.copyOf(hits); }
+    }
+    Binding binding();
+    Page search(Query query);
+    @Override void close();
 }
