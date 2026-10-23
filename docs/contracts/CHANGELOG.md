@@ -1,5 +1,9 @@
 # Contract changes
 
+## 2026-10-23 — EXAMPLE records (Story 3.1)
+
+Additive: `recordType` gains `EXAMPLE` (common.schema.json). Example records come from `--samples` `.java` files: one per declared type (whole-file or nested-type source) and one per method/constructor of at least three lines. They have no SDK symbol, cite `relativePath` plus `lines`, carry the code as a `CODE` block labelled `source`, and use identity `example/1` over product, SDK, path, type and member signature. Store schema/3 is unchanged (no new tables or columns); existing builds stay valid. Clients that reject unknown `recordType` values must accept `EXAMPLE`. Recorded in sign-offs.json as an additive exemption, pending owner review, rather than a read-tools version bump.
+
 ## 2026-10-23 — get_relationships, check_symbols and index_status served
 
 The three remaining read-tools/2 tools are now served over MCP and the CLI `query` command; request and response schemas are unchanged except one correction: `index_status.data.schemaVersion` was `const 1`, which contradicted the ratified store schema/3, and is now an integer of at least 1. Relationship edges report canonical symbol keys as `sourceId`/`targetId`. A `seed` may be a canonical key, a catalog record ID or a resolvable symbol name.
