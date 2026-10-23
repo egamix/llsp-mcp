@@ -13,8 +13,8 @@
 #   - done: All stories in epic completed
 #
 # Epic Status Transitions:
-#   - backlog â†’ in-progress: Automatically when first story is created (via create-story)
-#   - in-progress â†’ done: Manually when all stories reach 'done' status
+#   - backlog Ã¢â€ â€™ in-progress: Automatically when first story is created (via create-story)
+#   - in-progress Ã¢â€ â€™ done: Manually when all stories reach 'done' status
 #
 # Story Status:
 #   - backlog: Story only exists in epic file
@@ -97,23 +97,23 @@ development_status:
   # Epic 5: Six-Tool MCP Surface
   epic-5: in-progress
   # Rescoped: search_knowledge and resolve_symbol.
-  5-1-retrieval-and-symbol-tools: in-progress
+  5-1-retrieval-and-symbol-tools: done
   # Rescoped: get_relationships.
-  5-2-relationship-tools: backlog
+  5-2-relationship-tools: done
   # Rescoped: bounded get_record for all eligible content.
   5-3-example-and-workflow-tools: in-progress
   5-3b-guide-tools: backlog
   5-3c-training-tools: backlog
   5-3d-concept-technique-search-tool: backlog
-  5-4-validation-and-status-tools: backlog
-  5-5-streamable-http-transport: in-progress
+  5-4-validation-and-status-tools: done
+  5-5-streamable-http-transport: done
   # Rescoped: validated immutable handles; requires minimum 6.1/6.2/6.5.
   5-6-serve-from-a-fixed-active-build-pointer: in-progress
   # Six-tool envelope accepted before handlers.
-  5-7-structured-error-ambiguity-and-truncation-contract: in-progress
+  5-7-structured-error-ambiguity-and-truncation-contract: done
   # Six-tool guidance begins as contracts stabilize; external compile/test/repair.
   # Three-tool Javadoc guidance shipped; six-tool/evaluation acceptance pending.
-  5-8-draft-the-agent-retrieval-policy-skeleton: in-progress
+  5-8-draft-the-agent-retrieval-policy-skeleton: done
   epic-5-retrospective: optional
 
   # Epic 6: Shared Validation and Index Lifecycle

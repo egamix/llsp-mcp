@@ -71,7 +71,8 @@
               ]
             },
             "schemaVersion": {
-              "const": 1
+              "type": "integer",
+              "minimum": 1
             },
             "identityVersion": {
               "const": "identity/1"
