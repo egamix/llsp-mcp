@@ -14,6 +14,11 @@ javaparser = "3.28.2"
 junitJupiter = "5.11.4"
 junitPlatform = "1.11.4"
 
+jetty = "12.1.14"
+snakeyaml = "2.4"
+jsonSchema = "3.0.6"
+jackson = "2.19.2"
+
 [libraries]
 lucene-core = { module = "org.apache.lucene:lucene-core", version.ref = "lucene" }
 lucene-analysis-common = { module = "org.apache.lucene:lucene-analysis-common", version.ref = "lucene" }
@@ -25,3 +30,9 @@ jsoup = { module = "org.jsoup:jsoup", version.ref = "jsoup" }
 javaparser-core = { module = "com.github.javaparser:javaparser-core", version.ref = "javaparser" }
 junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junitJupiter" }
 junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher", version.ref = "junitPlatform" }
+
+jetty-server = { module = "org.eclipse.jetty:jetty-server", version.ref = "jetty" }
+jetty-servlet = { module = "org.eclipse.jetty.ee11:jetty-ee11-servlet", version.ref = "jetty" }
+yaml = { module = "org.yaml:snakeyaml", version.ref = "snakeyaml" }
+json-schema = { module = "com.networknt:json-schema-validator", version.ref = "jsonSchema" }
+jackson = { module = "com.fasterxml.jackson.core:jackson-databind", version.ref = "jackson" }

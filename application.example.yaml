@@ -1,0 +1,6 @@
+# application.yaml is the sole operator runtime configuration.
+# Relative paths resolve against this YAML file's directory.
+indexRoot: ./app/build/published-index
+sourceDefault: local-javadoc
+port: 8766
+stdio: false

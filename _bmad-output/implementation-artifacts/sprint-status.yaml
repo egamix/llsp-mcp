@@ -95,34 +95,34 @@ development_status:
   epic-4-retrospective: optional
 
   # Epic 5: Six-Tool MCP Surface
-  epic-5: backlog
+  epic-5: in-progress
   # Rescoped: search_knowledge and resolve_symbol.
-  5-1-retrieval-and-symbol-tools: backlog
+  5-1-retrieval-and-symbol-tools: in-progress
   # Rescoped: get_relationships.
   5-2-relationship-tools: backlog
   # Rescoped: bounded get_record for all eligible content.
-  5-3-example-and-workflow-tools: backlog
+  5-3-example-and-workflow-tools: in-progress
   5-3b-guide-tools: backlog
   5-3c-training-tools: backlog
   5-3d-concept-technique-search-tool: backlog
   5-4-validation-and-status-tools: backlog
-  5-5-streamable-http-transport: backlog
+  5-5-streamable-http-transport: in-progress
   # Rescoped: validated immutable handles; requires minimum 6.1/6.2/6.5.
-  5-6-serve-from-a-fixed-active-build-pointer: backlog
+  5-6-serve-from-a-fixed-active-build-pointer: in-progress
   # Six-tool envelope accepted before handlers.
-  5-7-structured-error-ambiguity-and-truncation-contract: backlog
+  5-7-structured-error-ambiguity-and-truncation-contract: in-progress
   # Six-tool guidance begins as contracts stabilize; external compile/test/repair.
   5-8-draft-the-agent-retrieval-policy-skeleton: backlog
   epic-5-retrospective: optional
 
   # Epic 6: Shared Validation and Index Lifecycle
-  epic-6: backlog
-  6-1-immutable-builds-with-pre-activation-validation-and-atomic-activation: backlog
-  6-2-reject-incompatible-builds: backlog
+  epic-6: in-progress
+  6-1-immutable-builds-with-pre-activation-validation-and-atomic-activation: in-progress
+  6-2-reject-incompatible-builds: in-progress
   6-3-rollback-via-pointer-swap-and-build-retention: backlog
   # Profile-declared assets; no mandatory lexical model.
   6-4-full-set-backups: backlog
-  6-5-shared-diagnostics-and-service-conformance: backlog
+  6-5-shared-diagnostics-and-service-conformance: in-progress
   epic-6-retrospective: optional
 
   # Epic 7: Agent Guidance & Usability
@@ -281,3 +281,12 @@ source_documentation_adoption:
   scope: "identity/1, DocumentationPayload, typed locators, bounded DocumentationStore and schema/2 API content extension"
   evidence: "docs/contracts/sign-offs.json sourceDocumentationAdoption; approved Story 2.9 spec"
   exclusions: "Unrelated interface, evaluation and release gates remain pending"
+
+# Usable connection slice; broad story acceptance and technical approval remain open.
+javadoc_mvp_connection:
+  spec: "spec-mvp-javadoc-mcp.md"
+  state: "verified locally; first Javadoc connection slice"
+  tools: [search_knowledge, resolve_symbol, get_record]
+  verification: "docs/contracts/MVP-JAVADOC-MCP-VERIFICATION.md"
+  launch: "docs/MVP-JAVADOC-MCP.md"
+  exclusions: "Other three tools, additional producers, retained-source endpoints, rollback/backup completion, performance and release approval"

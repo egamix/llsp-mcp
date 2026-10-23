@@ -20,6 +20,10 @@ public final class CliMain {
      *  full exit-code table is Story 8.3. */
     public static final int EXIT_USAGE_ERROR = 2;
 
+    private static boolean SetRuntimeCommands(String command) { return java.util.Set.of("serve","validate","activate","publish-staged","query").contains(command); }
+    private static String safeRuntimeReason(RuntimeException e) {
+        String message=e.getMessage();return message!=null && (message.startsWith("BUILD_INVALID:") || message.startsWith("INVALID_CONFIGURATION"))?message:"INVALID_REQUEST_OR_RUNTIME_FAILURE";
+    }
     private CliMain() {
     }
 
@@ -46,6 +50,7 @@ public final class CliMain {
         try {
             switch (subcommand) {
                 case "ingest" -> new IngestCommand().run(rest);
+                case "serve","validate","activate","publish-staged","query" -> RuntimeCommands.run(subcommand,rest,out);
                 default -> throw new CliException(CliError.of(
                         CliErrorCode.UNKNOWN_SUBCOMMAND, "unknown subcommand; expected: ingest",
                         subcommand));
@@ -55,7 +60,7 @@ public final class CliMain {
             err.println(e.error().render());
             return EXIT_USAGE_ERROR;
         } catch (RuntimeException e) {
-            err.println("error: " + e.getMessage());
+            err.println("error: " + (SetRuntimeCommands(subcommand) ? "Runtime command failed: " + safeRuntimeReason(e) : e.getMessage()));
             return EXIT_USAGE_ERROR;
         }
     }

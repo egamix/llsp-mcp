@@ -49,7 +49,9 @@ public final class IngestCommand {
      */
     public IngestCommand() {
         this((FailurePolicy policy) ->
-                (IngestArguments args) -> IngestPipelineRunner.withCatalogStage(policy, args).run(args));
+                (IngestArguments args) -> {
+                    try(var writer=BundleRepository.writer(args.out())) { IngestPipelineRunner.withCatalogStage(policy,args).run(args); }
+                });
     }
 
     /**

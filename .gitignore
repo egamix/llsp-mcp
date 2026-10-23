@@ -34,3 +34,6 @@ review_diff_*.patch
 
 # graft's local graph cache — regenerable, not committed (run `graft build`).
 /graft/
+
+# Machine-specific operator runtime configuration
+/application.yaml

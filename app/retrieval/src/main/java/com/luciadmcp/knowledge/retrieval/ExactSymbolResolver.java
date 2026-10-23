@@ -10,7 +10,10 @@ public final class ExactSymbolResolver {
     private final SymbolSource source;
     public ExactSymbolResolver(SymbolSource source) { this.source=Objects.requireNonNull(source); }
 
-    public ExactSymbolResult resolve(ExactSymbolQuery query) {
+    public ExactSymbolResult resolve(ExactSymbolQuery query) { return resolve(query,0); }
+    /** Stable candidate paging; offset does not relax proof or work limits. */
+    public ExactSymbolResult resolve(ExactSymbolQuery query,int offset) {
+        if(offset<0 || offset>=query.candidateLimit())throw new IllegalArgumentException("INVALID_CONTINUATION");
         Objects.requireNonNull(query);
         var binding=source.binding();
         if(query.sourceSdkVersion().isPresent() && !query.sourceSdkVersion().get().equals(binding.sdkVersion()))
@@ -34,7 +37,7 @@ public final class ExactSymbolResolver {
                 if(alias(text,stored.record())) {
                     count++;
                     var candidate=match(stored,"alias");
-                    if(matches.size()<query.pageSize() && fits(matches,candidate))matches.add(candidate);
+                    if(count>offset && matches.size()<query.pageSize() && fits(matches,candidate))matches.add(candidate);
                     signature &= !callable(stored.record()) || text.endsWith(")");
                     // Candidate work must not grow with page size. Incomplete scans never prove uniqueness.
                     if(count>=query.candidateLimit())break scan;
