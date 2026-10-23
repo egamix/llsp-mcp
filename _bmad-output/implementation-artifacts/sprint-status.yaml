@@ -112,7 +112,8 @@ development_status:
   # Six-tool envelope accepted before handlers.
   5-7-structured-error-ambiguity-and-truncation-contract: in-progress
   # Six-tool guidance begins as contracts stabilize; external compile/test/repair.
-  5-8-draft-the-agent-retrieval-policy-skeleton: backlog
+  # Three-tool Javadoc guidance shipped; six-tool/evaluation acceptance pending.
+  5-8-draft-the-agent-retrieval-policy-skeleton: in-progress
   epic-5-retrospective: optional
 
   # Epic 6: Shared Validation and Index Lifecycle
@@ -126,8 +127,9 @@ development_status:
   epic-6-retrospective: optional
 
   # Epic 7: Agent Guidance & Usability
-  epic-7: backlog
-  7-1-ship-the-agent-skill-md: backlog
+  epic-7: in-progress
+  # Discoverable Luciad skill shipped for current Javadoc slice; broader acceptance pending.
+  7-1-ship-the-agent-skill-md: in-progress
   7-2-guarantee-complete-citations-on-every-primary-result: backlog
   epic-7-retrospective: optional
 
@@ -290,3 +292,10 @@ javadoc_mvp_connection:
   verification: "docs/contracts/MVP-JAVADOC-MCP-VERIFICATION.md"
   launch: "docs/MVP-JAVADOC-MCP.md"
   exclusions: "Other three tools, additional producers, retained-source endpoints, rollback/backup completion, performance and release approval"
+
+# Three-tool agent guidance verified; broad guidance stories retain their current status.
+javadoc_agent_guidance:
+  spec: spec-5-8-luciad-agent-guidance.md
+  state: verified locally
+  skill: .agents/skills/luciad/SKILL.md
+  evidence: HTTP and stdio initialization/discovery tests; real-shape source-backed smoke; skill validator; independent review

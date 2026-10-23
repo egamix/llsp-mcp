@@ -138,3 +138,33 @@ current wire schema`, preserving other batch verdicts. Its saved blocks are not 
 This connection is a slice of existing Stories 5.1/5.3/5.5/5.6/5.7 and 6.1/6.2/6.5.
 Other tools, producer coverage, technical ratification, controlled proof evaluation,
 performance acceptance and production release remain pending.
+
+## Agent guidance and skill installation
+
+Both HTTP and optional stdio initialization return retrieval-first instructions, and each
+of the three tools has its own description. Connected clients receive these instructions
+even without a skill. They guide the model; they do not guarantee model obedience.
+
+The distributable skill is `.agents/skills/luciad/`, including `agents/openai.yaml` with
+the existing local MCP dependency `luciad` at `http://127.0.0.1:8766/mcp`. Repository
+skill discovery can use it here. For personal use in other repositories, copy that whole
+folder to your Codex skills directory (normally `$HOME/.agents/skills/luciad`), preserving
+its `agents` directory. Configure/connect the MCP server with the name `luciad` and the
+same Streamable HTTP URL, start the service, then refresh skill/MCP discovery or open a
+new chat as required by the client. Dependency metadata does not start the Java service.
+
+The skill permits normal automatic invocation for Luciad questions, implementation and
+debugging. To request it explicitly, use `$luciad`, for example: Use $luciad to explain
+how to check whether a point is inside a shape using the connected Javadoc evidence. General programming
+questions do not require this skill.
+
+The workflow retrieves relevant knowledge, resolves exact symbols/overloads when needed,
+fetches saved documentation, generates grounded answers/code, then compiles/tests externally
+where available and repairs from evidence. All tool requests use `contractVersion: read-tools/2`. Keep citations tied to the actual source SDK/build and preserve ambiguity,
+missing evidence and partial coverage. Target/source version differences neither block
+retrieval nor cause automatic warnings. If tools are unavailable, the agent should report
+the limitation instead of inventing Luciad API details from memory.
+
+This ships the three-tool Javadoc guidance slice of Stories 5.8 and 7.1. Both remain
+in progress: broader six-tool guidance, controlled agent evaluation and full acceptance
+are pending.

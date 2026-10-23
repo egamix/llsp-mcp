@@ -44,7 +44,15 @@ class MvpConnectionTest {
             endpoint.start();
             var transport=HttpClientStreamableHttpTransport.builder("http://127.0.0.1:"+port).endpoint("/mcp").build();
             try(var client=McpClient.sync(transport).requestTimeout(Duration.ofSeconds(10)).build()) {
-                client.initialize();assertEquals(ReadTools.NAMES,client.listTools().tools().stream().map(McpSchema.Tool::name).toList());
+                var initialized=client.initialize();
+                assertNotNull(initialized.instructions());
+                var opening=initialized.instructions().substring(0,Math.min(512,initialized.instructions().length()));
+                for(var tool:ReadTools.NAMES)assertTrue(opening.contains(tool),opening);
+                assertTrue(opening.contains("read-tools/2"),opening);
+                var tools=client.listTools().tools();
+                assertEquals(ReadTools.NAMES,tools.stream().map(McpSchema.Tool::name).toList());
+                assertEquals(3,tools.stream().map(McpSchema.Tool::description).distinct().count());
+                for(var tool:tools)assertFalse(tool.description().isBlank());
                 var resolved=call(client,"resolve_symbol",request("symbol","p.T#run()","targetSdkVersion","future"));assertEquals("EXACT",resolved.get("proof"));assertEquals("1",resolved.get("sdkVersion"));assertEquals(List.of(),resolved.get("versionNotices"));
                 var matches=(List<Map<String,Object>>)((Map<?,?>)resolved.get("data")).get("matches");String id=(String)matches.getFirst().get("recordId");
                 var fetched=call(client,"get_record",request("recordIds",List.of(id,"not-found"),"includeContent",true));
