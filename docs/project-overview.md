@@ -1,3 +1,5 @@
+> **Historical snapshot (August 25, 2026).** Start with the [project README](../README.md) for the current introduction and the [documentation map](index.md) for document authority. Implementation status and source-of-truth statements below reflect the original scan.
+
 # Project Overview — LuciadLightspeed Knowledge MCP
 
 _Generated: 2026-08-25 · Quick scan · Initial documentation_
@@ -73,3 +75,4 @@ inward-only dependency direction; their adapters are implemented in later epics.
 - Directory layout → [source-tree-analysis.md](./source-tree-analysis.md)
 - Build, test, run → [development-guide.md](./development-guide.md)
 - Full index → [index.md](./index.md)
+

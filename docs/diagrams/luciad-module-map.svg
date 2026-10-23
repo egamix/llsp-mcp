@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 1000" role="img" aria-labelledby="luciad-module-map-title luciad-module-map-desc" id="luciad-module-map-root">
+<title id="luciad-module-map-title">Luciad MCP: the submodules behind the experience</title>
+<desc id="luciad-module-map-desc">Twelve modules group command-line operation, configuration and shared contracts; Javadoc, example, guide and training ingestion; and catalog, search, embeddings, retrieval and AI assistant access, with scaffolded components distinguished from implemented ones.</desc>
+<defs>
+      <style>#luciad-module-map-root { color: #2d3142; font-family: 'Geist',system-ui,sans-serif; }
+      #luciad-module-map-root .diagram-container { width:100%;overflow-x:auto }
+      #luciad-module-map-root text { font-family:'Geist',system-ui,sans-serif;fill:#2d3142 }
+      #luciad-module-map-root .title { font-family:'Instrument Serif',Georgia,serif;font-size:28px }
+      #luciad-module-map-root .name { font-size:12px;font-weight:600 }
+      #luciad-module-map-root .detail { font-size:11px;fill:#4f5d75 }
+      #luciad-module-map-root .tag { font-family:'Geist Mono',ui-monospace,monospace;font-size:8px;letter-spacing:.12em;fill:#5a6580 }
+      #luciad-module-map-root .status { font-family:'Geist Mono',ui-monospace,monospace;font-size:9px;fill:#5a6580 }
+      #luciad-module-map-root .zone { fill:#ededee;stroke:#bfc0c0;stroke-width:.8 }
+      #luciad-module-map-root .box { fill:#fff;stroke:#4f5d75 }
+      #luciad-module-map-root .scaffold { fill:#f5f5f5;stroke:#4f5d75;stroke-dasharray:4 3 }
+      #luciad-module-map-root .flow { fill:none;stroke:#4f5d75;stroke-width:1.2;marker-end:url(#luciad-module-map-arrow) }
+      #luciad-module-map-root .planned { fill:none;stroke:#4f5d75;stroke-width:1;stroke-dasharray:5 4;marker-end:url(#luciad-module-map-arrow) }
+      @media print {
+#luciad-module-map-root .diagram-container { overflow-x:visible }
+}</style><marker id="luciad-module-map-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#4f5d75"/></marker></defs>
+<rect width="1280" height="1000" fill="#f5f5f5"/>
+<text x="48" y="52" class="tag">LUCIAD MCP / DETAILED MODULE MAP</text>
+<text x="48" y="92" class="title">The submodules behind the experience</text>
+<text x="48" y="120" class="detail">Each box is a Gradle submodule. Descriptions explain its role; labels show its current implementation status.</text>
+<!-- Three functional zones; this map shows major connections, not every dependency. -->
+<rect x="48" y="152" width="1184" height="112" rx="8" class="zone"/>
+<text x="64" y="172" class="tag">01 / RUN THE APP + SHARE THE RULES</text>
+<rect x="48" y="304" width="1184" height="144" rx="8" class="zone"/>
+<text x="64" y="324" class="tag">02 / BRING YOUR MATERIAL INTO THE KNOWLEDGE BASE</text>
+<rect x="48" y="496" width="1184" height="376" rx="8" class="zone"/>
+<text x="64" y="516" class="tag">03 / STORE, FIND + DELIVER THE KNOWLEDGE</text>
+<!-- Implemented wiring and selected planned service connections. -->
+<path d="M220 248 V340" class="flow"/>
+<path d="M196 432 V548" class="flow"/>
+<path d="M320 592 H344 Q352 592 352 600 V748 Q352 756 360 756 H400" class="planned"/>
+<path d="M528 636 V712" class="planned"/>
+<path d="M864 636 V656 Q864 664 856 664 H608 Q600 664 600 672 V712" class="planned"/>
+<path d="M656 756 H800" class="planned"/>
+<!-- Operational foundation -->
+<g><rect x="64" y="188" width="312" height="60" rx="6" fill="#f5e7e1" stroke="#bf4520"/><text x="80" y="208" class="name">cli</text><text x="80" y="228" class="detail">Run ingestion, resume builds and report failures</text><text x="304" y="208" class="status">WORKING</text></g>
+<g><rect x="416" y="188" width="312" height="60" rx="6" class="scaffold"/><text x="432" y="208" class="name">config</text><text x="432" y="228" class="detail">Shared application settings</text><text x="640" y="208" class="status">SCAFFOLD</text></g>
+<g><rect x="768" y="188" width="448" height="60" rx="6" class="box"/><text x="784" y="208" class="name">domain</text><text x="784" y="228" class="detail">Shared API identities, knowledge records and module contracts</text><text x="1144" y="208" class="status">WORKING</text></g>
+<!-- Ingestion sources -->
+<g><rect x="64" y="340" width="264" height="92" rx="6" class="box"/><text x="80" y="364" class="name">ingest-javadoc</text><text x="80" y="388" class="detail">Read API reference pages and extract</text><text x="80" y="408" class="detail">documented types, members and references</text><text x="248" y="364" class="status">WORKING</text></g>
+<g><rect x="360" y="340" width="264" height="92" rx="6" class="scaffold"/><text x="376" y="364" class="name">ingest-examples</text><text x="376" y="388" class="detail">Bring in Java sample code to show</text><text x="376" y="408" class="detail">how APIs are used together</text><text x="536" y="364" class="status">SCAFFOLD</text></g>
+<g><rect x="656" y="340" width="264" height="92" rx="6" class="scaffold"/><text x="672" y="364" class="name">ingest-guides</text><text x="672" y="388" class="detail">Bring in explanations, setup notes</text><text x="672" y="408" class="detail">and documentation guidance</text><text x="832" y="364" class="status">SCAFFOLD</text></g>
+<g><rect x="952" y="340" width="264" height="92" rx="6" class="scaffold"/><text x="968" y="364" class="name">ingest-trainings</text><text x="968" y="388" class="detail">Bring in training material</text><text x="968" y="408" class="detail">and step-by-step learning context</text><text x="1128" y="364" class="status">SCAFFOLD</text></g>
+<!-- Shared engines -->
+<g><rect x="64" y="548" width="256" height="88" rx="6" class="box"/><text x="80" y="572" class="name">catalog-sqlite</text><text x="80" y="596" class="detail">Keep version-specific API records,</text><text x="80" y="616" class="detail">relationships and reference evidence</text><text x="248" y="572" class="status">WORKING</text></g>
+<g><rect x="400" y="548" width="256" height="88" rx="6" class="scaffold"/><text x="416" y="572" class="name">search-lucene</text><text x="416" y="596" class="detail">Find relevant knowledge by words</text><text x="416" y="616" class="detail">and similarity</text><text x="568" y="572" class="status">SCAFFOLD</text></g>
+<g><rect x="736" y="548" width="256" height="88" rx="6" class="scaffold"/><text x="752" y="572" class="name">embeddings-onnx</text><text x="752" y="596" class="detail">Use a local model to help find</text><text x="752" y="616" class="detail">conceptually related material</text><text x="904" y="572" class="status">SCAFFOLD</text></g>
+<!-- Serving -->
+<g><rect x="400" y="712" width="256" height="88" rx="6" class="scaffold"/><text x="416" y="736" class="name">retrieval</text><text x="416" y="760" class="detail">Combine and rank useful evidence,</text><text x="416" y="780" class="detail">with links back to its sources</text><text x="568" y="736" class="status">SCAFFOLD</text></g>
+<g><rect x="800" y="712" width="256" height="88" rx="6" class="scaffold"/><text x="816" y="736" class="name">mcp</text><text x="816" y="760" class="detail">Let your AI coding assistant request</text><text x="816" y="780" class="detail">knowledge and check proposed APIs</text><text x="968" y="736" class="status">SCAFFOLD</text></g>
+<text x="64" y="836" class="detail">All modules build on domain contracts. CLI coordinates ingestion; shared configuration and assistant serving are still scaffolded.</text>
+<text x="48" y="908" class="detail">Arrows follow the main knowledge path. They do not enumerate every Java dependency or promise a live end-to-end service.</text>
+<line x1="48" y1="940" x2="1232" y2="940" stroke="#bfc0c0"/>
+<path d="M48 968 H80" stroke="#4f5d75"/><text x="92" y="972" class="status">Implemented path</text>
+<path d="M304 968 H336" stroke="#4f5d75" stroke-dasharray="5 4"/><text x="348" y="972" class="status">Planned knowledge path</text>
+<text x="800" y="972" class="status">WORKING = has implementation · SCAFFOLD = module shell</text>
+</svg>

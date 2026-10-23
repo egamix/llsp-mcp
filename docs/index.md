@@ -1,50 +1,37 @@
-# Project Documentation Index — LuciadLightspeed Knowledge MCP
+# Documentation map
 
-_Generated: 2026-08-25 · Initial scan (quick) · Primary entry point for AI-assisted development_
+**Start with the [project README](../README.md)** for the user-facing introduction, intended workflow, and development status. This page explains the other documents so you can read only what you need.
 
-## Project Overview
+## Current planning and delivery
 
-- **Type:** Monolith (single cohesive codebase), documented as one part
-- **Project type:** Backend / CLI knowledge appliance (offline MCP server)
-- **Primary Language:** Java 21
-- **Build:** Gradle 8.10 (Kotlin DSL), multi-project — 12 subprojects under `app/`
-- **Architecture:** Hexagonal (ports & adapters); inward-only module graph enforced at build time (AD-1)
+| Document | Purpose |
+|---|---|
+| [PRD](../_bmad-output/planning-artifacts/prds/prd-luciad-mcp-2026-08-20/prd.md) | Controlling product requirements, scope, success metrics, and open questions. |
+| [Architecture Spine](../_bmad-output/planning-artifacts/architecture/architecture-luciad-mcp-2026-08-20/ARCHITECTURE-SPINE.md) | Controlling architecture decisions and implementation constraints. Consult this architecture file first. |
+| [Epics](../_bmad-output/planning-artifacts/epics.md) | Planned work and story acceptance criteria. |
+| [Sprint tracker](../_bmad-output/implementation-artifacts/sprint-status.yaml) | Recorded delivery status; individual stories contain implementation and review details. |
+| [Deferred work](../_bmad-output/implementation-artifacts/deferred-work.md) | Known issues and work deliberately left for later. |
+| [September 7 proposal](../_bmad-output/planning-artifacts/sprint-change-proposal-2026-09-07-evidence-backed-sdk-engineering.md) | Proposed course correction, pending approval and incorporation into the controlling plan. |
 
-## Quick Reference
+## Why there are several architecture files
 
-- **Tech stack:** Java 21 · Gradle 8.10 · Lucene 10.5.1 · ONNX Runtime 1.29.0 · SQLite (xerial) 3.53.2.1 · MCP SDK 2.0.1 · JSoup 1.23.1 · JavaParser 3.28.2 · JUnit 5.11.4 _(engine/parser libs pinned but not yet wired)_
-- **Entry point:** `app/cli` → `CliMain.main` (subcommand `ingest`)
-- **Build root:** `app/` (run `./gradlew` from there)
-- **Root package group:** `com.luciadmcp.knowledge` (never the segment `luciad` in packages)
-- **Current state:** Epic 1 in progress — Story 1.1 done, Story 1.2 in review
+| File | How to use it |
+|---|---|
+| [Architecture Spine](../_bmad-output/planning-artifacts/architecture/architecture-luciad-mcp-2026-08-20/ARCHITECTURE-SPINE.md) | Governing decisions and rules. |
+| [Root architecture narrative](../architecture.md) | Supporting explanation of flows and invariants; reconcile against the Spine if they differ. |
+| [Interactive architecture diagram](../architecture.html) | Visual companion to the narrative; it may lag planning changes. |
+| [Generated architecture snapshot](architecture.md) | Dated codebase scan, not a live specification. Check its generation date before relying on implementation-status claims. |
 
-## Generated Documentation
+## Briefs and implementation references
 
-- [Project Overview](./project-overview.md)
-- [Architecture (as-built)](./architecture.md)
-- [Source Tree Analysis](./source-tree-analysis.md)
-- [Development Guide](./development-guide.md)
+- [Product brief](../_bmad-output/planning-artifacts/briefs/brief-luciad-mcp-2026-08-24/brief.md): August 24, 2026 product framing. Useful background; older tool counts and scope may differ from subsequent proposals.
+- [Original implementation brief](luciad-knowledge-mcp-implementation-brief.md): detailed background and design input. Consult the PRD and Spine for controlling requirements.
+- [Generated project overview](project-overview.md): August 25, 2026 codebase snapshot. Its implementation-status claims are historical.
+- [Source tree analysis](source-tree-analysis.md): generated repository layout reference; verify against the current tree.
+- [Development guide](development-guide.md): build and contributor instructions. The Gradle build root is `app/`; historical status notes may lag the code.
 
-## Existing Documentation (authoritative design sources)
+## Reading order
 
-- [Architecture narrative](../architecture.md) — flows + invariants (source of truth)
-- [Architecture diagram (interactive)](../architecture.html) — self-contained HTML
-- [Implementation brief](./luciad-knowledge-mcp-implementation-brief.md) — product/implementation brief
-- `_bmad-output/planning-artifacts/` — PRD, epics, `ARCHITECTURE-SPINE.md` (every AD-N invariant)
-- `_bmad-output/implementation-artifacts/` — story specs + `sprint-status.yaml`
+For a product introduction, read the **README**. For a product decision, follow it with the **PRD** and relevant **proposal**. For implementation, consult the **Architecture Spine**, scheduled **story**, and **development guide**.
 
-## Getting Started
-
-1. Install **JDK 21** (`java -version` must report 21 — the build won't fetch one).
-2. `cd app && ./gradlew check` — compiles all modules and runs the AD-1 dependency check + tests.
-   - Behind a corporate proxy hitting PKIX: prefix with `GRADLE_OPTS="-Djavax.net.ssl.trustStoreType=Windows-ROOT"`.
-3. Read [architecture.md](./architecture.md) for the module graph, then [../architecture.md](../architecture.md) for the design flows.
-4. See [development-guide.md](./development-guide.md) for CLI usage and contributor conventions.
-
-## Notes on scan depth
-
-This documentation was produced by a **quick scan** (config + structure + existing planning
-artifacts; no deep source-logic reading). Given how early the codebase is — 10 of 12 modules
-are scaffolding — this covers the current reality. Re-run the Document Project workflow with a
-**deep** or **exhaustive** scan once the ingest/retrieval/serve adapters are implemented, to
-capture per-module behavior, API contracts, and data models.
+The `_bmad/` directory contains workflow machinery. `_bmad-output/` contains project planning and delivery artifacts. Dated proposals and reports preserve decision history; they are not additional competing specifications.
