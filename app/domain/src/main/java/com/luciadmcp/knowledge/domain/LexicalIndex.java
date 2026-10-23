@@ -16,7 +16,10 @@ public interface LexicalIndex extends AutoCloseable {
         public static Binding of(DocumentationSource source) { return new Binding(source.binding(), source.runtimeFingerprint(), RECIPE); }
     }
     record Query(String text, int pageSize, int candidateLimit, int workLimit, int timeoutMillis,
-            Map<String,String> filters, Optional<String> targetSdkVersion) {
+            Map<String,String> filters, Optional<String> targetSdkVersion, int offset, Set<String> priorityRecordIds) {
+        public Query(String text, int pageSize, int candidateLimit, int workLimit, int timeoutMillis, Map<String,String> filters, Optional<String> targetSdkVersion) {
+            this(text,pageSize,candidateLimit,workLimit,timeoutMillis,filters,targetSdkVersion,0,Set.of());
+        }
         public Query(String text) { this(text, 10, 1000, 5000, 1000, Map.of(), Optional.empty()); }
         public Query {
             if(text==null) throw new IllegalArgumentException("INVALID_REQUEST: query required");
@@ -24,6 +27,10 @@ public interface LexicalIndex extends AutoCloseable {
             if(pageSize<1 || pageSize>50 || candidateLimit<1 || candidateLimit>10000
                     || workLimit<1 || workLimit>50000 || timeoutMillis<1 || timeoutMillis>5000)
                 throw new IllegalArgumentException("INVALID_REQUEST: lexical limits");
+            if(offset<0 || offset>=candidateLimit) throw new IllegalArgumentException("INVALID_REQUEST: candidate window offset");
+            priorityRecordIds=Set.copyOf(priorityRecordIds);
+            if(priorityRecordIds.size()>50) throw new IllegalArgumentException("INVALID_REQUEST: priority IDs");
+            priorityRecordIds.forEach(ExactSymbolQuery::text);
             filters=Map.copyOf(filters);
             if(!FILTER_FIELDS.containsAll(filters.keySet())) throw new IllegalArgumentException("INVALID_REQUEST: unsupported filter");
             filters.values().forEach(ExactSymbolQuery::text);

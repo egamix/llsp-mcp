@@ -99,7 +99,7 @@ public final class LuceneLexicalIndex implements LexicalIndex {
                 addSegment(d,section.id(),"title",section.title());
                 for(var block:section.blocks()) {
                     // Canonical projection includes code, link labels, structured tables and nested lists.
-                    String text=blockText(block);
+                    String text=DocumentationText.block(block);
                     totalBytes+=text.getBytes(java.nio.charset.StandardCharsets.UTF_8).length;
                     if(totalBytes>DocumentationPayload.MAX_BYTES)throw new IllegalStateException("PAYLOAD_TOO_LARGE");
                     addSegment(d,section.id(),block.label(),text);
@@ -115,11 +115,6 @@ public final class LuceneLexicalIndex implements LexicalIndex {
         d.add(new TextField("prose",label+"\n"+text,Field.Store.NO));
         d.add(new StoredField("section",id));d.add(new StoredField("label",label));d.add(new StoredField("projection",text));
     }
-    private static String blockText(DocumentationPayload.Block b) {
-        var parts=new ArrayList<String>();parts.add(b.text());b.links().forEach(l->parts.add(l.label()));
-        b.table().ifPresent(t->{parts.addAll(t.headers());t.rows().forEach(parts::addAll);});items(parts,b.items());return String.join("\n",parts);
-    }
-    private static void items(List<String> parts,List<DocumentationPayload.ListItem> items) { for(var item:items) { parts.add(item.text());items(parts,item.children()); } }
     private static String normalize(String s) { return s.replaceAll("\\s+","").toLowerCase(Locale.ROOT); }
     private static List<String> camel(String s) {
         return Arrays.stream(s.replaceAll("([a-z0-9])([A-Z])","$1 $2").replaceAll("([A-Z])([A-Z][a-z])","$1 $2").split("[^A-Za-z0-9]+"))
@@ -145,6 +140,7 @@ public final class LuceneLexicalIndex implements LexicalIndex {
                 words.add(new TermQuery(new Term("prose",token)),BooleanClause.Occur.SHOULD);
                 words.add(new BoostQuery(new PrefixQuery(new Term("camel",token)),2),BooleanClause.Occur.SHOULD);
             }
+            request.priorityRecordIds().forEach(id->words.add(new TermQuery(new Term("id",id)),BooleanClause.Occur.SHOULD));
             words.setMinimumNumberShouldMatch(1);all.add(words.build(),BooleanClause.Occur.MUST);
         }
         request.filters().forEach((k,v)->all.add(new TermQuery(new Term(k,v)),BooleanClause.Occur.FILTER));return all.build();
@@ -158,8 +154,9 @@ public final class LuceneLexicalIndex implements LexicalIndex {
         try {
             var terms=tokens(request.text());var searcher=new IndexSearcher(reader);searcher.setSimilarity(new BM25Similarity());
             searcher.setTimeout(()->System.nanoTime()>=deadline);
-            int retainedLimit=Math.min(request.pageSize(),request.candidateLimit());
-            var heap=new PriorityQueue<Candidate>(retainedLimit,ORDER.reversed());
+            int retainedLimit=Math.min(request.offset()+request.pageSize(),request.candidateLimit());
+            Comparator<Candidate> order=Comparator.comparing((Candidate c)->!request.priorityRecordIds().contains(c.id())).thenComparing(ORDER);
+            var heap=new PriorityQueue<Candidate>(retainedLimit,order.reversed());
             int[] work={0};long[] matched={0};boolean[] bounded={false};String[] reason={"COMPLETE"};
             var collector=new SimpleCollector() {
                 Scorable scorer;int base;SortedDocValues ids;
@@ -172,15 +169,15 @@ public final class LuceneLexicalIndex implements LexicalIndex {
                     }
                     work[0]++;matched[0]++;if(!ids.advanceExact(doc))throw new IllegalStateException("CORRUPT_INDEX_ID");
                     var c=new Candidate(base+doc,ids.lookupOrd(ids.ordValue()).utf8ToString(),request.text().isEmpty()?0:scorer.score());
-                    if(heap.size()<retainedLimit)heap.add(c);else if(ORDER.compare(c,heap.peek())<0) { heap.poll();heap.add(c); }
+                    if(heap.size()<retainedLimit)heap.add(c);else if(order.compare(c,heap.peek())<0) { heap.poll();heap.add(c); }
                 }
             };
             try { searcher.search(query(request,terms),collector); }catch(BudgetReached ignored) { }
             if(searcher.timedOut()) { bounded[0]=true;reason[0]="TIME_LIMIT"; }
-            var ordered=new ArrayList<>(heap);ordered.sort(ORDER);var hits=new ArrayList<Hit>();
+            var ordered=new ArrayList<>(heap);ordered.sort(order);var hits=new ArrayList<Hit>();
             var stored=reader.storedFields();
             int payloadBytes=32768;boolean payloadLimited=false;
-            for(var c:ordered) {
+            for(var c:ordered.subList(Math.min(request.offset(),ordered.size()),ordered.size())) {
                 var hit=hit(c,stored.document(c.doc()),terms);
                 // Conservative JSON escaping allowance; reserve binding/context/framing before hits.
                 long bytes=256L+6L*(hit.recordId().getBytes(java.nio.charset.StandardCharsets.UTF_8).length
@@ -191,9 +188,9 @@ public final class LuceneLexicalIndex implements LexicalIndex {
                 payloadBytes+=(int)bytes;hits.add(hit);
             }
             if(payloadLimited)reason[0]="PAYLOAD_LIMIT";
-            else if(!bounded[0] && matched[0]>hits.size())reason[0]=request.candidateLimit()<request.pageSize()?"CANDIDATE_LIMIT":"PAGE_LIMIT";
+            else if(!bounded[0] && matched[0]>request.offset()+hits.size())reason[0]=request.candidateLimit()<request.pageSize()?"CANDIDATE_LIMIT":"PAGE_LIMIT";
             return new Page(binding,request.targetSdkVersion(),hits,matched[0],bounded[0]?CountRelation.LOWER_BOUND:CountRelation.EXACT,
-                    work[0],bounded[0]||payloadLimited||matched[0]>hits.size(),reason[0]);
+                    work[0],bounded[0]||payloadLimited||matched[0]>request.offset()+hits.size(),reason[0]);
         }catch(IOException e) { throw new UncheckedIOException("LEXICAL_SEARCH_FAILED",e); }
     }
     private static Hit hit(Candidate c,Document d,List<String> terms) {

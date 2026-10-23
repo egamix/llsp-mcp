@@ -82,6 +82,8 @@ public final class SqliteRelationshipStore implements RelationshipStore {
 
     private final Connection connection;
     private BoundedRelationshipTraversal traversal;
+    private java.util.Optional<com.luciadmcp.knowledge.domain.SymbolSourceBinding> servingBinding=java.util.Optional.empty();
+    @Override public java.util.Optional<com.luciadmcp.knowledge.domain.SymbolSourceBinding> servingBinding() { return servingBinding; }
 
     /**
      * Serving handle. The coordinator attests that buildId names this sealed immutable file;
@@ -105,6 +107,10 @@ public final class SqliteRelationshipStore implements RelationshipStore {
             var records=SqliteCatalogStore.validationRecords(connection,null);
             var validation=SqliteCatalogStore.validatePersisted(connection,new com.luciadmcp.knowledge.domain.StandardBuildValidator(),com.luciadmcp.knowledge.domain.BuildValidator.Operation.STARTUP,buildId,scope.sdkVersion(),records);
             if(!validation.valid()) throw new IllegalStateException("BUILD_INVALID: "+validation.reasons());
+            try(var stmt=connection.createStatement();var row=stmt.executeQuery("SELECT capabilities FROM build_metadata LIMIT 1")) {
+                if(!row.next())throw new IllegalStateException("missing graph binding");
+                servingBinding=java.util.Optional.of(new com.luciadmcp.knowledge.domain.SymbolSourceBinding(scope.sdkVersion(),buildId,row.getString(1)));
+            }
             traversal = new BoundedRelationshipTraversal(connection, buildId, scope, signingKey, System::nanoTime);
         } catch (SQLException | RuntimeException e) {
             closeQuietly(connection);
