@@ -56,6 +56,10 @@ public final class SqliteSymbolSource implements SymbolSource, DocumentationSour
         ExactSymbolQuery.text(key);
         return rows("SELECT "+COLUMNS+" FROM records WHERE sdk_version=? AND canonical_key=? ORDER BY record_id LIMIT 1",key,1).stream().findFirst();
     }
+    @Override public synchronized Optional<StoredCatalogRecord> byRecordId(String recordId) {
+        ExactSymbolQuery.text(recordId);
+        return rows("SELECT "+COLUMNS+" FROM records WHERE sdk_version=? AND record_id=? LIMIT 1",recordId,1).stream().findFirst();
+    }
     @Override public synchronized List<StoredCatalogRecord> after(String recordId,int limit) {
         if(recordId==null || limit<1 || limit>256)throw new IllegalArgumentException("bounded cursor and batch required");
         return rows("SELECT "+COLUMNS+" FROM records WHERE sdk_version=? AND record_id>? ORDER BY record_id LIMIT ?",recordId,limit);

@@ -8,7 +8,7 @@ import java.util.concurrent.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 class McpEndpointGuidanceTest {
-    @Test void optionalStdioInitializesDiscoversAndDispatchesTheSameThreeTools() throws Exception {
+    @Test void optionalStdioInitializesDiscoversAndDispatchesTheSameSixTools() throws Exception {
         var originalIn=System.in;var originalOut=System.out;
         try(var input=new PipedInputStream();var requests=new PipedOutputStream(input);
             var responses=new PipedInputStream();var output=new PipedOutputStream(responses);
@@ -30,7 +30,7 @@ class McpEndpointGuidanceTest {
                 send(requests,Wire.map("jsonrpc","2.0","method","notifications/initialized"));
                 send(requests,Wire.map("jsonrpc","2.0","id",2,"method","tools/list","params",Map.of()));
                 var listed=Wire.parse(workers.submit(reader::readLine).get(10,TimeUnit.SECONDS).getBytes(StandardCharsets.UTF_8));
-                var tools=listed.path("result").path("tools");assertEquals(3,tools.size());
+                var tools=listed.path("result").path("tools");assertEquals(ReadTools.NAMES.size(),tools.size());
                 var names=new ArrayList<String>();
                 for(var tool:tools) {
                     var name=tool.path("name").asText();names.add(name);
