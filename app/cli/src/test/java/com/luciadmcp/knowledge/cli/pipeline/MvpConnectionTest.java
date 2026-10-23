@@ -26,6 +26,8 @@ class MvpConnectionTest {
         var args=StructuredDocumentationRoundtripTest.args(root);
         StructuredDocumentationRoundtripTest.copy(StructuredDocumentationRoundtripTest.fixtures().resolve("modern"),args.javadoc());
         Files.writeString(args.javadoc().resolve("p/U.html"),SUBTYPE);
+        Files.createDirectories(args.samples().resolve("demo"));
+        Files.writeString(args.samples().resolve("demo/Spinner.java"),"package demo;\nimport p.T;\n/** Spins a widget. */\npublic class Spinner {\n  void spinWidget(T t) {\n    t.run();\n    t.run();\n  }\n}\n");
         // This clean protocol specimen has no empty link target; separate test covers the stored/wire gap.
         try(var files=Files.walk(args.javadoc())) { for(Path p:files.filter(Files::isRegularFile).toList())Files.writeString(p,Files.readString(p).replace("<a href=\"\">Empty</a>","Empty")); }
         var result=IngestPipelineRunner.withCatalogStage(FailurePolicy.COLLECT_AND_CONTINUE,args).runToResult(args);
@@ -82,6 +84,13 @@ class MvpConnectionTest {
                 var data=(Map<String,Object>)status.get("data");
                 assertEquals("ACTIVE",data.get("state"));assertEquals("1",data.get("sdkVersion"));assertEquals(result.manifest().buildId(),data.get("buildId"));
                 assertNotNull(((Map<?,?>)data.get("coverage")).get("records"),data.toString());
+                var example=call(client,"search_knowledge",request("query","spinWidget"));
+                var exampleHits=(List<Map<String,Object>>)((Map<?,?>)example.get("data")).get("hits");
+                var method=exampleHits.stream().filter(h->"EXAMPLE".equals(h.get("recordType"))).findFirst().orElseThrow(()->new AssertionError(exampleHits.toString()));
+                var cited=(Map<String,Object>)((Map<String,Object>)((List<?>)method.get("citations")).getFirst()).get("locator");
+                assertEquals("demo/Spinner.java",cited.get("relativePath"));assertNotNull(cited.get("lines"));
+                var exampleRecord=call(client,"get_record",request("recordIds",List.of(method.get("recordId")),"includeContent",true));
+                assertTrue(Wire.JSON.valueToTree(exampleRecord).toString().contains("t.run();"),exampleRecord.toString());
                 var invalid=client.callTool(new McpSchema.CallToolRequest("search_knowledge",request("query","cache","sourceSdkVersion","missing")));
                 var body=Wire.JSON.valueToTree(invalid.structuredContent());assertEquals("UNKNOWN_SDK",body.path("error").path("code").asText());Wire.validate("search_knowledge.response",body);
             }

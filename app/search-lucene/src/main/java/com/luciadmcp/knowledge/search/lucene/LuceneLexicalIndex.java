@@ -97,9 +97,13 @@ public final class LuceneLexicalIndex implements LexicalIndex {
             if(sections.size()>SECTION_BATCH || offset+sections.size()>DocumentationPayload.MAX_SECTIONS)throw new IllegalStateException("SOURCE_SECTION_LIMIT");
             for(var section:sections) {
                 addSegment(d,section.id(),"title",section.title());
+                if(r.recordType()==KnowledgeRecord.RecordType.EXAMPLE)for(String token:camel(section.title()))exact(d,"camel",token);
                 for(var block:section.blocks()) {
                     // Canonical projection includes code, link labels, structured tables and nested lists.
                     String text=DocumentationText.block(block);
+                    // The tokenizer keeps "TLspShapeLayerBuilder.newBuilder" as one term; index identifiers separately.
+                    if(block.kind()==DocumentationPayload.BlockKind.CODE)
+                        d.add(new TextField("prose",String.join(" ",new LinkedHashSet<>(Arrays.asList(text.split("[^A-Za-z0-9_$]+")))),Field.Store.NO));
                     totalBytes+=text.getBytes(java.nio.charset.StandardCharsets.UTF_8).length;
                     if(totalBytes>DocumentationPayload.MAX_BYTES)throw new IllegalStateException("PAYLOAD_TOO_LARGE");
                     addSegment(d,section.id(),block.label(),text);
@@ -126,7 +130,10 @@ public final class LuceneLexicalIndex implements LexicalIndex {
             var term=stream.addAttribute(CharTermAttribute.class);stream.reset();
             while(stream.incrementToken()) { if(result.size()>=128)throw new IllegalArgumentException("INVALID_REQUEST: too many query tokens");result.add(term.toString()); }
             stream.end();
-        }return result;
+        }
+        // StandardAnalyzer keeps stopwords; for natural-language questions they match nearly every record.
+        var content=result.stream().filter(t->!org.apache.lucene.analysis.en.EnglishAnalyzer.ENGLISH_STOP_WORDS_SET.contains(t)).toList();
+        return content.isEmpty()?result:content;
     }
     private org.apache.lucene.search.Query query(Query request,List<String> tokens) {
         var all=new BooleanQuery.Builder();
@@ -172,8 +179,24 @@ public final class LuceneLexicalIndex implements LexicalIndex {
                     if(heap.size()<retainedLimit)heap.add(c);else if(order.compare(c,heap.peek())<0) { heap.poll();heap.add(c); }
                 }
             };
-            try { searcher.search(query(request,terms),collector); }catch(BudgetReached ignored) { }
+            var luceneQuery=query(request,terms);
+            try { searcher.search(luceneQuery,collector); }catch(BudgetReached ignored) { }
             if(searcher.timedOut()) { bounded[0]=true;reason[0]="TIME_LIMIT"; }
+            else if(bounded[0] && retainedLimit>0) {
+                // The scan above stops in index order, so on a large corpus its retained set is arbitrary.
+                // Rank the whole match set with Lucene's top-k scorer instead; counts stay lower bounds.
+                heap.clear();
+                for(var top:searcher.search(luceneQuery,retainedLimit).scoreDocs) heap.add(candidate(top.doc,top.score));
+                if(!request.priorityRecordIds().isEmpty()) {
+                    var priority=new BooleanQuery.Builder().add(luceneQuery,BooleanClause.Occur.MUST);
+                    var ids=new BooleanQuery.Builder();request.priorityRecordIds().forEach(id->ids.add(new TermQuery(new Term("id",id)),BooleanClause.Occur.SHOULD));
+                    priority.add(ids.build(),BooleanClause.Occur.FILTER);
+                    for(var top:searcher.search(priority.build(),request.priorityRecordIds().size()).scoreDocs) {
+                        var c=candidate(top.doc,top.score);
+                        if(heap.stream().noneMatch(h->h.doc()==c.doc())) { heap.add(c);if(heap.size()>retainedLimit)heap.poll(); }
+                    }
+                }
+            }
             var ordered=new ArrayList<>(heap);ordered.sort(order);var hits=new ArrayList<Hit>();
             var stored=reader.storedFields();
             int payloadBytes=32768;boolean payloadLimited=false;
@@ -192,6 +215,12 @@ public final class LuceneLexicalIndex implements LexicalIndex {
             return new Page(binding,request.targetSdkVersion(),hits,matched[0],bounded[0]?CountRelation.LOWER_BOUND:CountRelation.EXACT,
                     work[0],bounded[0]||payloadLimited||matched[0]>request.offset()+hits.size(),reason[0]);
         }catch(IOException e) { throw new UncheckedIOException("LEXICAL_SEARCH_FAILED",e); }
+    }
+    private Candidate candidate(int doc,float score) throws IOException {
+        var leaf=reader.leaves().get(ReaderUtil.subIndex(doc,reader.leaves()));
+        var ids=DocValues.getSorted(leaf.reader(),"idOrder");
+        if(!ids.advanceExact(doc-leaf.docBase))throw new IllegalStateException("CORRUPT_INDEX_ID");
+        return new Candidate(doc,ids.lookupOrd(ids.ordValue()).utf8ToString(),score);
     }
     private static Hit hit(Candidate c,Document d,List<String> terms) {
         String[] texts=d.getValues("projection"),ids=d.getValues("section"),labels=d.getValues("label");

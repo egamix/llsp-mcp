@@ -8,7 +8,7 @@ public record KnowledgeRecord(String id, String sdkVersion, RecordType recordTyp
     public KnowledgeRecord(String id,String sdkVersion,RecordType recordType,KnowledgeKind knowledgeKind,Optional<SymbolCoordinate> symbol,SourceLocator locator,Governance governance,Applicability applicability) {
         this(id,sdkVersion,recordType,knowledgeKind,symbol,locator,governance,applicability,Optional.empty());
     }
-    public enum RecordType { API, NARRATIVE, RECIPE, PRACTICE }
+    public enum RecordType { API, NARRATIVE, RECIPE, PRACTICE, EXAMPLE }
     public enum KnowledgeKind { AUTHORITATIVE_FACT, EXPERT_APPROVED_PRACTICE, RECIPE, CANDIDATE_LEARNING }
     public enum Approval { CANDIDATE, APPROVED }
     public record Governance(Approval approval, String owner, String provenance, String approvalEvidence) {
@@ -30,6 +30,10 @@ public record KnowledgeRecord(String id, String sdkVersion, RecordType recordTyp
         if (narrativeKind == null) throw new IllegalArgumentException("narrative kind required");
         if (recordType == RecordType.NARRATIVE && (symbol.isPresent() || narrativeKind.isEmpty()) || recordType != RecordType.NARRATIVE && narrativeKind.isPresent()) throw new IllegalArgumentException("narrative metadata mismatch");
         if (symbol.isPresent() && !sdkVersion.equals(symbol.get().sdkVersion())) throw new IllegalArgumentException("symbol scope mismatch");
+    }
+    /** Example records: one per source type and one per method/constructor; {@code member} is empty for the type. */
+    public static String exampleId(String sdkVersion, String relativePath, String type, String member) {
+        return ContentHashes.digest("example/1", List.of("LuciadLightspeed", sdkVersion, relativePath, type, member));
     }
     public static String narrativeId(String sdkVersion, String relativePath, String narrativeKind) {
         return ContentHashes.digest("narrative/1", List.of("LuciadLightspeed", sdkVersion, relativePath, narrativeKind));

@@ -161,7 +161,11 @@ public final class RelationshipsStage implements Stage {
             Consumer<StageFailure> failures) {
         Path file = javadocRoot.resolve(page.relativePath());
         ExtractedType type = page.type();
+        var keyCounts = new java.util.HashMap<String, Integer>();
+        for (SymbolRecord record : page.records()) keyCounts.merge(record.canonicalKey(), 1, Integer::sum);
         for (SymbolRecord record : page.records()) {
+            // CatalogStage stores no member whose key collides on its page; nothing to check for those.
+            if (keyCounts.get(record.canonicalKey()) > 1) continue;
             StoredCatalogRecord stored = index.byKey.get(record.canonicalKey());
             if (stored == null || !stored.record().relativePath().equals(record.relativePath())
                     || !stored.record().anchor().equals(com.luciadmcp.knowledge.ingest.javadoc.JavadocDocumentationAssembler.anchor(page, record).orElse(""))) {
@@ -193,8 +197,8 @@ public final class RelationshipsStage implements Stage {
         List<ExtractedMember> members = type == null ? List.of() : type.members();
         for (SymbolRecord record : page.records()) {
             int idx = record.memberIndex();
-            if (idx < 0 || idx >= members.size()) {
-                continue; // the type record, or a member whose index fell outside the extracted list
+            if (idx < 0 || idx >= members.size() || keyCounts.get(record.canonicalKey()) > 1) {
+                continue; // the type record, an out-of-range member, or a colliding member the catalog skipped
             }
             emitMember(version, record, members.get(idx), index, store, file, failures);
         }

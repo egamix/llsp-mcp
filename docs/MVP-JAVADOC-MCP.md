@@ -32,14 +32,18 @@ $env:JAVA_TOOL_OPTIONS='-Djdk.net.unixdomain.tmpdir=D:/workspace/luciad-mcp/.non
 ## Ingest, publish, activate and serve
 
 Existing `ingest` writes completed staging and a report; it does not activate a build.
-The current lexical Javadoc profile still requires the historical samples/guides invocation
-paths, but reports those deferred stages as unsupported. Existing empty directories work
-for `--samples` and `--guides`. No model directory or `--model` argument is needed.
+`--samples` points at the SDK sample sources (for LuciadLightspeed, `<install>/samples/src`):
+every `.java` file becomes searchable example records, one per class and one per method or
+constructor of three or more lines, with path and line-range citations. Files that do not
+parse are reported and skipped. `--guides` is still required but not yet ingested; an empty
+directory works. No model directory or `--model` argument is needed. Recoverable problems
+(members without descriptions, unparseable samples) are collected in the report and do not
+stop the run; pass `--failure-policy fail-fast` to stop at the first one instead.
 Supply your local paths:
 
 ```powershell
 $app='./app/cli/build/install/cli/bin/cli.bat'
-& $app ingest --javadoc C:/docs/javadoc --samples C:/docs/samples --guides C:/docs/guides --out C:/index-staging --sdk-version 2023.5
+& $app ingest --javadoc C:/Luciad/docs/reference/LuciadLightspeed --samples C:/Luciad/samples/src --guides C:/docs/guides --out C:/index-staging --sdk-version 2024.0
 ```
 
 Read the resulting `C:/index-staging/<buildId>/ingestion-report.json` for its build ID
@@ -147,7 +151,9 @@ One existing storage/wire gap remains explicit: stored documentation permits an 
 record returns `INAPPLICABLE` with reason `Stored content is not representable under the
 current wire schema`, preserving other batch verdicts. Its saved blocks are not rewritten.
 
-Examples, recipes and guides (Epic 3), controlled evaluation (Epic 10), performance
+Example results have `recordType: EXAMPLE`; fetch one with `get_record` and
+`includeContent: true` to get its code. Method records name their parent class record in a
+`context` block. Links from example code to SDK symbols, recipes and guides (rest of Epic 3), controlled evaluation (Epic 10), performance
 acceptance and production packaging (Epic 8) remain later work.
 
 ## Agent guidance and skill installation

@@ -144,6 +144,8 @@ public final class CitedRetrieval {
             public SymbolSourceBinding binding() { return symbols.binding(); }
             public Optional<StoredCatalogRecord> canonical(String key) { budget.check();var found=symbols.canonical(key);budget.check();return found; }
             public List<StoredCatalogRecord> after(String id,int limit) { budget.check();var rows=symbols.after(id,limit);budget.check();return rows; }
+            public Optional<StoredCatalogRecord> byRecordId(String id) { budget.check();var found=symbols.byRecordId(id);budget.check();return found; }
+            public Optional<List<StoredCatalogRecord>> bySimpleName(String name,int limit) { budget.check();var rows=symbols.bySimpleName(name,limit);budget.check();return rows; }
             public void close() {}
         };
     }

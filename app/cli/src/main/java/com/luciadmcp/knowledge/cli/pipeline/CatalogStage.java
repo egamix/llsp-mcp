@@ -160,11 +160,18 @@ public final class CatalogStage implements Stage {
         Path file = javadocRoot.resolve(page.relativePath());
 
         for (String issue : page.issues()) {
-            failures.accept(StageFailure.ofFile(
-                    PipelineStage.CATALOG, issue.contains("duplicate canonical key") ? FailureSeverity.BUILD_INVALIDATING : FailureSeverity.RECOVERABLE, file, issue));
+            failures.accept(StageFailure.ofFile(PipelineStage.CATALOG, FailureSeverity.RECOVERABLE, file, issue));
         }
 
+        // identity/1 keys use simple parameter type names, so overloads that differ only by parameter
+        // package (java.awt vs javafx MouseEvent) collide. Store none of them rather than one silently.
+        var counts = new java.util.HashMap<String, Integer>();
+        for (SymbolRecord record : page.records()) counts.merge(record.canonicalKey(), 1, Integer::sum);
         for (SymbolRecord record : page.records()) {
+            if (counts.get(record.canonicalKey()) > 1) {
+                accounting.failed(page.relativePath(), "DUPLICATE_CANONICAL_KEY");
+                continue;
+            }
             CatalogRecord tuple = toCatalogRecord(version, record, com.luciadmcp.knowledge.ingest.javadoc.JavadocDocumentationAssembler.anchor(page, record).orElse(""));
             com.luciadmcp.knowledge.ingest.javadoc.JavadocDocumentationAssembler.Documented documented;
             try { documented = com.luciadmcp.knowledge.ingest.javadoc.JavadocDocumentationAssembler.assemble(tuple, page, record); }

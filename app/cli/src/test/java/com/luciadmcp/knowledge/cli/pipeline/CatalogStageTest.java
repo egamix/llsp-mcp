@@ -226,15 +226,19 @@ class CatalogStageTest {
     }
 
     @Test
-    void identicalPartialOccurrencesInvalidateContinueBuild(@TempDir Path tmp) throws Exception {
+    void duplicateCanonicalKeysAreSkippedWithoutInvalidatingTheBuild(@TempDir Path tmp) throws Exception {
         Path javadoc = Files.createDirectories(tmp.resolve("javadoc"));
         String member = "<section class='detail'><h3>broken</h3><div class='member-signature'>public void broken</div></section>";
         writeType(javadoc, "com/example/Widget.html", "<html><body class='class-declaration-page'><main><h1 class='title'>Class Widget</h1><section class='class-description'><div class='block'>type</div></section><section class='method-details' id='method-detail'><ul class='member-list'><li>" + member + "</li><li>" + member + "</li></ul></section></main></body></html>");
         var args = new IngestArguments(javadoc,Files.createDirectories(tmp.resolve("samples")),Files.createDirectories(tmp.resolve("guides")),Files.createDirectories(tmp.resolve("model")),tmp.resolve("out"),Optional.empty(),Optional.of("2024.0"));
         var result = IngestPipelineRunner.withCatalogStage(FailurePolicy.COLLECT_AND_CONTINUE,args).runToResult(args);
-        assertTrue(result.aborted());
-        assertFalse(result.activationOccurred());
-        assertTrue(result.failures().stream().anyMatch(f -> f.severity()==FailureSeverity.BUILD_INVALIDATING && f.message().contains("duplicate canonical key")));
+        assertFalse(result.aborted(), result.failures().toString());
+        assertTrue(result.failures().stream().anyMatch(f -> f.severity()==FailureSeverity.RECOVERABLE && f.message().contains("duplicate canonical key")));
+        assertTrue(result.failures().stream().noneMatch(f -> f.severity()==FailureSeverity.BUILD_INVALIDATING), result.failures().toString());
+        try (var source = new com.luciadmcp.knowledge.catalog.sqlite.SqliteSymbolSource(result.buildContext().catalogDbPath())) {
+            assertTrue(source.canonical("com.example.Widget").isPresent());
+            assertTrue(source.bySimpleName("broken", 10).orElseThrow().isEmpty(), "no colliding member is stored");
+        }
     }
 
     /** Matrix row "Minting issue from 2.3": an extraction/mint issue maps to a recoverable failure. */
