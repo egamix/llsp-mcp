@@ -1,5 +1,9 @@
 # Contract changes
 
+## 2026-10-23 — Technical ratification
+
+Owner (eric) ratified identity/1, schema/3 with the docs/contracts JSON schemas, and read-tools/2 as implemented on master `12b1ba5`. The dependent-story gate in sign-offs.json is open. From here on, changes to these contracts need a version bump and an entry here (or a reviewed exemption). Story 10.1 evaluation acceptance is still not run. Earlier "ratification pending" notes in this file and in the verification docs are historical.
+
 ## read-tools/2 — 2026-10-21 — policy approved, technical ratification pending
 
 Breaking interface change: remove conflated request sdkVersion; add optional targetSdkVersion context and independent optional sourceSdkVersion filter. Responses echo nullable target context and declare actual pinned source SDK/build, with per-content citations matching that source. Default source selection remains bounded and deterministic; no retrieval/MCP handler or source registry is implemented. Missing target documentation does not block available evidence or imply API absence. Exact matches prove cited-source identity only. Notices require concrete, cited target-relevant change evidence; mismatch alone produces no automatic warning. Explicit GENERAL applicability preserves governance without imposing a target restriction.

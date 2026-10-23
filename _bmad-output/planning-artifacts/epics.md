@@ -258,6 +258,16 @@ None. The PRD (§2.2, §9 assumptions) confirms the only consumer interface is t
 
 ## Epic List
 
+## Course correction: usable-first delivery — 2026-10-23
+
+Approved by the owner. This replaces the ordering in "Delivery gates and ordering" above where the two conflict.
+
+- **What changed in practice:** 4.1/4.2/4.6, minimum 6.1/6.2/6.5, 5.7 and the Javadoc slices of 5.1/5.3/5.5/5.6/5.8/7.1 were built as one working MCP vertical slice (`spec-mvp-javadoc-mcp.md`) before 2.8 ratification, 10.1 and Epic 3. That slice is accepted as the delivery method.
+- **Contracts:** identity/1, schema/3 and read-tools/2 are ratified (`docs/contracts/sign-offs.json`). The dependent-story gate is open.
+- **New order:** finish the six-tool surface (5.2, 5.4, rest of 5.1/5.3/5.6/5.7) → Java examples linked to symbols (3.1/3.2) → serving image (8.1) → remaining Epic 3 corpus → 6.3/6.4 and 7.2. 10.1 runs before any further ranking/tuning work and before outcome claims, not before building features.
+- **Process:** each increment must be runnable end to end against a real import. No standalone audit/verification-only stories; verification is part of the feature that needs it.
+- **Dropped:** the throwaway Python/browser demo (`archive/usable-docs-demo` tag); the MCP server replaces it.
+
 ## Approved SDK guidance amendment — 2026-10-21
 
 Applies prospectively to Stories 2.9–2.11, 4.1/4.2/4.6, the six 5.x read tools and 6.x source/build selection. read-tools/2 policy/contracts are implemented; retrieval/MCP integration remains downstream. Optional user target SDK is guidance context, never an automatic restrictive source filter. Choose one configured usable source deterministically within finite request budgets, respecting explicit source/build filters and immutable pinning. Default guidance is useful normal content with actual source-version citations, including target 2023.1/source 2023.5. No mismatch-only UNKNOWN_SDK, INAPPLICABLE, negative existence claim or automatic UNVERIFIED warning. Only concrete, cited target-relevant introduction/removal/behavior-change evidence can support a specific notice; labels/proximity/absence cannot. GENERAL applicability is explicit and retains governance; exact source proof does not certify tested target compatibility. Preserve ambiguity and honest source limitations, source-specific IDs, same-source graph edges and corrupt-build rejection. The user approved this policy; all other technical sign-offs remain pending. Completed-story frozen intent remains historical and unchanged.

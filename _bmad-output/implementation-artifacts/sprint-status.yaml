@@ -13,8 +13,8 @@
 #   - done: All stories in epic completed
 #
 # Epic Status Transitions:
-#   - backlog → in-progress: Automatically when first story is created (via create-story)
-#   - in-progress → done: Manually when all stories reach 'done' status
+#   - backlog â†’ in-progress: Automatically when first story is created (via create-story)
+#   - in-progress â†’ done: Manually when all stories reach 'done' status
 #
 # Story Status:
 #   - backlog: Story only exists in epic file
@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-08-24
-last_updated: 2026-10-22  # Story 2.11 implemented, reviewed and verified
+last_updated: 2026-10-23  # Course correction: usable-first delivery; contracts ratified; reviewed stories closed
 project: luciad-mcp
 project_key: NOKEY
 tracking_system: file-system
@@ -57,7 +57,7 @@ development_status:
   epic-1-retrospective: done
 
   # Epic 2: Javadoc Knowledge Extraction and Contract Freeze
-  epic-2: in-progress
+  epic-2: done
   2-1-discover-and-classify-javadoc-pages: done
   2-2-parse-modern-and-legacy-javadoc-layouts-into-equivalent-fields: done
   2-3-build-canonical-symbol-records-with-overload-distinction: done
@@ -65,10 +65,10 @@ development_status:
   2-5-construct-the-typed-relationship-graph-in-two-passes: done
   2-6-keep-unresolved-references-explicit-scope-traversal-to-the-documented-sdk: done
   2-7-bounded-cycle-safe-relationship-traversal: done
-  2-8-contract-and-verification-freeze: review
-  2-9-persist-source-faithful-api-documentation: review
+  2-8-contract-and-verification-freeze: done
+  2-9-persist-source-faithful-api-documentation: done
   2-10-preserve-structured-javadoc-and-narrative-content: done
-  2-11-account-for-ingestion-coverage-and-fidelity: review
+  2-11-account-for-ingestion-coverage-and-fidelity: done
   epic-2-retrospective: optional
 
   # Epic 3: Selected Examples, Recipes, Guides and Practices
@@ -86,12 +86,12 @@ development_status:
 
   # Epic 4: Exact and Lexical Retrieval; Gated Semantic Enhancement
   epic-4: in-progress
-  4-1-detect-and-prioritize-exact-symbol-queries: review
-  4-2-index-canonical-and-lexical-fields-for-bm25: review
+  4-1-detect-and-prioritize-exact-symbol-queries: done
+  4-2-index-canonical-and-lexical-fields-for-bm25: done
   4-3-local-onnx-vector-search-with-explicit-failure-semantics: backlog
   4-4-fuse-lexical-and-vector-results-under-exact-priority: backlog
   4-5-enforce-a-consistent-embedding-fingerprint: backlog
-  4-6-assemble-bounded-cited-lexical-results: review
+  4-6-assemble-bounded-cited-lexical-results: done
   epic-4-retrospective: optional
 
   # Epic 5: Six-Tool MCP Surface
