@@ -83,3 +83,21 @@ Focused tests per slice, Python contract verifier/oracle, full `app/gradlew.bat 
 Implementation commits: `e892082`, `6932c23`, `002a3dd`; evidence `504065e`; independent review correction `53b0dad`. The one review finding was patched by aligning bounded read admission to encoded write admission, with an actual near-cap SQLite reopen regression. No findings deferred.
 
 Final full Windows check: 241 tests, zero failures/errors, two existing environment skips. Clean native Linux application suites: 240 tests, zero failures/errors/skips. All eleven new matrix tests ran and passed on both platforms. Python contract verifier passes 122 checks; independent portable known answers pass. Content-inclusive application snapshots match byte-for-byte and as parsed JSON, SHA-256 `576cb508cdc24a8beaa0fd5d44b7eeb7b4ffb5ddcadabe5ef32f1ad7a66c254a`. Graph refreshed after the patch; scoped diff checks pass. Details: [verification](../../docs/contracts/STORY-2-9-VERIFICATION.md). Rich block/narrative extraction and coverage remain their planned next stories; no broader acceptance or serving claim.
+
+## Review Findings
+
+### Patch
+- [x] [Review][Patch] Remove the undocumented 16 MiB aggregate catalog rejection; retain existing per-document bounds under the chosen policy allowing larger catalogs [app/catalog-sqlite/src/main/java/com/luciadmcp/knowledge/catalog/sqlite/SqliteDocumentationStore.java:154]
+- [x] [Review][Patch] Hash source bytes while parsing without retaining a second full-page buffer [app/ingest-javadoc/src/main/java/com/luciadmcp/knowledge/ingest/javadoc/JavadocFieldExtractor.java:75]
+
+### Rejected
+- [false] Missing section ordinals evade validation — the full `load()` path reads every declared ordinal and rejects missing rows.
+- [false] Stored aggregate content hashes are unchecked — `load()` reconstructs `DocumentationPayload`, whose constructor verifies the canonical content hash.
+- [false] A malformed 64-character document hash can reach a supported fetch — pinned startup validates every payload through `load()` before serving; no supported production read path bypassing that validation was found.
+- [false] A malformed section hash is returned — `read()` compares each stored section hash with its computed canonical hash and rejects a mismatch.
+- [false] Oversized metadata can be written and later reject startup — `DocumentationCodec.encode()` enforces per-field and total encoded-size caps before insertion.
+- [low] Codec encoding may allocate an oversized field before rejecting it — production payloads are capped at 1 MiB and metadata values are internally generated; the triggering oversized object is outside the ordinary ingest path, while a stronger pre-allocation guard adds complexity.
+- [false] Section IDs are not unique — `DocumentationPayload` rejects duplicate IDs within a payload, and the current assembler emits one section.
+- [false] A stale member index is reachable during assembly — `JavadocCatalogSource` creates each page's records from the same extracted type carried in that `PageResult`, and `CatalogStage` passes those paired values together.
+- [false] Story status `done` conflicts with sprint status `review` — the story file records implementation completion while the independent review gate is pending; this review workflow handles the tracker transition after findings are resolved.
+- [false] An invalid member index can cause an unclassified assembler failure — the current producer/caller pairing preserves the index invariant; no reachable path to the described malformed record was found.
