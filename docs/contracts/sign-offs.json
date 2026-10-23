@@ -8,34 +8,34 @@
   "technicalSignOffs": [
     {
       "area": "identity",
-      "status": "PENDING",
-      "approver": null,
-      "owner": null,
-      "approvalEvidence": null
+      "status": "APPROVED",
+      "approver": "eric",
+      "owner": "eric",
+      "approvalEvidence": "2026-10-23: owner ratified identity/1 recipes as implemented on master (12b1ba5)."
     },
     {
       "area": "schema",
-      "status": "PENDING",
-      "approver": null,
-      "owner": null,
-      "approvalEvidence": null
+      "status": "APPROVED",
+      "approver": "eric",
+      "owner": "eric",
+      "approvalEvidence": "2026-10-23: owner ratified store schema and docs/contracts JSON schemas as implemented on master (12b1ba5)."
     },
     {
       "area": "interfaces",
-      "status": "PENDING",
-      "approver": null,
-      "owner": null,
-      "approvalEvidence": null
+      "status": "APPROVED",
+      "approver": "eric",
+      "owner": "eric",
+      "approvalEvidence": "2026-10-23: owner ratified read-tools/2 tool contracts as implemented on master (12b1ba5)."
     }
   ],
-  "dependentStoryGate": "CLOSED_PENDING_TECHNICAL_RATIFICATION",
+  "dependentStoryGate": "OPEN",
   "story10Acceptance": "NOT_RUN",
   "reviewedExemptions": [],
   "sdkGuidancePolicyApproval": {
     "date": "2026-10-21",
     "status": "APPROVED",
     "evidence": "User approved normal useful guidance with source-version citations for target 2023.1/source 2023.5; no automatic mismatch warning.",
-    "scope": "SDK target/source guidance policy only; technical sign-offs remain pending"
+    "scope": "SDK target/source guidance policy only"
   },
   "sourceDocumentationAdoption": {
     "date": "2026-10-21",
@@ -48,6 +48,6 @@
       "bounded DocumentationStore",
       "schema/2 API documentation storage extension"
     ],
-    "excluded": "Unrelated interface, evaluation and release gates remain pending; no private corpus acceptance."
+    "excluded": "Evaluation and release gates remain pending; no private corpus acceptance."
   }
 }
