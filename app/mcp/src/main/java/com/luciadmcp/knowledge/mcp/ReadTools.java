@@ -160,6 +160,8 @@ public final class ReadTools {
             public SymbolSourceBinding binding() { return symbols.binding(); }
             public Optional<StoredCatalogRecord> canonical(String key) { budget.check();return symbols.canonical(key); }
             public List<StoredCatalogRecord> after(String id,int limit) { budget.check();return symbols.after(id,limit); }
+            public Optional<StoredCatalogRecord> byRecordId(String id) { budget.check();return symbols.byRecordId(id); }
+            public Optional<List<StoredCatalogRecord>> bySimpleName(String name,int limit) { budget.check();return symbols.bySimpleName(name,limit); }
             public void close() {}
         };
     }
@@ -241,7 +243,9 @@ public final class ReadTools {
                 case EXACT -> "Exact match in source "+symbols.binding().sdkVersion();
                 case AMBIGUOUS -> p.candidatesMatched()+" candidates match; pick one with resolve_symbol";
                 case UNKNOWN_IN_SCOPE -> "No symbol with this name in source "+symbols.binding().sdkVersion();
-                case INCOMPLETE_EVIDENCE -> p.reason()==null || p.reason().isBlank()?"Evidence incomplete within request budget":p.reason();
+                case INCOMPLETE_EVIDENCE -> p.complete() && !ids.isEmpty() && !s.strip().endsWith(")")
+                    ?"Method name matches "+p.candidatesMatched()+" candidate(s); include the parameter list, e.g. "+s.strip()+"(), to prove the overload"
+                    :p.reason()==null || p.reason().isBlank()?"Evidence incomplete within request budget":p.reason();
             };
             verdicts.add(map("input",s,"proof",p.proof().name(),"selectedRecordId",exact?ids.getFirst():null,
                 "candidateRecordIds",exact || !withCandidates?List.of():ids,"reason",reason.length()>2048?reason.substring(0,2048):reason));
