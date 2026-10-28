@@ -291,7 +291,7 @@ javadoc_mvp_connection:
   tools: [search_knowledge, resolve_symbol, get_record, get_relationships, check_symbols, index_status]
   tools_note: "Verification doc (2026-10-22) covers the first three only; get_relationships (5.2), check_symbols and index_status (5.4) were added after and are not in that evidence."
   plugin: "plugins/luciad (Claude Code and Codex), shipped 2026-10-28"
-  verification: "docs/contracts/MVP-JAVADOC-MCP-VERIFICATION.md"
+  verification: "_bmad-output/implementation-artifacts/verification/MVP-JAVADOC-MCP-VERIFICATION.md"
   launch: "docs/server-guide.md"
   exclusions: "Additional producers, retained-source endpoints, rollback/backup completion, performance and release approval"
 

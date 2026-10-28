@@ -1,6 +1,6 @@
 # Contract freeze — read-tools/2 candidate
 
-Story 2.10 implements durable structured API documentation and package/overview narratives. Scoped contract adoption remains recorded in sign-offs.json; schema/3 technical ratification and other interface/evaluation/release approvals remain pending. Retrieval/MCP handlers remain downstream; Story 2.11 adds coverage reconciliation and an optional independent fidelity audit. Current executed evidence is documented in STORY-2-11-VERIFICATION.md and STORY-2-10-VERIFICATION.md; API-DOCUMENTATION-STORAGE.md records the historical Story 2.9 storage design.
+Story 2.10 implements durable structured API documentation and package/overview narratives. Scoped contract adoption remains recorded in sign-offs.json; schema/3 technical ratification and other interface/evaluation/release approvals remain pending. Retrieval/MCP handlers remain downstream; Story 2.11 adds coverage reconciliation and an optional independent fidelity audit. Current executed evidence is documented in _bmad-output/implementation-artifacts/verification/STORY-2-11-VERIFICATION.md and _bmad-output/implementation-artifacts/verification/STORY-2-10-VERIFICATION.md; API-DOCUMENTATION-STORAGE.md records the historical Story 2.9 storage design.
 
 ## Identity and independent digests
 
@@ -61,9 +61,9 @@ Traversal defaults/caps: depth 3/8 (DIRECT forces one hop), visited nodes 1000/1
 
 ## Verification and gates
 
-Run `python tools/contracts/verify_contracts.py`, `python tools/contracts/portable_fixture.py`, `python tools/contracts/verify_mutations.py`, then `app/gradlew.bat --no-daemon check` using the documented local Gradle workaround. Mutation screening restores sources byte-for-byte and requires actual selected-test failures, not compiler errors. `VERIFICATION.md` records executed evidence and limitations; `sign-offs.json` records the still-pending human approvals. Story 10.1 acceptance/private-corpus evaluation is separate and has not run.
+Run `python tools/contracts/verify_contracts.py`, `python tools/contracts/portable_fixture.py`, `python tools/contracts/verify_mutations.py`, then `app/gradlew.bat --no-daemon check` using the documented local Gradle workaround. Mutation screening restores sources byte-for-byte and requires actual selected-test failures, not compiler errors. `_bmad-output/implementation-artifacts/verification/VERIFICATION.md` records executed evidence and limitations; `sign-offs.json` records the still-pending human approvals. Story 10.1 acceptance/private-corpus evaluation is separate and has not run.
 
-Current structured API and narrative persistence uses schema/3; see [Story 2.10 support and verification](STORY-2-10-VERIFICATION.md). [Story 2.9 API storage adoption](API-DOCUMENTATION-STORAGE.md) is historical and scoped to that story. Schema/3 technical ratification and unrelated sign-offs remain pending.
+Current structured API and narrative persistence uses schema/3; see [Story 2.10 support and verification](../../_bmad-output/implementation-artifacts/verification/STORY-2-10-VERIFICATION.md). [Story 2.9 API storage adoption](API-DOCUMENTATION-STORAGE.md) is historical and scoped to that story. Schema/3 technical ratification and unrelated sign-offs remain pending.
 
 
 ## Ingestion accounting and independent audit (Story 2.11)
