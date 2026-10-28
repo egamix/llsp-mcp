@@ -153,7 +153,18 @@ current wire schema`, preserving other batch verdicts. Its saved blocks are not 
 
 Example results have `recordType: EXAMPLE`; fetch one with `get_record` and
 `includeContent: true` to get its code. Method records name their parent class record in a
-`context` block. Links from example code to SDK symbols, recipes and guides (rest of Epic 3), controlled evaluation (Epic 10), performance
+`context` block.
+
+Examples are linked to the SDK symbols they use. To find sample code for an API, call
+`get_relationships` with `seed` set to the type or member, `direction: IN` and `types`
+`USES_TYPE`, `CONSTRUCTS` or `CALLS`; each edge's `sourceId` is an example record ID. Seeding with
+an example record ID and `direction: OUT` lists the SDK symbols that example uses. A name is linked
+only when the source proves a single target: fully qualified name, explicit import, same package or
+a unique wildcard-import match. A call is linked only when exactly one overload of that name exists
+on the receiver's declared type or its nearest declaring supertype. Calls on unknown receivers (for
+example chained builder calls) and ambiguous names are not linked; text search still finds them.
+
+Recipes and guides (rest of Epic 3), controlled evaluation (Epic 10), performance
 acceptance and production packaging (Epic 8) remain later work.
 
 ## Agent guidance and skill installation
