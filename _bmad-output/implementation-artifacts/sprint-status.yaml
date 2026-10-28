@@ -290,7 +290,7 @@ javadoc_mvp_connection:
   state: "verified locally; first Javadoc connection slice"
   tools: [search_knowledge, resolve_symbol, get_record]
   verification: "docs/contracts/MVP-JAVADOC-MCP-VERIFICATION.md"
-  launch: "docs/MVP-JAVADOC-MCP.md"
+  launch: "docs/server-guide.md"
   exclusions: "Other three tools, additional producers, retained-source endpoints, rollback/backup completion, performance and release approval"
 
 # Three-tool agent guidance verified; broad guidance stories retain their current status.

@@ -1,6 +1,15 @@
 # Documentation map
 
-**Start with the [project README](../README.md)** for the user-facing introduction, intended workflow, and development status. This page explains the other documents so you can read only what you need.
+**Start with the [project README](../README.md)** for the user-facing introduction and installing the agent plugin. This page explains the other documents so you can read only what you need.
+
+## Using it
+
+| Document | Purpose |
+|---|---|
+| [README: Get started](../README.md#-get-started) | Install the luciad plugin in Claude Code or Codex. |
+| [Server guide](server-guide.md) | Build, ingest an SDK, publish, activate and run the luciad server. |
+| [Agent skill](../plugins/luciad/skills/luciad-sdk/SKILL.md) and [tool reference](../plugins/luciad/skills/luciad-sdk/references/tools.md) | How agents use the six tools; every request and response field. |
+| [Contract changes](contracts/CHANGELOG.md) | What changed in the tool and storage contracts, and when. |
 
 ## Current planning and delivery
 
