@@ -173,20 +173,33 @@ Both HTTP and optional stdio initialization return retrieval-first instructions,
 of the six tools has its own description. Connected clients receive these instructions
 even without a skill. They guide the model; they do not guarantee model obedience.
 
-The skill is the folder `.agents/skills/luciad/`: `SKILL.md` (when to use it, the six tools,
-workflows for writing code, finding samples and fixing compile errors, how to read results and
-cite them), `references/tools.md` (every request field and response shape) and
-`references/example-session.md` (a real session against LuciadLightspeed 2024.0).
-`agents/openai.yaml` adds Codex dependency metadata.
+This repository is a Claude Code plugin marketplace (`.claude-plugin/marketplace.json`) with one
+plugin, `luciad` (`plugins/luciad/`). The plugin bundles the skill `sdk` and the `luciad` MCP
+server connection, so one install gives the agent both. The skill (`skills/sdk/`) covers when to use
+the tools, workflows for writing code, finding samples and fixing compile errors, and how to read and
+cite results; `references/tools.md` lists every request and response field and
+`references/example-session.md` is a real session against LuciadLightspeed 2024.0.
 
-Install it by copying the whole folder:
+Install in Claude Code (from a shell; use a git URL or `owner/repo` once the repository is hosted):
 
-- Claude Code: `~/.claude/skills/luciad` (all projects) or `<project>/.claude/skills/luciad`.
-- Codex: `~/.agents/skills/luciad`.
+```powershell
+claude plugin marketplace add D:/workspace/luciad-mcp
+claude plugin install luciad@luciad-mcp --config server_url=http://127.0.0.1:8766/mcp
+```
 
-Register the MCP server under the name `luciad` (`claude mcp add --transport http luciad
-http://127.0.0.1:8766/mcp` or `codex mcp add luciad --url http://127.0.0.1:8766/mcp`), start
-`serve`, then restart the agent. The skill loads automatically for Luciad tasks; invoke it
-explicitly with `/luciad` (Claude Code) or `$luciad` (Codex). Without the skill, the server's
-initialization instructions and tool descriptions still apply, but the agent is less likely to
-look things up unprompted or to verify generated code with `check_symbols`.
+Or inside a session: `/plugin marketplace add D:/workspace/luciad-mcp`, then `/plugin install
+luciad@luciad-mcp`, which prompts for the server URL (default `http://127.0.0.1:8766/mcp`).
+Change it later with `/plugin configure luciad@luciad-mcp`. Start `serve`, restart Claude Code,
+and check `/mcp` shows `plugin:luciad:luciad` connected. The skill loads automatically for
+Luciad tasks; run it explicitly as `/luciad:sdk`. If you previously added the server by hand with
+`claude mcp add luciad`, remove that entry (`claude mcp remove luciad`) to avoid two copies.
+Update with `claude plugin marketplace update luciad-mcp`; uninstall with
+`claude plugin uninstall luciad@luciad-mcp`.
+
+For Codex, install the skill folder directly: copy `plugins/luciad/skills/sdk` to
+`~/.agents/skills/luciad` (it includes `agents/openai.yaml` dependency metadata) and run
+`codex mcp add luciad --url http://127.0.0.1:8766/mcp`.
+
+Without the skill, the server's initialization instructions and tool descriptions still apply, but
+the agent is less likely to look things up unprompted or to verify generated code with
+`check_symbols`.

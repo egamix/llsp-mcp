@@ -1,0 +1,14 @@
+{
+  "name": "luciad-mcp",
+  "description": "Luciad SDK knowledge for coding agents: Javadoc and sample code served by the local luciad MCP server",
+  "owner": {
+    "name": "eric"
+  },
+  "plugins": [
+    {
+      "name": "luciad",
+      "source": "./plugins/luciad",
+      "description": "Look up Luciad SDK APIs and sample code, and verify generated Luciad code, through the luciad MCP server"
+    }
+  ]
+}
