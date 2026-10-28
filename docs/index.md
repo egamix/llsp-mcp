@@ -29,15 +29,12 @@
 | [Architecture Spine](../_bmad-output/planning-artifacts/architecture/architecture-luciad-mcp-2026-08-20/ARCHITECTURE-SPINE.md) | Governing decisions and rules. |
 | [Root architecture narrative](../architecture.md) | Supporting explanation of flows and invariants; reconcile against the Spine if they differ. |
 | [Interactive architecture diagram](../architecture.html) | Visual companion to the narrative; it may lag planning changes. |
-| [Generated architecture snapshot](architecture.md) | Dated codebase scan, not a live specification. Check its generation date before relying on implementation-status claims. |
 
 ## Briefs and implementation references
 
 - [Product brief](../_bmad-output/planning-artifacts/briefs/brief-luciad-mcp-2026-08-24/brief.md): August 24, 2026 product framing. Useful background; older tool counts and scope may differ from subsequent proposals.
 - [Original implementation brief](luciad-knowledge-mcp-implementation-brief.md): detailed background and design input. Consult the PRD and Spine for controlling requirements.
-- [Generated project overview](project-overview.md): August 25, 2026 codebase snapshot. Its implementation-status claims are historical.
-- [Source tree analysis](source-tree-analysis.md): generated repository layout reference; verify against the current tree.
-- [Development guide](development-guide.md): build and contributor instructions. The Gradle build root is `app/`; historical status notes may lag the code.
+- [Development guide](development-guide.md): build and contributor instructions. The Gradle build root is `app/`.
 
 ## Reading order
 

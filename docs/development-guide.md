@@ -1,16 +1,14 @@
 # Development Guide — LuciadLightspeed Knowledge MCP
 
-_Generated: 2026-08-25 · Quick scan_
+How to build and contribute. To run the server and ingest an SDK, see the [server guide](server-guide.md).
 
 ## Prerequisites
 
-- **JDK 21** (LTS). The build is pinned to Java 21 and will **not** auto-download a JDK —
-  it fails loudly if the running JVM is unsuitable (`org.gradle.java.installations.auto-download=false`
-  in [app/gradle.properties](../app/gradle.properties)). Make sure `java -version` reports 21.
+- **JDK 21** (LTS). The build targets Java 21 and will **not** auto-download a JDK
+  (`org.gradle.java.installations.auto-download=false` in [app/gradle.properties](../app/gradle.properties)).
+  Make sure `java -version` reports 21.
 - **Gradle wrapper 8.10** — no system Gradle needed; use `./gradlew` (or `gradlew.bat`).
 - Git.
-
-> Start with the [project README](../README.md) for an introduction. This guide covers building and contributing; historical implementation-status notes may lag the code.
 
 ## Important: run from `app/`
 
@@ -29,46 +27,22 @@ gradlew.bat <task>        # Windows cmd/PowerShell
 |---|---|---|
 | Compile everything | `./gradlew build` | |
 | Run all checks | `./gradlew check` | Includes `:checkDependencyDirection` (AD-1) on every module |
-| Run tests | `./gradlew test` | JUnit 5; currently only `cli` has tests |
+| Run tests | `./gradlew test` | JUnit 5 |
 | Test one module | `./gradlew :cli:test` | |
 | Verify AD-1 only | `./gradlew checkDependencyDirection` | Fails on any forbidden module edge |
 | List projects | `./gradlew projects` | Shows the 12 subprojects |
 
+The contract schemas and examples in [contracts/](contracts/README.md) are checked separately
+with the Python verifiers listed there.
+
 ## Corporate-proxy / TLS workaround
 
-First dependency resolution from Maven Central (e.g. JUnit) can fail PKIX behind a corporate
-proxy. If you hit a PKIX / certificate error, trust the Windows cert store for the build:
+First dependency resolution from Maven Central can fail PKIX behind a corporate proxy. If you
+hit a PKIX / certificate error, trust the Windows cert store for the build:
 
 ```bash
 GRADLE_OPTS="-Djavax.net.ssl.trustStoreType=Windows-ROOT" ./gradlew check
 ```
-
-## Running the CLI
-
-The only implemented subcommand is `ingest` (Story 1.2, in review). It takes a fixed set of
-**local directory** paths — five required, one optional:
-
-```
-ingest \
-  --javadoc  <dir> \     # SDK Javadoc
-  --samples  <dir> \     # code samples / workflows
-  --guides   <dir> \     # guide HTML
-  --model    <dir> \     # embedding model dir
-  --out      <dir> \     # output index dir (created if missing)
-  [--trainings <dir>]    # optional; routes to the AD-28 training seam (unimplemented)
-```
-
-Rules enforced by the parser:
-
-- Unknown options, extra positional args, duplicate options, and missing values are rejected
-  with a structured error and **exit code 2**.
-- URL-shaped (`scheme://…`) and UNC (`\\host\share`) paths are rejected as non-local.
-- Required input dirs must exist and be directories.
-- The pipeline body is not implemented yet (Story 1.3), so a valid invocation currently
-  validates inputs, creates the output dir, and returns success without producing an index.
-
-`serve`, `validate-index`, `--help`, and the full documented exit-code table are deferred to
-Story 8.3.
 
 ## Conventions and constraints (for contributors)
 
@@ -91,16 +65,11 @@ Story 8.3.
 
 ## Project tracking (BMad)
 
-Work is planned and tracked under `_bmad-output/`:
+Work is planned and tracked under `_bmad-output/`; see the [documentation map](index.md) for
+the PRD, architecture spine, epics and sprint tracker.
 
-- Story specs + `sprint-status.yaml` → `_bmad-output/implementation-artifacts/`
-- PRD, epics, architecture spine → `_bmad-output/planning-artifacts/`
-
-Current: Epic 1 in progress (1.1 done, 1.2 in review, 1.3–1.4 backlog).
-
-## Deployment (designed, not yet built)
+## Deployment
 
 The appliance is intended to ship as two container images — a zero-egress **serving image**
-and a **training-ingest image** (the AD-28 exception). Packaging is Epic 8 and not present in
-the repository yet.
-
+and a **training-ingest image** (the AD-28 exception). Packaging is Epic 8 and is not in the
+repository yet.
