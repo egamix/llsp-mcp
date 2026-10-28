@@ -146,7 +146,7 @@ Completed Story 2.10 on codex/story-2-10-structured-documentation. Owned structu
 - `app/ingest-javadoc/src/test/resources/javadoc-fixtures/structured/unsupported/spans.html` - Provides adversarial unsupported owned HTML evidence.
 - `docs/contracts/CHANGELOG.md` - Records schema/3 structured/narrative contract changes.
 - `docs/contracts/README.md` - Documents current storage, structured production support and downstream boundaries.
-- `docs/contracts/STORY-2-10-VERIFICATION.md` - Records final platform checks, matrix coverage, review repairs and remaining risks.
+- `_bmad-output/implementation-artifacts/verification/STORY-2-10-VERIFICATION.md` - Records final platform checks, matrix coverage, review repairs and remaining risks.
 - `docs/contracts/fixtures/portable.properties` - Pins schema/3 recipe/runtime/capability and narrative identity values.
 - `docs/contracts/ingestion-report.example.json` - Aligns the example with schema/3 and production capabilities.
 - `docs/contracts/manifest.example.json` - Aligns the example with schema/3 fingerprints and capabilities.
@@ -163,7 +163,7 @@ All four review lenses completed. Fourteen individually logged medium findings f
 ### Verification
 
 - Final Windows and Ubuntu-24.04 native Gradle `check --rerun-tasks`: PASS, 46 tasks each. Both report 251 tests, zero failures/errors; Windows skips one platform-dependent symlink test, Linux skips none. Module counts: catalog-sqlite 42, cli 99, domain 27, ingest-javadoc 83. All 18 extraction/structured roundtrip/documentation storage regression methods ran and passed on both platforms.
-- Every intent matrix row maps to executed tests in docs/contracts/STORY-2-10-VERIFICATION.md. Exact fallback subtree assertions now cover ten unsupported fixtures; direct examples/headings/empty linked notes/alias wrappers and table work bounds have focused regressions.
+- Every intent matrix row maps to executed tests in _bmad-output/implementation-artifacts/verification/STORY-2-10-VERIFICATION.md. Exact fallback subtree assertions now cover ten unsupported fixtures; direct examples/headings/empty linked notes/alias wrappers and table work bounds have focused regressions.
 - Python contract verifier: PASS, 122 checks on Windows. Independent portable oracle: PASS on Windows and Linux. Linux full schema verification remains unavailable because that Python environment lacks referencing; Windows supplies the schema check. No host dependency change was made.
 - Fresh Windows/Linux source/parser/SQLite/manifest/report snapshots match exactly as bytes and parsed JSON: 20,985 bytes, SHA-256 901144ea306e255590ebc65f525db121319583ebe507037e3d1fad174d681783. They include six API/narrative documents and structured payload bytes.
 - Parent read the complete initial diff and focused repair diff, audited the executed XML and final documentation, and refreshed the temporary unified diff after repairs. `git diff --check` passed; implementation agent refreshed Graft after the final code repairs.
