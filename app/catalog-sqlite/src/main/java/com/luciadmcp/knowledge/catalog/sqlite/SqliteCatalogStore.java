@@ -221,16 +221,24 @@ public final class SqliteCatalogStore implements CatalogStore {
         } catch(SQLException | RuntimeException e) { reasons.add(com.luciadmcp.knowledge.domain.BuildValidator.Reason.UNSUPPORTED_SCHEMA); }
         try (Statement statement=db.createStatement()) {
             java.util.Set<String> recordIds=records.stream().map(com.luciadmcp.knowledge.domain.StoredCatalogRecord::recordId).collect(java.util.stream.Collectors.toSet());
+            // Story 3.2: example records may be the source of USES_TYPE/CONSTRUCTS/CALLS edges, and only of those.
+            java.util.Set<String> exampleIds=new java.util.HashSet<>();
+            try(ResultSet r=statement.executeQuery("SELECT record_id FROM knowledge_records WHERE record_type='EXAMPLE' LIMIT "+(com.luciadmcp.knowledge.domain.StandardBuildValidator.MAX_RECORDS+1))) {
+                while(r.next()) { if(exampleIds.size()>=com.luciadmcp.knowledge.domain.StandardBuildValidator.MAX_RECORDS) throw new IllegalStateException("WORK_LIMIT: example records");exampleIds.add(r.getString(1)); }
+            }
             int count=0;long bytes=0;
-            try(ResultSet r=statement.executeQuery("SELECT octet_length(edge_id),octet_length(sdk_version),octet_length(source_id),octet_length(type),octet_length(target_id),octet_length(evidence) FROM edges LIMIT 200001")) {
+            try(ResultSet r=statement.executeQuery("SELECT octet_length(edge_id),octet_length(sdk_version),octet_length(source_id),octet_length(type),octet_length(target_id),octet_length(evidence) FROM edges LIMIT "+(com.luciadmcp.knowledge.domain.StandardBuildValidator.MAX_DEPENDENCIES+1))) {
                 while(r.next()) { if(++count>com.luciadmcp.knowledge.domain.StandardBuildValidator.MAX_DEPENDENCIES) throw new IllegalStateException("WORK_LIMIT: edges"); for(int i=1;i<=6;i++) { long size=r.getLong(i);if(size>1_048_576 || (bytes+=size)>com.luciadmcp.knowledge.domain.StandardBuildValidator.MAX_VALIDATION_BYTES) throw new IllegalStateException("WORK_LIMIT: edge payload"); } }
             }
             try(ResultSet r=statement.executeQuery("SELECT edge_id,sdk_version,source_id,type,target_id,evidence FROM edges LIMIT "+(com.luciadmcp.knowledge.domain.StandardBuildValidator.MAX_DEPENDENCIES+1))) {
                 while(r.next()) {
                     if(!sdkVersion.equals(r.getString(2))) { reasons.add(com.luciadmcp.knowledge.domain.BuildValidator.Reason.INVALID_SCOPE); continue; }
                     try {
-                        String id=com.luciadmcp.knowledge.domain.ContentHashes.relationshipHash(r.getString(2),r.getString(3),com.luciadmcp.knowledge.domain.RelationshipType.valueOf(r.getString(4)),r.getString(5),r.getString(6));
-                        if(!id.equals(r.getString(1)) || !recordIds.contains(r.getString(3)) || !recordIds.contains(r.getString(5))) reasons.add(com.luciadmcp.knowledge.domain.BuildValidator.Reason.INVALID_IDENTITY);
+                        var type=com.luciadmcp.knowledge.domain.RelationshipType.valueOf(r.getString(4));
+                        String id=com.luciadmcp.knowledge.domain.ContentHashes.relationshipHash(r.getString(2),r.getString(3),type,r.getString(5),r.getString(6));
+                        boolean exampleSource=exampleIds.contains(r.getString(3));
+                        boolean source=exampleSource ? com.luciadmcp.knowledge.domain.RelationshipStore.EXAMPLE_TYPES.contains(type) && !r.getString(6).isEmpty() : recordIds.contains(r.getString(3));
+                        if(!id.equals(r.getString(1)) || !source || !recordIds.contains(r.getString(5))) reasons.add(com.luciadmcp.knowledge.domain.BuildValidator.Reason.INVALID_IDENTITY);
                     } catch(IllegalArgumentException e) { reasons.add(com.luciadmcp.knowledge.domain.BuildValidator.Reason.INVALID_IDENTITY); }
                 }
             }

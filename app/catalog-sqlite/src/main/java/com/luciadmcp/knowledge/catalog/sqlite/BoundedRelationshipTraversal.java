@@ -56,8 +56,10 @@ final class BoundedRelationshipTraversal {
     }
     private TraversalResult run(TraversalRequest q, String binding, int offset) throws SQLException {
         String seedId;
-        try (PreparedStatement ps = db.prepareStatement("SELECT record_id FROM records WHERE sdk_version=? AND canonical_key=?")) {
-            ps.setString(1, scope.sdkVersion()); ps.setString(2, q.seedKey());
+        // A seed is a catalog canonical key, or an example record id (example nodes are keyed by record id).
+        try (PreparedStatement ps = db.prepareStatement("SELECT record_id FROM records WHERE sdk_version=? AND canonical_key=?"
+                + " UNION ALL SELECT record_id FROM knowledge_records WHERE sdk_version=? AND record_id=? AND record_type='EXAMPLE' LIMIT 1")) {
+            ps.setString(1, scope.sdkVersion()); ps.setString(2, q.seedKey()); ps.setString(3, scope.sdkVersion()); ps.setString(4, q.seedKey());
             try (ResultSet rs = ps.executeQuery()) {
                 if (!rs.next()) return result(q, Status.SEED_NOT_FOUND, List.of(), 0, 0, 0, Cutoff.NONE, CountRelation.EXACT, "");
                 seedId = rs.getString(1);
@@ -137,8 +139,8 @@ final class BoundedRelationshipTraversal {
     }
     private Row seek(String id, String after, boolean out) throws SQLException {
         try (PreparedStatement ps = db.prepareStatement(adjacencySql(out))) {
-            ps.setInt(1, limits.responseBytes() / 6); ps.setInt(2, limits.responseBytes() / 6);
-            ps.setString(3, scope.sdkVersion()); ps.setString(4, id); ps.setString(5, after);
+            ps.setInt(1, limits.responseBytes() / 6); ps.setInt(2, limits.responseBytes() / 6); ps.setInt(3, limits.responseBytes() / 6);
+            ps.setString(4, scope.sdkVersion()); ps.setString(5, id); ps.setString(6, after);
             try (ResultSet rs = ps.executeQuery()) {
                 return !rs.next() ? null : new Row(rs.getString(1),rs.getString(2),rs.getString(3),rs.getString(5),rs.getString(6),rs.getString(4));
             }
@@ -146,13 +148,17 @@ final class BoundedRelationshipTraversal {
     }
     static String adjacencySql(boolean out) {
         // octet_length(column) reads the stored byte count without loading oversized TEXT values.
+        // Example-link sources (Story 3.2) are example records, keyed by their record id.
         return "SELECT e.edge_id,e.source_id,e.target_id,e.type,"
-                + "CASE WHEN octet_length(s.canonical_key)<=? THEN s.canonical_key END,"
+                + "CASE WHEN s.record_id IS NOT NULL THEN CASE WHEN octet_length(s.canonical_key)<=? THEN s.canonical_key END"
+                + " ELSE CASE WHEN octet_length(x.record_id)<=? THEN x.record_id END END,"
                 + "CASE WHEN octet_length(t.canonical_key)<=? THEN t.canonical_key END "
                 + "FROM edges e INDEXED BY " + (out ? "edges_out" : "edges_in")
-                + " JOIN records s ON s.record_id=e.source_id AND s.sdk_version=e.sdk_version"
+                + " LEFT JOIN records s ON s.record_id=e.source_id AND s.sdk_version=e.sdk_version"
+                + " LEFT JOIN knowledge_records x ON x.record_id=e.source_id AND x.sdk_version=e.sdk_version AND x.record_type='EXAMPLE'"
                 + " JOIN records t ON t.record_id=e.target_id AND t.sdk_version=e.sdk_version"
                 + " WHERE e.sdk_version=? AND e." + (out ? "source_id" : "target_id") + "=? AND e.edge_id>?"
+                + " AND (s.record_id IS NOT NULL OR x.record_id IS NOT NULL)"
                 + " ORDER BY e.edge_id LIMIT 1";
     }
     private TraversalResult result(TraversalRequest q, Status status, List<Item> items, int visited,

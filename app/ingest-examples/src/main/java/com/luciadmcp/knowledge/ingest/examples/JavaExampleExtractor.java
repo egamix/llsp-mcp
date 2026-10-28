@@ -19,8 +19,16 @@ import java.util.*;
  */
 public final class JavaExampleExtractor {
     public static final int MIN_METHOD_LINES = 3;
-    public record Example(KnowledgeRecord record, DocumentationPayload payload) {}
-    public record Result(List<Example> examples, List<String> issues) {}
+    /** Story 3.2 raw evidence: a name as written in the source; resolution against the catalog happens later. */
+    public enum UsageKind { TYPE, CONSTRUCT, CALL }
+    public record Usage(UsageKind kind, String typeName, String member, int line) {}
+    public record Example(KnowledgeRecord record, DocumentationPayload payload, List<Usage> usages) {
+        public Example { usages = List.copyOf(usages); }
+    }
+    /** {@code imports} are as written, wildcard imports ending in {@code .*}; {@code packageName} may be empty. */
+    public record Result(List<Example> examples, List<String> issues, String packageName, List<String> imports) {
+        public Result(List<Example> examples, List<String> issues) { this(examples, issues, "", List.of()); }
+    }
 
     private final JavaParser parser = new JavaParser(new ParserConfiguration()
             .setLanguageLevel(ParserConfiguration.LanguageLevel.JAVA_21).setAttributeComments(true));
@@ -49,7 +57,9 @@ public final class JavaExampleExtractor {
             javadoc(type).ifPresent(text -> blocks.add(paragraph("summary", text)));
             if (topLevel && !luciadImports.isEmpty()) blocks.add(paragraph("luciad imports", String.join(", ", luciadImports)));
             blocks.add(code(topLevel ? source : text(lines, type)));
-            add(examples, issues, sdkVersion, relativePath, typeId, "Example " + typeName, range(type, topLevel, lines.length), sourceHash, blocks);
+            var fields = fieldTypes(type);
+            add(examples, issues, sdkVersion, relativePath, typeId, "Example " + typeName, range(type, topLevel, lines.length), sourceHash, blocks,
+                    typeUsages(type));
 
             var seen = new HashMap<String, Integer>();
             for (CallableDeclaration<?> callable : type.findAll(CallableDeclaration.class)) {
@@ -65,14 +75,76 @@ public final class JavaExampleExtractor {
                 methodBlocks.add(paragraph("context", "Member of example " + typeName + " (record " + typeId + ")"));
                 methodBlocks.add(code(text(lines, callable)));
                 add(examples, issues, sdkVersion, relativePath, KnowledgeRecord.exampleId(sdkVersion, relativePath, typeName, member),
-                        "Example " + typeName + "#" + signature, new SourceLocator.LineRange(r.begin.line, r.end.line), sourceHash, methodBlocks);
+                        "Example " + typeName + "#" + signature, new SourceLocator.LineRange(r.begin.line, r.end.line), sourceHash, methodBlocks,
+                        usages(callable, fields));
             }
         }
-        return new Result(List.copyOf(examples), List.copyOf(issues));
+        var imports = unit.getImports().stream().filter(i -> !i.isStatic())
+                .map(i -> i.getNameAsString() + (i.isAsterisk() ? ".*" : "")).toList();
+        return new Result(List.copyOf(examples), List.copyOf(issues), unit.getPackageDeclaration().map(p -> p.getNameAsString()).orElse(""), imports);
     }
 
+    /** Declared supertypes and field types of the type itself; member bodies belong to their own records. */
+    private static List<Usage> typeUsages(TypeDeclaration<?> type) {
+        var out = new ArrayList<Usage>();
+        if (type instanceof com.github.javaparser.ast.body.ClassOrInterfaceDeclaration c) {
+            for (var t : c.getExtendedTypes()) out.add(new Usage(UsageKind.TYPE, t.getNameWithScope(), "", line(t)));
+            for (var t : c.getImplementedTypes()) out.add(new Usage(UsageKind.TYPE, t.getNameWithScope(), "", line(t)));
+        }
+        for (var field : type.getFields())
+            for (var v : field.getVariables()) typeName(v.getType()).ifPresent(n -> out.add(new Usage(UsageKind.TYPE, n, "", line(v))));
+        return out;
+    }
+
+    private static Map<String, String> fieldTypes(TypeDeclaration<?> type) {
+        var out = new HashMap<String, String>();
+        for (var field : type.getFields())
+            for (var v : field.getVariables()) typeName(v.getType()).ifPresent(n -> out.put(v.getNameAsString(), n));
+        return out;
+    }
+
+    /**
+     * Types named, classes instantiated and methods called inside one member. A call is recorded only when
+     * its receiver is a named type or a parameter/local/field whose declared type is known; chained calls
+     * on unknown return types are not guessed.
+     */
+    private static List<Usage> usages(CallableDeclaration<?> callable, Map<String, String> fields) {
+        var variables = new HashMap<>(fields);
+        for (var p : callable.getParameters()) typeName(p.getType()).ifPresent(n -> variables.put(p.getNameAsString(), n));
+        for (var v : callable.findAll(com.github.javaparser.ast.body.VariableDeclarator.class)) {
+            if (v.getType().isVarType()) v.getInitializer().filter(com.github.javaparser.ast.expr.Expression::isObjectCreationExpr)
+                    .ifPresent(i -> variables.put(v.getNameAsString(), i.asObjectCreationExpr().getType().getNameWithScope()));
+            else typeName(v.getType()).ifPresent(n -> variables.put(v.getNameAsString(), n));
+        }
+        var out = new ArrayList<Usage>();
+        for (var t : callable.findAll(com.github.javaparser.ast.type.ClassOrInterfaceType.class))
+            out.add(new Usage(UsageKind.TYPE, t.getNameWithScope(), "", line(t)));
+        for (var n : callable.findAll(com.github.javaparser.ast.expr.ObjectCreationExpr.class))
+            out.add(new Usage(UsageKind.CONSTRUCT, n.getType().getNameWithScope(), "", line(n)));
+        for (var call : callable.findAll(com.github.javaparser.ast.expr.MethodCallExpr.class)) {
+            var scope = call.getScope().orElse(null);
+            String owner = null;
+            if (scope instanceof com.github.javaparser.ast.expr.NameExpr name) {
+                String text = name.getNameAsString();
+                owner = variables.containsKey(text) ? variables.get(text) : Character.isUpperCase(text.charAt(0)) ? text : null;
+            } else if (scope instanceof com.github.javaparser.ast.expr.FieldAccessExpr access
+                    && Character.isUpperCase(access.getNameAsString().charAt(0)) && access.toString().matches("[A-Za-z_$][A-Za-z0-9_$.]*")) {
+                owner = access.toString(); // qualified or nested type name, e.g. com.luciad.X or Outer.Inner
+            }
+            if (owner != null) out.add(new Usage(UsageKind.CALL, owner, call.getNameAsString(), line(call)));
+        }
+        return out;
+    }
+
+    private static Optional<String> typeName(com.github.javaparser.ast.type.Type type) {
+        if (type.isArrayType()) return typeName(type.asArrayType().getElementType());
+        return type.isClassOrInterfaceType() ? Optional.of(type.asClassOrInterfaceType().getNameWithScope()) : Optional.empty();
+    }
+
+    private static int line(Node node) { return node.getRange().map(r -> r.begin.line).orElse(1); }
+
     private static void add(List<Example> out, List<String> issues, String sdk, String path, String id, String title,
-            SourceLocator.LineRange lines, String sourceHash, List<DocumentationPayload.Block> blocks) {
+            SourceLocator.LineRange lines, String sourceHash, List<DocumentationPayload.Block> blocks, List<Usage> usages) {
         try {
             var locator = new SourceLocator(SourceLocator.Kind.SOURCE, path, Optional.empty(), "", Optional.of(lines), Optional.empty());
             var record = new KnowledgeRecord(id, sdk, KnowledgeRecord.RecordType.EXAMPLE, KnowledgeRecord.KnowledgeKind.AUTHORITATIVE_FACT,
@@ -81,7 +153,7 @@ public final class JavaExampleExtractor {
                     new KnowledgeRecord.Applicability("LuciadLightspeed", List.of(sdk), List.of()));
             var sections = List.of(new DocumentationPayload.Section("example", title, locator, blocks));
             out.add(new Example(record, new DocumentationPayload(id, sourceHash, sections,
-                    ContentHashes.contentHash(DocumentationPayload.canonicalFields(sections)))));
+                    ContentHashes.contentHash(DocumentationPayload.canonicalFields(sections))), usages));
         } catch (IllegalArgumentException e) {
             issues.add(path + ": " + title + " skipped: " + e.getMessage());
         }
