@@ -1,0 +1,20 @@
+{
+  "name": "luciad-mcp",
+  "interface": {
+    "displayName": "Luciad MCP"
+  },
+  "plugins": [
+    {
+      "name": "luciad",
+      "source": {
+        "source": "local",
+        "path": "./plugins/luciad"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Developer Tools"
+    }
+  ]
+}

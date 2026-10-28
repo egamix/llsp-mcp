@@ -1,0 +1,24 @@
+{
+  "name": "luciad",
+  "version": "0.1.0",
+  "description": "Look up Luciad SDK APIs and sample code, and verify generated Luciad code, through the luciad MCP server",
+  "author": {
+    "name": "eric"
+  },
+  "keywords": ["luciad", "lightspeed", "fusion", "javadoc", "mcp"],
+  "skills": "./skills/",
+  "mcpServers": "./codex.mcp.json",
+  "interface": {
+    "displayName": "Luciad SDK",
+    "shortDescription": "Luciad API docs and sample code for your agent",
+    "longDescription": "Connects your agent to your team's luciad knowledge server: the Luciad SDK Javadoc and shipped sample code, searchable by task, with exact symbol resolution, type relationships, sample code that uses a given API, and a check for every Luciad name in generated code.",
+    "developerName": "eric",
+    "category": "Developer Tools",
+    "capabilities": ["Read"],
+    "defaultPrompt": [
+      "How do I show points as icons on a Lightspeed map? Base it on the Luciad samples.",
+      "Find sample code that uses TLspLineStyle.",
+      "Check that every Luciad API in this file exists."
+    ]
+  }
+}

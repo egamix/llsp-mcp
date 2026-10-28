@@ -73,22 +73,74 @@ The knowledge service supplies evidence and checks documented API references. Th
 
 ## 🚀 Get started
 
-> **Product preview:** This README describes the target user experience. The installable skill and packaged service are not published yet. The source-build commands below are available; there is no release installation or server-launch command to copy yet.
+You need two things: a running **luciad server** with your SDK's documentation loaded, and the
+**luciad plugin** in your coding agent. The plugin contains the skill and the connection to the
+server, so you install one thing per agent.
 
-### For developers
+### 1. Run the server
 
-Once your team has prepared its knowledge service:
+Build it, load your SDK's Javadoc and samples, and start it. Follow the
+[server guide](docs/server-guide.md). It serves at `http://127.0.0.1:8766/mcp` by default.
+The server accepts connections from the same machine only, so run it where the agent runs.
 
-1. **Install the skill** in your coding assistant.
-2. **Connect project knowledge** using your team's MCP connection details.
-3. **Confirm the project context** once.
-4. **Ask for a feature, explanation, or fix.**
+### 2. Install the plugin
 
-Use this connection-check prompt:
+This repository is a plugin marketplace for both Claude Code and Codex. Use the repository URL
+or a local clone path as `<marketplace>`.
 
-> Check that project knowledge is available and matches this project's dependencies. Show one familiar API with its signature and source citation. Tell me about any coverage gaps that could affect your answers. If the project configuration is unclear, ask me once.
+**Claude Code**
 
-You do not need to learn tool names or operate a graph database.
+```bash
+claude plugin marketplace add <marketplace>
+claude plugin install luciad@luciad-mcp
+```
+
+The server URL defaults to `http://127.0.0.1:8766/mcp`. For another URL, add
+`--config server_url=http://127.0.0.1:<port>/mcp` to the install command, or later run
+`/plugin configure luciad@luciad-mcp` in a session. Inside a session you can also install with
+`/plugin marketplace add <marketplace>` and `/plugin install luciad@luciad-mcp`, which asks for the URL.
+
+**Codex**
+
+```bash
+codex plugin marketplace add <marketplace>
+codex plugin add luciad@luciad-mcp
+```
+
+Codex uses `http://127.0.0.1:8766/mcp`. For another URL, add this to `~/.codex/config.toml`;
+it replaces the plugin's URL:
+
+```toml
+[mcp_servers.luciad]
+url = "http://127.0.0.1:<port>/mcp"
+```
+
+### 3. Check it works
+
+Restart the agent. In Claude Code, `/mcp` should list `plugin:luciad:luciad` as connected; in
+Codex, `codex mcp list` should list `luciad`. Then ask:
+
+> Which Luciad version are you answering from? Show the signature of TLspShapeLayerBuilder#newBuilder() with its source.
+
+The plugin's skill, `luciad-sdk`, loads by itself for Luciad tasks. To call it explicitly in
+Claude Code, run `/luciad:luciad-sdk`; in Codex, type `$` and pick `luciad-sdk`.
+
+<details>
+<summary><strong>Update, uninstall, and moving from a manual setup</strong></summary>
+
+| | Claude Code | Codex |
+|---|---|---|
+| Update | `claude plugin marketplace update luciad-mcp` | `codex plugin marketplace upgrade luciad-mcp` (Git marketplaces; a local path is read in place) |
+| Uninstall | `claude plugin uninstall luciad@luciad-mcp` | `codex plugin remove luciad@luciad-mcp` |
+
+If you set up luciad by hand before the plugin existed, remove the manual copies so the agent
+doesn't get two of them:
+
+- Claude Code: `claude mcp remove luciad`, and delete `~/.claude/skills/luciad` if present.
+- Codex: delete `~/.agents/skills/luciad`. A `[mcp_servers.luciad]` entry in
+  `~/.codex/config.toml` can stay only if you need it to change the URL; otherwise remove it.
+
+</details>
 
 ### Build from source
 
@@ -110,7 +162,7 @@ cd app
 ./gradlew check
 ```
 
-This builds and checks the repository; it does not install the user skill or start an MCP service. The first build resolves dependencies.
+This builds and runs the tests. To produce the server command, run `.\gradlew.bat :cli:installDist` (Windows) or `./gradlew :cli:installDist`; the [server guide](docs/server-guide.md) continues from there.
 
 ## 💬 Try these prompts
 
@@ -163,7 +215,7 @@ Retaining a link does not mean its destination was imported. The service does no
 
 Stored knowledge must remain retrievable without re-reading the original input directory. Ingestion coverage must describe what was actually preserved, not merely report that a command finished.
 
-Release installation and operating commands will accompany the packaged service.
+The [server guide](docs/server-guide.md) has the commands for each step.
 
 </details>
 

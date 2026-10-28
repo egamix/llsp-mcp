@@ -1,5 +1,5 @@
 ---
-name: sdk
+name: luciad-sdk
 description: Answer questions about and write, review or debug code for the Luciad SDK (LuciadLightspeed, LuciadFusion, Lucy) using the local `luciad` MCP server, which serves the SDK's Javadoc and shipped sample code. Use whenever a task involves Luciad APIs or class names such as TLcd*, ILcd*, ALcd*, TLsp*, ILsp*, ALsp*, TLcy*, ILcy* — choosing an API, finding sample code, checking signatures, or fixing Luciad compile errors.
 ---
 
