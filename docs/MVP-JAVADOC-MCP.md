@@ -173,22 +173,20 @@ Both HTTP and optional stdio initialization return retrieval-first instructions,
 of the six tools has its own description. Connected clients receive these instructions
 even without a skill. They guide the model; they do not guarantee model obedience.
 
-The distributable skill is `.agents/skills/luciad/`, including `agents/openai.yaml` with
-the existing local MCP dependency `luciad` at `http://127.0.0.1:8766/mcp`. Repository
-skill discovery can use it here. For personal use in other repositories, copy that whole
-folder to your Codex skills directory (normally `$HOME/.agents/skills/luciad`), preserving
-its `agents` directory. Configure/connect the MCP server with the name `luciad` and the
-same Streamable HTTP URL, start the service, then refresh skill/MCP discovery or open a
-new chat as required by the client. Dependency metadata does not start the Java service.
+The skill is the folder `.agents/skills/luciad/`: `SKILL.md` (when to use it, the six tools,
+workflows for writing code, finding samples and fixing compile errors, how to read results and
+cite them), `references/tools.md` (every request field and response shape) and
+`references/example-session.md` (a real session against LuciadLightspeed 2024.0).
+`agents/openai.yaml` adds Codex dependency metadata.
 
-The skill permits normal automatic invocation for Luciad questions, implementation and
-debugging. To request it explicitly, use `$luciad`, for example: Use $luciad to explain
-how to check whether a point is inside a shape using the connected Javadoc evidence. General programming
-questions do not require this skill.
+Install it by copying the whole folder:
 
-The workflow retrieves relevant knowledge, resolves exact symbols/overloads when needed,
-fetches saved documentation, generates grounded answers/code, then compiles/tests externally
-where available and repairs from evidence. All tool requests use `contractVersion: read-tools/2`. Keep citations tied to the actual source SDK/build and preserve ambiguity,
-missing evidence and partial coverage. Target/source version differences neither block
-retrieval nor cause automatic warnings. If tools are unavailable, the agent should report
-the limitation instead of inventing Luciad API details from memory.
+- Claude Code: `~/.claude/skills/luciad` (all projects) or `<project>/.claude/skills/luciad`.
+- Codex: `~/.agents/skills/luciad`.
+
+Register the MCP server under the name `luciad` (`claude mcp add --transport http luciad
+http://127.0.0.1:8766/mcp` or `codex mcp add luciad --url http://127.0.0.1:8766/mcp`), start
+`serve`, then restart the agent. The skill loads automatically for Luciad tasks; invoke it
+explicitly with `/luciad` (Claude Code) or `$luciad` (Codex). Without the skill, the server's
+initialization instructions and tool descriptions still apply, but the agent is less likely to
+look things up unprompted or to verify generated code with `check_symbols`.

@@ -217,6 +217,10 @@ public final class ReadTools {
         ((Map<String,Object>)r.get("trace")).put("candidatesExamined",Math.min(10000,t.visitedNodes()));
         return trace(r,key);
     }
+    private static String signature(ExactSymbolResult.Match m) {
+        var c=m.symbol();String owner=c.owner().substring(c.owner().lastIndexOf('.')+1);
+        return owner+"#"+c.member()+"("+String.join(",",c.parameterTypes().stream().map(t->t.substring(t.lastIndexOf('.')+1)).toList())+")";
+    }
     private static Map<String,Object> trace(Map<String,Object> r,String normalized) {
         ((Map<String,Object>)r.get("trace")).put("normalizedQuery",normalized.length()>2048?normalized.substring(0,2048):normalized);return r;
     }
@@ -243,10 +247,11 @@ public final class ReadTools {
             boolean exact=p.proof()==ExactSymbolResult.Proof.EXACT && ids.size()==1;
             String reason=switch(p.proof()) {
                 case EXACT -> "Exact match in source "+symbols.binding().sdkVersion();
-                case AMBIGUOUS -> p.candidatesMatched()+" candidates match; pick one with resolve_symbol";
+                case AMBIGUOUS -> p.candidatesMatched()+" candidates match: "+String.join(", ",p.matches().stream().limit(3).map(ReadTools::signature).toList())
+                    +(p.candidatesMatched()>3?", …":"")+"; write the one you mean";
                 case UNKNOWN_IN_SCOPE -> "No symbol with this name in source "+symbols.binding().sdkVersion();
                 case INCOMPLETE_EVIDENCE -> p.complete() && !ids.isEmpty() && !s.strip().endsWith(")")
-                    ?"Method name matches "+p.candidatesMatched()+" candidate(s); include the parameter list, e.g. "+s.strip()+"(), to prove the overload"
+                    ?"Method name without parameter list; write the overload, e.g. "+String.join(" or ",p.matches().stream().limit(3).map(ReadTools::signature).toList())
                     :p.reason()==null || p.reason().isBlank()?"Evidence incomplete within request budget":p.reason();
             };
             verdicts.add(map("input",s,"proof",p.proof().name(),"selectedRecordId",exact?ids.getFirst():null,
