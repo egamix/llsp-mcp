@@ -10,7 +10,7 @@ interactive diagram. Open the HTML in a browser to click through the flows; read
 for the same content without the diagram.
 
 The authoritative source for every invariant below is
-[ARCHITECTURE-SPINE.md](_bmad-output/planning-artifacts/architecture/architecture-luciad-mcp-2026-08-20/ARCHITECTURE-SPINE.md).
+[ARCHITECTURE-SPINE.md](../../_bmad-output/planning-artifacts/architecture/architecture-luciad-mcp-2026-08-20/ARCHITECTURE-SPINE.md).
 Decisions are cited by their AD number.
 
 ---

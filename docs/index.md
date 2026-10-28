@@ -22,13 +22,13 @@
 | [Deferred work](../_bmad-output/implementation-artifacts/deferred-work.md) | Known issues and work deliberately left for later. |
 | [September 7 proposal](../_bmad-output/planning-artifacts/sprint-change-proposal-2026-09-07-evidence-backed-sdk-engineering.md) | Proposed course correction, pending approval and incorporation into the controlling plan. |
 
-## Why there are several architecture files
+## Architecture files
 
 | File | How to use it |
 |---|---|
 | [Architecture Spine](../_bmad-output/planning-artifacts/architecture/architecture-luciad-mcp-2026-08-20/ARCHITECTURE-SPINE.md) | Governing decisions and rules. |
-| [Root architecture narrative](../architecture.md) | Supporting explanation of flows and invariants; reconcile against the Spine if they differ. |
-| [Interactive architecture diagram](../architecture.html) | Visual companion to the narrative; it may lag planning changes. |
+| [Architecture narrative](design/architecture.md) | Supporting explanation of flows and invariants; reconcile against the Spine if they differ. |
+| [Interactive architecture diagram](design/architecture.html) | Visual companion to the narrative; it may lag planning changes. |
 
 ## Briefs and implementation references
 
