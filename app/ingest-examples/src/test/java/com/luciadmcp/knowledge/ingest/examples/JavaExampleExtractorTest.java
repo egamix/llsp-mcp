@@ -66,6 +66,10 @@ class JavaExampleExtractorTest {
         assertTrue(code.text().startsWith("public TLcdLonLatPoint create(double lon, double lat) {\n  TLcdLonLatPoint point"), code.text());
         assertTrue(create.payload().sections().getFirst().blocks().get(1).text().contains(type.record().id()));
         assertEquals(KnowledgeRecord.exampleId("2024.0", "samples/shape/PointSample.java", "samples.shape.PointSample", "create(double,double)"), create.record().id());
+        assertTrue(create.usages().contains(new JavaExampleExtractor.Usage(JavaExampleExtractor.UsageKind.CONSTRUCT, "TLcdLonLatPoint", "", 10)), create.usages().toString());
+        assertTrue(create.usages().contains(new JavaExampleExtractor.Usage(JavaExampleExtractor.UsageKind.CALL, "TLcdLonLatPoint", "move2D", 11)), "receiver typed from local variable");
+        assertEquals("samples.shape", result.packageName());
+        assertEquals(List.of("com.luciad.shape.shape2D.TLcdLonLatPoint", "java.util.List"), result.imports());
     }
 
     @Test void unparseableSourceIsReportedNotThrown() {

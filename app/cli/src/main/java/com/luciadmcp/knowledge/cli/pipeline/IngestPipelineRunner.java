@@ -134,7 +134,9 @@ public final class IngestPipelineRunner implements IngestPipeline {
                 case CATALOG -> catalog;
                 case RELATIONSHIPS -> relationships;
                 case EXAMPLES_WORKFLOWS -> new ExamplesStage(args.samples(),
-                        ctx -> new com.luciadmcp.knowledge.catalog.sqlite.SqliteDocumentationStore(ctx.catalogDbPath()));
+                        ctx -> new com.luciadmcp.knowledge.catalog.sqlite.SqliteDocumentationStore(ctx.catalogDbPath()),
+                        ctx -> { try (var store = new SqliteCatalogStore(ctx.catalogDbPath())) { return store.allRecords(); } },
+                        ctx -> new SqliteRelationshipStore(ctx.catalogDbPath()));
                 case LEXICAL_INDEX -> new LexicalIndexStage();
                 case VALIDATION -> new BuildValidationStage(new com.luciadmcp.knowledge.domain.StandardBuildValidator(), ctx -> openBuildCatalog(ctx));
                 default -> Stage.noOp();

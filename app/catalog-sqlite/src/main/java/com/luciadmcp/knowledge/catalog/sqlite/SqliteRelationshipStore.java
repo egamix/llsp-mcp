@@ -200,6 +200,32 @@ public final class SqliteRelationshipStore implements RelationshipStore {
     }
 
     @Override
+    public PutResult putExampleLink(String sdkVersion, String exampleRecordId,
+            com.luciadmcp.knowledge.domain.RelationshipType type, String targetKey, String evidence) {
+        if (!EXAMPLE_TYPES.contains(type)) throw new IllegalArgumentException("not an example relationship type: " + type);
+        if (evidence == null || evidence.isBlank() || evidence.length() > 2048) throw new IllegalArgumentException("bounded evidence required");
+        try (PreparedStatement ps = connection.prepareStatement(
+                "SELECT 1 FROM knowledge_records WHERE record_id=? AND sdk_version=? AND record_type='EXAMPLE'")) {
+            ps.setString(1, exampleRecordId); ps.setString(2, sdkVersion);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) throw new IllegalStateException("no example record " + exampleRecordId + " (SDK version " + sdkVersion + ")");
+            }
+        } catch (SQLException e) { throw new IllegalStateException("could not read example record", e); }
+        String targetId = resolveRecordId(sdkVersion, targetKey);
+        if (targetId == null) throw new IllegalStateException("no catalog record for target key '" + targetKey + "' (SDK version " + sdkVersion + ")");
+        String edgeId = ContentHashes.relationshipHash(sdkVersion, exampleRecordId, type, targetId, evidence);
+        try (PreparedStatement ps = connection.prepareStatement(
+                "INSERT INTO edges (edge_id, sdk_version, source_id, type, target_id, evidence) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(edge_id) DO NOTHING")) {
+            ps.setString(1, edgeId); ps.setString(2, sdkVersion); ps.setString(3, exampleRecordId);
+            ps.setString(4, type.name()); ps.setString(5, targetId); ps.setString(6, evidence);
+            return new PutResult(edgeId, ps.executeUpdate() == 1 ? PutStatus.INSERTED : PutStatus.DUPLICATE);
+        } catch (SQLException e) {
+            if (isIdentityConstraintViolation(e)) return new PutResult(edgeId, PutStatus.IDENTITY_CLASH);
+            throw new IllegalStateException("could not persist example link " + edgeId, e);
+        }
+    }
+
+    @Override
     public PutResult put(RelationshipEdge edge) {
         if (edge == null) {
             throw new IllegalArgumentException("edge must not be null");

@@ -59,6 +59,14 @@ public interface RelationshipStore extends AutoCloseable {
     }
 
     /** Persist occurrence evidence atomically; identical retries are no-ops, conflicts are errors. */
+    /** Relationship types an example record may be the source of (Story 3.2). */
+    java.util.Set<RelationshipType> EXAMPLE_TYPES = java.util.Set.of(RelationshipType.USES_TYPE, RelationshipType.CONSTRUCTS, RelationshipType.CALLS);
+
+    /** Stores a link from an example record to the catalog symbol {@code targetKey}, keeping where it was seen. */
+    default PutResult putExampleLink(String sdkVersion, String exampleRecordId, RelationshipType type, String targetKey, String evidence) {
+        throw new UnsupportedOperationException("example links require a catalog-backed store");
+    }
+
     default void putResolution(ReferenceResolution resolution) {
         throw new UnsupportedOperationException("reference evidence storage is required");
     }

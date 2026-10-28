@@ -174,7 +174,9 @@ public final class ReadTools {
         }
         if(relationships==null || relationships.servingBinding().isEmpty() || !relationships.servingBinding().get().equals(symbols.binding()))throw new Limit("BUILD_UNAVAILABLE");
         budget.charge();
-        String key=symbols.canonical(seed).or(()->symbols.byRecordId(seed)).map(s->s.record().canonicalKey()).orElse(null);
+        // Example records are graph nodes keyed by their record id (Story 3.2).
+        String key=content.knowledgeRecord(seed).filter(r->r.recordType()==KnowledgeRecord.RecordType.EXAMPLE).map(KnowledgeRecord::id)
+            .or(()->symbols.canonical(seed).or(()->symbols.byRecordId(seed)).map(s->s.record().canonicalKey())).orElse(null);
         String matched="COORDINATE";
         if(key==null) {
             var p=new ExactSymbolResolver(timed(budget)).resolve(new ExactSymbolQuery(seed,true,10,candidates,Math.max(1,budget.max-budget.used),

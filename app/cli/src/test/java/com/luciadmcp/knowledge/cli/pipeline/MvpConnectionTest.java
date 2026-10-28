@@ -91,6 +91,11 @@ class MvpConnectionTest {
                 assertEquals("demo/Spinner.java",cited.get("relativePath"));assertNotNull(cited.get("lines"));
                 var exampleRecord=call(client,"get_record",request("recordIds",List.of(method.get("recordId")),"includeContent",true));
                 assertTrue(Wire.JSON.valueToTree(exampleRecord).toString().contains("t.run();"),exampleRecord.toString());
+                var usedBy=call(client,"get_relationships",request("seed","p.T","direction","IN","types",List.of("CALLS","USES_TYPE")));
+                var usage=(List<Map<String,Object>>)((Map<?,?>)usedBy.get("data")).get("edges");
+                assertTrue(usage.stream().anyMatch(e->e.get("sourceId").equals(method.get("recordId")) && e.get("type").equals("USES_TYPE") && e.get("targetId").equals("p.T")),usage.toString());
+                var calls=call(client,"get_relationships",request("seed",method.get("recordId"),"types",List.of("CALLS")));
+                assertEquals(List.of("p.T#run()"),((List<Map<String,Object>>)((Map<?,?>)calls.get("data")).get("edges")).stream().map(e->e.get("targetId")).toList());
                 var invalid=client.callTool(new McpSchema.CallToolRequest("search_knowledge",request("query","cache","sourceSdkVersion","missing")));
                 var body=Wire.JSON.valueToTree(invalid.structuredContent());assertEquals("UNKNOWN_SDK",body.path("error").path("code").asText());Wire.validate("search_knowledge.response",body);
             }

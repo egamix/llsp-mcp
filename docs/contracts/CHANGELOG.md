@@ -1,5 +1,9 @@
 # Contract changes
 
+## 2026-10-28 — Example links (Story 3.2)
+
+`USES_TYPE`, `CONSTRUCTS` and `CALLS` edges are now produced, with an `EXAMPLE` record as source and a catalog symbol as target. The edge `evidence` column carries `L<line> <token>` and is part of the edge identity, as the column was reserved for. Validation accepts an example source only for these three types and only with non-empty evidence. In `get_relationships`, example nodes and edge `sourceId`s are example record IDs, and a `seed` may be an example record ID. Request and response schemas and store schema/3 are unchanged; existing builds remain valid.
+
 ## 2026-10-23 — EXAMPLE records (Story 3.1)
 
 Additive: `recordType` gains `EXAMPLE` (common.schema.json). Example records come from `--samples` `.java` files: one per declared type (whole-file or nested-type source) and one per method/constructor of at least three lines. They have no SDK symbol, cite `relativePath` plus `lines`, carry the code as a `CODE` block labelled `source`, and use identity `example/1` over product, SDK, path, type and member signature. Store schema/3 is unchanged (no new tables or columns); existing builds stay valid. Clients that reject unknown `recordType` values must accept `EXAMPLE`. Recorded in sign-offs.json as an additive exemption, pending owner review, rather than a read-tools version bump.

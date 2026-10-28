@@ -278,7 +278,7 @@ class RelationshipTraversalTest {
                         previousFlags = program.getInt("p5");
                         previousRegister = program.getInt("p3");
                     }
-                    assertEquals(2,metadataGuards,"both source and target guards require metadata-only access");
+                    assertEquals(3,metadataGuards,"catalog source, example source and target guards require metadata-only access");
                 }
             }
         }

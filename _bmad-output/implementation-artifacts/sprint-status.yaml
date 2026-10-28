@@ -13,8 +13,8 @@
 #   - done: All stories in epic completed
 #
 # Epic Status Transitions:
-#   - backlog ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ in-progress: Automatically when first story is created (via create-story)
-#   - in-progress ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ done: Manually when all stories reach 'done' status
+#   - backlog ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ in-progress: Automatically when first story is created (via create-story)
+#   - in-progress ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ done: Manually when all stories reach 'done' status
 #
 # Story Status:
 #   - backlog: Story only exists in epic file
@@ -74,7 +74,7 @@ development_status:
   # Epic 3: Selected Examples, Recipes, Guides and Practices
   epic-3: in-progress
   3-1-parse-java-examples-via-ast: done
-  3-2-link-examples-to-catalog-symbols: backlog
+  3-2-link-examples-to-catalog-symbols: done
   # Rescoped: quality and practice approval; broad tags deferred.
   3-3-apply-governance-supplied-quality-labels-and-technique-tags: backlog
   # Rescoped: compiled Workflow recipes and required knowledge dependencies.
