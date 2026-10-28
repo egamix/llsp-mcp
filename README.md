@@ -69,6 +69,10 @@ Your documentation + examples + selected guidance
 
 The knowledge service supplies evidence and checks documented API references. The skill tells the agent how to use it. Your agent writes the code and runs your project's tools.
 
+![What Luciad Knowledge does](docs/diagrams/what-luciad-mcp-does.svg)
+
+More diagrams: the [module map](docs/diagrams/luciad-module-map.svg) (the submodules behind the experience) and the [interactive architecture diagram](docs/design/architecture.html) (open in a browser).
+
 **An API existing is not proof that the whole program is correct.** Documentation, compilation, tests, and human review each have a role.
 
 ## 🚀 Get started

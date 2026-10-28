@@ -29,6 +29,7 @@
 | [Architecture Spine](../_bmad-output/planning-artifacts/architecture/architecture-luciad-mcp-2026-08-20/ARCHITECTURE-SPINE.md) | Governing decisions and rules. |
 | [Architecture narrative](design/architecture.md) | Supporting explanation of flows and invariants; reconcile against the Spine if they differ. |
 | [Interactive architecture diagram](design/architecture.html) | Visual companion to the narrative; it may lag planning changes. |
+| [What it does](diagrams/what-luciad-mcp-does.svg) and [module map](diagrams/luciad-module-map.svg) | Overview diagrams (also as `.html` in `diagrams/`). The module map shows the submodules behind the experience. |
 
 ## Briefs and implementation references
 
