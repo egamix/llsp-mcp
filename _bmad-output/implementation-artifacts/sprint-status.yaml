@@ -1,5 +1,5 @@
 # generated: 2026-08-24
-# last_updated: 2026-10-21 (Story 2.8 implemented and reviewed; technical ratification pending)
+# last_updated: 2026-10-28 (Story 3.2 done; Story 7.1 plugin shipped; tracker synced with code)
 # project: luciad-mcp
 # project_key: NOKEY
 # tracking_system: file-system
@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-08-24
-last_updated: 2026-10-23  # Course correction: usable-first delivery; contracts ratified; reviewed stories closed
+last_updated: 2026-10-28  # Synced: 3.2 done, 7.1 plugin shipped, Epic 1 closed, six-tool MVP recorded (prior: 2026-10-23 usable-first course correction)
 project: luciad-mcp
 project_key: NOKEY
 tracking_system: file-system
@@ -49,7 +49,7 @@ story_location: "{project-root}/_bmad-output/implementation-artifacts"
 
 development_status:
   # Epic 1: Foundation & Domain Contracts
-  epic-1: in-progress
+  epic-1: done
   1-1-scaffold-domain-model-and-module-skeleton: done
   1-2-local-only-egress-free-cli-ingest-entrypoint: done
   1-3-stub-the-multi-stage-resumable-pipeline-with-a-configurable-failure-policy: done
@@ -128,7 +128,7 @@ development_status:
 
   # Epic 7: Agent Guidance & Usability
   epic-7: in-progress
-  # Discoverable Luciad skill shipped for current Javadoc slice; broader acceptance pending.
+  # Luciad skill and MCP server shipped as one plugin for Claude Code and Codex (2026-10-28); broader acceptance pending.
   7-1-ship-the-agent-skill-md: in-progress
   7-2-guarantee-complete-citations-on-every-primary-result: backlog
   epic-7-retrospective: optional
@@ -288,14 +288,16 @@ source_documentation_adoption:
 javadoc_mvp_connection:
   spec: "spec-mvp-javadoc-mcp.md"
   state: "verified locally; first Javadoc connection slice"
-  tools: [search_knowledge, resolve_symbol, get_record]
+  tools: [search_knowledge, resolve_symbol, get_record, get_relationships, check_symbols, index_status]
+  tools_note: "Verification doc (2026-10-22) covers the first three only; get_relationships (5.2), check_symbols and index_status (5.4) were added after and are not in that evidence."
+  plugin: "plugins/luciad (Claude Code and Codex), shipped 2026-10-28"
   verification: "docs/contracts/MVP-JAVADOC-MCP-VERIFICATION.md"
   launch: "docs/server-guide.md"
-  exclusions: "Other three tools, additional producers, retained-source endpoints, rollback/backup completion, performance and release approval"
+  exclusions: "Additional producers, retained-source endpoints, rollback/backup completion, performance and release approval"
 
-# Three-tool agent guidance verified; broad guidance stories retain their current status.
+# Agent guidance verified on the three-tool slice (2026-10-22); skill rewritten for six tools on 2026-10-28, evidence below predates that rewrite.
 javadoc_agent_guidance:
   spec: spec-5-8-luciad-agent-guidance.md
   state: verified locally
-  skill: .agents/skills/luciad/SKILL.md
+  skill: plugins/luciad/skills/luciad-sdk/SKILL.md
   evidence: HTTP and stdio initialization/discovery tests; real-shape source-backed smoke; skill validator; independent review
