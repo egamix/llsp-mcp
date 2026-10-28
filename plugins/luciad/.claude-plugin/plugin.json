@@ -1,0 +1,19 @@
+{
+  "name": "luciad",
+  "displayName": "Luciad SDK",
+  "version": "0.1.0",
+  "description": "Look up Luciad SDK APIs and sample code, and verify generated Luciad code, through the luciad MCP server",
+  "author": {
+    "name": "eric"
+  },
+  "keywords": ["luciad", "lightspeed", "fusion", "javadoc", "mcp"],
+  "userConfig": {
+    "server_url": {
+      "type": "string",
+      "title": "luciad MCP server URL",
+      "description": "Streamable HTTP endpoint of the running luciad server (cli serve)",
+      "default": "http://127.0.0.1:8766/mcp",
+      "required": true
+    }
+  }
+}
